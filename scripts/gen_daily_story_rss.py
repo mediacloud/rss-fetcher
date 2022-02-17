@@ -4,7 +4,7 @@ import datetime as dt
 import os.path
 from feedgen.feed import FeedGenerator
 
-from fetcher import base_dir
+from fetcher import base_dir, VERSION
 import fetcher.database.queries as queries
 
 TARGET_DIR = os.path.join(base_dir, "static")
@@ -29,7 +29,7 @@ if __name__ == '__main__':
         # start a feed
         fg = FeedGenerator()
         fg.title("Media Cloud URL Snapshot for {}".format(day))
-        fg.description("Auto generated feed of all stories discovered on the specified day")
+        fg.description("Auto generated feed of all stories discovered on the specified day - {}".format(VERSION))
         fg.link(href="https://mediacloud.org/")
         # metadata
         # grab the stories fetched on that day

@@ -1,0 +1,9 @@
+{
+  "name": "Media Cloud Backup RSS Fetcher",
+  "description": "Grab RSS feeds, parse out URLs, stick URLs in a daily synthetic RSS",
+  "scripts": {
+    "dokku": {
+      "predeploy": "alembic upgrade head"
+    }
+  }
+}

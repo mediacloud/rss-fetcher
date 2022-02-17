@@ -4,7 +4,7 @@ import datetime as dt
 import fetcher.database.queries as queries
 import fetcher.tasks as tasks
 
-MAX_FEEDS = 10
+MAX_FEEDS = 10000
 
 if __name__ == '__main__':
 
