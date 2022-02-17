@@ -7,7 +7,7 @@ from feedgen.feed import FeedGenerator
 from fetcher import base_dir, VERSION
 import fetcher.database.queries as queries
 
-TARGET_DIR = os.path.join(base_dir, "static")
+TARGET_DIR = os.path.join(base_dir, "fetcher", "static")
 
 logger = logging.getLogger(__name__)
 

@@ -5,6 +5,8 @@ The code Media Cloud server wasn't performing well, so we made this quick and di
 in list of the RSS feeds MC usually scrapes each day (~130k). Then throughout the day it tries to fetch those. Every 
 night it generates a synthetic RSS feed with all those URLs. 
 
+Files are available afterwards at `http://my.server/rss/mc-YYYY-MM-dd.rss`.
+
 Install for Development
 -----------------------
 
