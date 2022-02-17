@@ -23,8 +23,8 @@ def upgrade():
         sa.Column('feed_id', sa.BigInteger),
         sa.Column('url', sa.String),
         sa.Column('guid', sa.String),
-        sa.Column('published_at', sa.DateTime()),
-        sa.Column('fetched_at', sa.DateTime()),
+        sa.Column('published_at', sa.DateTime(timezone=True)),
+        sa.Column('fetched_at', sa.DateTime(timezone=True)),
         sa.Column('domain', sa.String),
     )
     op.create_index('stories_feed_id', 'stories', ['feed_id'])

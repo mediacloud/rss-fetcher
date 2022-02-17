@@ -26,8 +26,8 @@ def upgrade():
         sa.Column('url', sa.String),
         sa.Column('type', sa.String),
         sa.Column('active', sa.Boolean),
-        sa.Column('last_fetch_attempt', sa.DateTime()),
-        sa.Column('last_fetch_success', sa.DateTime()),
+        sa.Column('last_fetch_attempt', sa.DateTime(timezone=True)),
+        sa.Column('last_fetch_success', sa.DateTime(timezone=True)),
         sa.Column('last_fetch_hash', sa.String),
     )
     op.create_index('feeds_last_fetch_attempt', 'feeds', ['last_fetch_attempt'])

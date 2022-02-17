@@ -11,7 +11,7 @@ import fetcher.domains as domains
 Session = sessionmaker(bind=engine)
 
 
-def feeds_to_check(limit: int) -> List:
+def feeds_to_check(limit: int) -> List[Dict]:
     query = "select id, url, last_fetch_hash from feeds " \
             "where ((last_fetch_attempt is NULL) or (last_fetch_attempt <= NOW() - INTERVAL '1 DAY'))" \
             "  and type='syndicated' and active=true " \
@@ -19,6 +19,16 @@ def feeds_to_check(limit: int) -> List:
             "LIMIT {}" \
             .format(limit)
     return _run_query(query)
+
+
+def process_stories_fetched_on(day: dt.date) -> List[Dict]:
+    query = "select id, url, guid, published_at from stories where fetched_at::date = '{}'::date".format(day.strftime("%Y-%m-%d"))
+    data = []
+    with engine.begin() as connection:
+        result = connection.execute(text(query))
+        for row in result:
+            yield dict(row)
+    return data
 
 
 def update_last_fetch_attempt(feed_id: int, the_time: dt.datetime):

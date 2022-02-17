@@ -114,3 +114,4 @@ __MACOSX
 *.tgz
 .DS_Store
 logs/*.log
+static/*.rss
