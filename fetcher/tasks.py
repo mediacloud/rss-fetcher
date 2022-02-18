@@ -45,7 +45,5 @@ def feed_worker(self, feed: Dict):
         else:
             logger.info("  Feed {} - skipping, bad response {}".format(feed['id'], response.status_code))
     except Exception as exc:
-        # only failure here is the classifier not loading? probably we should try again... feminicide server holds state
-        # and can handle any duplicate results based on stories_id+model_id synthetic unique key
-        logger.warning("  Feed {}: error".format(feed['id']))
-        logger.exception(exc)
+        # maybe we server didn't respond? ignore as normal operation perhaps?
+        logger.error(" Feed {}: error: {}".format(feed['id'], exc))
