@@ -8,7 +8,7 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from sentry_sdk import init
 from sqlalchemy import create_engine
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 load_dotenv()  # load config from .env file (local) or env vars (production)
 
