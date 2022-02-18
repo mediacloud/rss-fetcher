@@ -1,6 +1,9 @@
 Change Log
 ==========
 
+## v0.1.2
+
+Production performance-related tweaks.
 
 ## v0.1.1
 
