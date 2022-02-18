@@ -11,24 +11,26 @@ import fetcher.domains as domains
 Session = sessionmaker(bind=engine)
 
 
-def feeds_to_check(limit: int) -> List[Dict]:
+def process_feeds_to_check(limit: int) -> List[Dict]:
     query = "select id, url, last_fetch_hash from feeds " \
             "where ((last_fetch_attempt is NULL) or (last_fetch_attempt <= NOW() - INTERVAL '1 DAY'))" \
             "  and type='syndicated' and active=true " \
             "order by last_fetch_attempt ASC, id DESC " \
             "LIMIT {}" \
             .format(limit)
-    return _run_query(query)
+    with engine.begin() as connection:
+        result = connection.execute(text(query))
+        for row in result:
+            yield dict(row)
 
 
-def process_stories_fetched_on(day: dt.date) -> List[Dict]:
+def process_stories_fetched_on(day: dt.date):
     query = "select id, url, guid, published_at from stories where fetched_at::date = '{}'::date".format(day.strftime("%Y-%m-%d"))
     data = []
     with engine.begin() as connection:
         result = connection.execute(text(query))
         for row in result:
             yield dict(row)
-    return data
 
 
 def update_last_fetch_attempt(feed_id: int, the_time: dt.datetime):
@@ -51,15 +53,23 @@ def save_story_from_feed_entry(feed_id: int, fetched_at: dt.datetime, entry):
     s.feed_id = feed_id
     try:
         s.url = entry.link
-    except AttributeError as ae:
+        s.domain = domains.canonical_mediacloud_domain(entry.link)
+    except AttributeError as _:
         s.url = None
+        s.domain = None
     try:
         s.guid = entry.id
-    except AttributeError as ae:
+    except AttributeError as _:
         s.guid = None
-    s.published_at = parse(entry.published)
+    try:
+        s.published_at = parse(entry.published)
+    except AttributeError as _:
+        s.published_at = None
+    try:
+        s.title = entry.title
+    except AttributeError as _:
+        s.title = None
     s.fetched_at = fetched_at
-    s.domain = domains.canonical_mediacloud_domain(entry.link)
     session = Session()
     session.add(s)
     session.commit()

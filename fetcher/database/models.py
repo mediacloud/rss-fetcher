@@ -33,6 +33,7 @@ class Story(Base):
     published_at = Column(DateTime)
     fetched_at = Column(DateTime)
     domain = Column(String)
+    title = Column(String)
 
     def __repr__(self):
         return '<Story id={}>'.format(self.id)

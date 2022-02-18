@@ -45,7 +45,7 @@ platform, make sure to create environment variables there for each setting in th
 
 ### Release the worker app
 
-1. setup the configuration on the dokku app: `dokku config:set BROKER_URL=http://my.rabbitmq.url SENTRY_DSN=https://mydsn@sentry.io/123 DATABASE_URL=postgresql:///rss-fetcher`
+1. setup the configuration on the dokku app: `dokku config:set rss-fetcher BROKER_URL=http://my.rabbitmq.url SENTRY_DSN=https://mydsn@sentry.io/123 DATABASE_URL=postgresql:///rss-fetcher`
 2. add a remote: `git remote add prod dokku@prod.server.org:rss-fetcher`
 4. push the code to the server: `git push prod main`
 5. scale it to get a worker (dokku doesn't add one by default): `dokku ps:scale rss-fetcher worker=1`

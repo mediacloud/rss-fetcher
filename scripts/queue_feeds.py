@@ -11,9 +11,10 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     logger.info("Starting Feed Queuer")
 
-    feeds_to_check = queries.feeds_to_check(MAX_FEEDS)
-    for f in feeds_to_check:
+    feed_count = 0
+    for f in queries.process_feeds_to_check(MAX_FEEDS):
         queries.update_last_fetch_attempt(f['id'], dt.datetime.now())
         tasks.feed_worker.delay(f)
+        feed_count += 1
 
-    logger.info("  queued {} feeds".format(len(feeds_to_check)))
+    logger.info("  queued {} feeds".format(feed_count))

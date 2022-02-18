@@ -26,6 +26,7 @@ def upgrade():
         sa.Column('published_at', sa.DateTime(timezone=True)),
         sa.Column('fetched_at', sa.DateTime(timezone=True)),
         sa.Column('domain', sa.String),
+        sa.Column('title', sa.String),
     )
     op.create_index('stories_feed_id', 'stories', ['feed_id'])
     op.create_index('stories_domain', 'stories', ['domain'])
