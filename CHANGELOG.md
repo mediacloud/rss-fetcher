@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.2.0
+
+Restructured queries to try and solve DB connection leak bug. 
+
 ## v0.1.2
 
 Production performance-related tweaks.
