@@ -3,9 +3,9 @@ import logging
 import datetime as dt
 import os.path
 from feedgen.feed import FeedGenerator
+from sqlalchemy import text
 
-from fetcher import base_dir, VERSION
-import fetcher.database.queries as queries
+from fetcher import base_dir, VERSION, engine
 
 TARGET_DIR = os.path.join(base_dir, "fetcher", "static")
 
@@ -34,13 +34,18 @@ if __name__ == '__main__':
         # metadata
         # grab the stories fetched on that day
         story_count = 0
-        for story in queries.process_stories_fetched_on(day):
-            fe = fg.add_entry()
-            fe.id(story['guid'])
-            fe.link(href=story['url'])
-            fe.pubdate(story['published_at'])
-            fe.content("")
-            story_count += 1
+        query = "select id, url, guid, published_at from stories where fetched_at::date = '{}'::date".format(
+            day.strftime("%Y-%m-%d"))
+        with engine.begin() as connection:  # will auto-close
+            result = connection.execute(text(query))
+            for row in result:
+                story = dict(row)
+                fe = fg.add_entry()
+                fe.id(story['guid'])
+                fe.link(href=story['url'])
+                fe.pubdate(story['published_at'])
+                fe.content("")
+                story_count += 1
         fg.rss_file(filepath)
         logger.info("   Found {} stories".format(story_count))
         logger.info("   Wrote out to {}".format(filepath))

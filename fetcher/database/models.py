@@ -1,5 +1,9 @@
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, BigInteger, DateTime, String, Boolean
+import datetime as dt
+
+from dateutil.parser import parse
+import fetcher.domains as domains
 
 Base = declarative_base()
 
@@ -37,3 +41,28 @@ class Story(Base):
 
     def __repr__(self):
         return '<Story id={}>'.format(self.id)
+
+    @staticmethod
+    def from_rss_entry(feed_id: int, fetched_at: dt.datetime, entry):
+        s = Story()
+        s.feed_id = feed_id
+        try:
+            s.url = entry.link
+            s.domain = domains.canonical_mediacloud_domain(entry.link)
+        except AttributeError as _:
+            s.url = None
+            s.domain = None
+        try:
+            s.guid = entry.id
+        except AttributeError as _:
+            s.guid = None
+        try:
+            s.published_at = parse(entry.published)
+        except AttributeError as _:
+            s.published_at = None
+        try:
+            s.title = entry.title
+        except AttributeError as _:
+            s.title = None
+        s.fetched_at = fetched_at
+        return s
