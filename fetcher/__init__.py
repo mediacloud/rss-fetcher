@@ -8,7 +8,7 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from sentry_sdk import init
 from sqlalchemy import create_engine
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 load_dotenv()  # load config from .env file (local) or env vars (production)
 
@@ -27,6 +27,8 @@ if BROKER_URL is None:
     logger.error("No BROKER_URL env var specified. Pathetically refusing to start!")
     sys.exit(1)
 logger.info("  Queue at {}".format(BROKER_URL))
+
+MAX_FEEDS = int(os.environ.get('MAX_FEEDS', 10000))
 
 SENTRY_DSN = os.environ.get('SENTRY_DSN', None)  # optional
 if SENTRY_DSN:

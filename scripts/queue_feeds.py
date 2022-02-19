@@ -2,11 +2,11 @@ import logging
 import datetime as dt
 from sqlalchemy import text
 
+from fetcher import MAX_FEEDS
 import fetcher.tasks as tasks
 from fetcher.database import engine, Session
 import fetcher.database.models as models
 
-MAX_FEEDS = 10
 
 if __name__ == '__main__':
 

@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.2.1
+
+Move max feeds to fetch at a time limit to an env var for easier config (`MAX_FEEDS` defaults to 1000)
+
 ## v0.2.0
 
 Restructured queries to try and solve DB connection leak bug. 
