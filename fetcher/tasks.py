@@ -47,6 +47,7 @@ def feed_worker(self, feed: Dict):
                         session.commit()
                     # now add all the stories
                     parsed_feed = feedparser.parse(response.content)
+                    skipped_count = 0
                     for entry in parsed_feed.entries:
                         s = models.Story.from_rss_entry(feed['id'], fetched_at, entry)
                         # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
@@ -57,11 +58,13 @@ def feed_worker(self, feed: Dict):
                                 session.commit()
                             except IntegrityError as _:
                                 logger.debug("duplicate URL: {}".format(s.url))
-                logger.info("  Feed {} - {} entries".format(feed['id'], len(parsed_feed.entries)))
+                                skipped_count += 1
+                logger.info("  Feed {} - {} entries ({} skipped)".format(feed['id'], len(parsed_feed.entries),
+                                                                         skipped_count))
             else:
                 logger.info("  Feed {} - skipping, same hash".format(feed['id']))
         else:
             logger.info("  Feed {} - skipping, bad response {}".format(feed['id'], response.status_code))
     except Exception as exc:
-        # maybe we server didn't respond? ignore as normal operation perhaps?
+        # maybe the server didn't respond? ignore as normal operation perhaps?
         logger.error(" Feed {}: error: {}".format(feed['id'], exc))
