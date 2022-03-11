@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.3.0
+
+Add title and canonical domain to daily feeds 
+
 ## v0.2.1
 
 Move max feeds to fetch at a time limit to an env var for easier config (`MAX_FEEDS` defaults to 1000)
