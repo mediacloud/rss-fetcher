@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.3.1
+
+Ignore a whole bunch of errors that are expected ones
+
 ## v0.3.0
 
 Add title and canonical domain to daily feeds 

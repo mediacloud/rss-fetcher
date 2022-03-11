@@ -14,4 +14,4 @@ blinker==1.4
 psycopg2==2.9.3
 feedgen==0.9.0
 python-dateutil==2.8.2
-mediacloud-metadata
+mediacloud-metadata==0.2.0

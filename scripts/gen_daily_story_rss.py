@@ -50,9 +50,12 @@ if __name__ == '__main__':
                 fe.id(story['guid'])
                 fe.title(story['title'] if 'title' in story else None)
                 fe.link(href=story['url'])
-                fe.pubdate(story['published_at'])
+                fe.pubDate(story['published_at'])
                 fe.content("")
-                fe.mediacloud.canonical_domain = domains.from_url(story['url'])
+                try:
+                    fe.mediacloud.canonical_domain = domains.from_url(story['url'])
+                except Exception as e:
+                    logger.error("Couldn't get canonical domain {}".format(e))
                 story_count += 1
         fg.rss_file(filepath)
         logger.info("   Found {} stories".format(story_count))

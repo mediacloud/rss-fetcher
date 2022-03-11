@@ -58,7 +58,7 @@ class Story(Base):
             s.guid = None
         try:
             s.published_at = parse(entry.published)
-        except AttributeError as _:
+        except Exception as _:  # likely to be an unknown string format - let the pipeline guess it from HTML later
             s.published_at = None
         try:
             s.title = entry.title
