@@ -4,7 +4,9 @@ import datetime as dt
 import os.path
 from feedgen.feed import FeedGenerator
 from sqlalchemy import text
+import mcmetadata.domains as domains
 
+import fetcher.feedgen.ext.mediacloud
 from fetcher import base_dir, VERSION, engine
 
 TARGET_DIR = os.path.join(base_dir, "fetcher", "static")
@@ -28,6 +30,10 @@ if __name__ == '__main__':
             continue
         # start a feed
         fg = FeedGenerator()
+        #fg.load_extension('mediacloud')
+        fg.register_extension('mediacloud',
+                              fetcher.feedgen.ext.mediacloud.MediacloudExtension,
+                              fetcher.feedgen.ext.mediacloud.MediacloudEntryExtension)
         fg.title("Media Cloud URL Snapshot for {}".format(day))
         fg.description("Auto generated feed of all stories discovered on the specified day - {}".format(VERSION))
         fg.link(href="https://mediacloud.org/")
@@ -42,9 +48,11 @@ if __name__ == '__main__':
                 story = dict(row)
                 fe = fg.add_entry()
                 fe.id(story['guid'])
+                fe.title(story['title'] if 'title' in story else None)
                 fe.link(href=story['url'])
                 fe.pubdate(story['published_at'])
                 fe.content("")
+                fe.mediacloud.canonical_domain = domains.from_url(story['url'])
                 story_count += 1
         fg.rss_file(filepath)
         logger.info("   Found {} stories".format(story_count))
