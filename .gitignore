@@ -115,3 +115,4 @@ __MACOSX
 .DS_Store
 logs/*.log
 fetcher/static/*.rss
+fetcher/static/*.gz
