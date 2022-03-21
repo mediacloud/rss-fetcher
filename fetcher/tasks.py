@@ -67,15 +67,7 @@ def feed_worker(self, feed: Dict):
                 logger.info("  Feed {} - skipping, same hash".format(feed['id']))
         else:
             logger.info("  Feed {} - skipping, bad response {}".format(feed['id'], response.status_code))
-    # ignore a bunch of "normal operation" errors
-    except urllib3.exceptions.ConnectTimeoutError as _:
-        logger.info(" Feed {}: failed connect timeout".format(feed['id']))
-    except http.client.RemoteDisconnected as _:
-        logger.info(" Feed {}: failed remote disconnected".format(feed['id']))
-    except ConnectionResetError as _:
-        logger.info(" Feed {}: failed connection reset".format(feed['id']))
-    except requests.exceptions.ReadTimeout as _:
-        logger.info(" Feed {}: failed read timeout".format(feed['id']))
+    # ignore as a "normal operation" error
     except Exception as exc:
         # maybe the server didn't respond? ignore as normal operation perhaps?
-        logger.error(" Feed {}: error: {}".format(feed['id'], exc))
+        logger.info(" Feed {}: filed {}".format(feed['id'], exc))
