@@ -61,7 +61,7 @@ if __name__ == '__main__':
                     try:
                         fe.mediacloud.canonical_domain = domains.from_url(story['url'])
                     except Exception as e:
-                        logger.error("Couldn't get canonical domain {}".format(e))
+                        logger.error("Couldn't get canonical domain {}".format(story['url']))
                     story_count += 1
             fg.rss_file(filepath)
             logger.info("   Found {} stories".format(story_count))
