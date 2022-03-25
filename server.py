@@ -1,5 +1,4 @@
 import logging
-import os
 from flask import jsonify, send_from_directory
 
 import fetcher

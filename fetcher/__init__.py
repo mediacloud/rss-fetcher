@@ -8,7 +8,7 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from sentry_sdk import init
 from sqlalchemy import create_engine
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 
 load_dotenv()  # load config from .env file (local) or env vars (production)
 
@@ -44,6 +44,11 @@ if SQLALCHEMY_DATABASE_URI is None:
     logger.error("  No SQLALCHEMY_DATABASE_URI is specified. Bailing because we can't save things to a DB for tracking")
     sys.exit(1)
 engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_size=10)
+
+RSS_FILE_PATH = os.environ['RSS_FILE_PATH']
+if RSS_FILE_PATH is None:
+    logger.error("  You must set RSS_FILE_PATH env var to tell us where to store generated RSS files")
+    sys.exit(1)
 
 
 def create_flask_app() -> Flask:

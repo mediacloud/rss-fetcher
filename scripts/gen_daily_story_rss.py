@@ -9,9 +9,13 @@ import gzip
 import shutil
 
 import fetcher.feedgen.ext.mediacloud
-from fetcher import base_dir, VERSION, engine
+from fetcher import base_dir, VERSION, engine, RSS_FILE_PATH
 
-TARGET_DIR = os.path.join(base_dir, "fetcher", "static")
+# handle relative paths smartly for local devs
+if RSS_FILE_PATH[0] == "/":
+    target_dir = RSS_FILE_PATH
+else:
+    target_dir = os.path.join(base_dir, RSS_FILE_PATH)
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +23,15 @@ if __name__ == '__main__':
 
     today = dt.date.today()
     logger.info("Writing daily RSS files since {}".format(today))
+    logger.info("  writing to {}".format(target_dir))
 
     # generate a file for each of the last 30 days
-    for d in range(1, 60):
+    for d in range(1, 40):
         day = today - datetime.timedelta(d)
         logger.info(" Working on {} (day {})".format(day, d))
         # only do this day if it doesn't exist already
         filename = "mc-{}.rss".format(day.strftime("%Y-%m-%d"))
-        filepath = os.path.join(TARGET_DIR, filename)
+        filepath = os.path.join(target_dir, filename)
         compressed_filepath = '{}.gz'.format(filepath)
         if not os.path.exists(compressed_filepath):
             # start a feed
@@ -72,5 +77,8 @@ if __name__ == '__main__':
         else:
             logger.warning("  Skipping - file already exists at {}".format(compressed_filepath))
         # and delete the uncompressed to save space
-        os.remove(filepath)
+        try:
+            os.remove(filepath)
+        except FileNotFoundError:
+            pass
     logger.info("Done")

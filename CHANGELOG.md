@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.3.2
+
+RSS path loaded from env-var
+
 ## v0.3.1
 
 Ignore a whole bunch of errors that are expected ones
