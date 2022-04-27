@@ -33,6 +33,7 @@ def feed_worker(self, feed: Dict):
     :param feed:
     """
     try:
+        worked = False
         logger.debug("Working on feed {}".format(feed['id']))
         fetched_at = dt.datetime.now()
         response = requests.get(feed['url'], timeout=RSS_FETCH_TIMEOUT_SECS)
@@ -46,7 +47,9 @@ def feed_worker(self, feed: Dict):
                         f = session.query(models.Feed).get(feed['id'])
                         f.last_fetch_success = fetched_at
                         f.last_fetch_hash = new_hash
+                        f.last_fetch_failures = 0
                         session.commit()
+                        worked = True
                     # now add all the stories
                     parsed_feed = feedparser.parse(response.content)
                     skipped_count = 0
@@ -70,4 +73,14 @@ def feed_worker(self, feed: Dict):
     # ignore as a "normal operation" error
     except Exception as exc:
         # maybe the server didn't respond? ignore as normal operation perhaps?
-        logger.info(" Feed {}: filed {}".format(feed['id'], exc))
+        logger.info(" Feed {}: failed {}".format(feed['id'], exc))
+    if not worked:
+        # count failures
+        with engine.connect() as connection:  # will call close automatically
+            with Session(bind=connection) as session:
+                f = session.query(models.Feed).get(feed['id'])
+                if f.last_fetch_failures is not None:
+                    f.last_fetch_failures += 1
+                else:
+                    f.last_fetch_failures = 1
+                session.commit()

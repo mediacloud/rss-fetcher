@@ -1,5 +1,5 @@
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, BigInteger, DateTime, String, Boolean
+from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer
 import datetime as dt
 
 from dateutil.parser import parse
@@ -21,6 +21,7 @@ class Feed(Base):
     last_fetch_attempt = Column(DateTime)
     last_fetch_success = Column(DateTime)
     last_fetch_hash = Column(String)
+    last_fetch_failures = Column(Integer)
 
     def __repr__(self):
         return '<Feed id={} name={} mc_media_id={} mc_feeds_id={}>'.format(
