@@ -3,7 +3,7 @@ from sqlalchemy import Column, BigInteger, DateTime, String, Boolean
 import datetime as dt
 
 from dateutil.parser import parse
-import fetcher.domains as domains
+import mcmetadata.domains as domains
 
 Base = declarative_base()
 
@@ -48,7 +48,7 @@ class Story(Base):
         s.feed_id = feed_id
         try:
             s.url = entry.link
-            s.domain = domains.canonical_mediacloud_domain(entry.link)
+            s.domain = domains.from_url(entry.link)
         except AttributeError as _:
             s.url = None
             s.domain = None
