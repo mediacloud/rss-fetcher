@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.4.0
+
+Update dependencies to latest
+
 ## v0.3.2
 
 RSS path loaded from env-var
