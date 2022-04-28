@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.5.3
+
+Query bug fix.
+
 ## v0.5.2
 
 Handle podcast feeds, which don't have links by ignoring them in reporting script (they have enclosures instead)

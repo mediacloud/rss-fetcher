@@ -47,7 +47,7 @@ if __name__ == '__main__':
             # (ignored ones that didn't have URLs - ie. podcast feeds, which have `<enclosure url="...">` instead)
             story_count = 0
             query = """
-                select id, url, guid, published_at
+                select id, url, guid, published_at, domain
                 from stories
                 where fetched_at::date = '{}'::date and url is not NULL
             """.format(day.strftime("%Y-%m-%d"))
