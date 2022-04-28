@@ -29,6 +29,7 @@ if BROKER_URL is None:
 logger.info("  Queue at {}".format(BROKER_URL))
 
 MAX_FEEDS = int(os.environ.get('MAX_FEEDS', 10000))
+logger.info("  MAX_FEEDS: {}".format(MAX_FEEDS))
 
 SENTRY_DSN = os.environ.get('SENTRY_DSN', None)  # optional
 if SENTRY_DSN:
@@ -39,11 +40,14 @@ if SENTRY_DSN:
 else:
     logger.info("  Not logging errors to Sentry")
 
+DB_POOL_SIZE = int(os.environ.get('DB_POOL_SIZE', 32))  # keep this above the worker concurrency set in Procfile
 SQLALCHEMY_DATABASE_URI = os.environ['DATABASE_URL']
 if SQLALCHEMY_DATABASE_URI is None:
     logger.error("  No SQLALCHEMY_DATABASE_URI is specified. Bailing because we can't save things to a DB for tracking")
     sys.exit(1)
-engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_size=10)
+else:
+    logger.info("  DB_POOL_SIZE: {}".format(DB_POOL_SIZE))
+engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_size=DB_POOL_SIZE)
 
 RSS_FILE_PATH = os.environ['RSS_FILE_PATH']
 if RSS_FILE_PATH is None:
