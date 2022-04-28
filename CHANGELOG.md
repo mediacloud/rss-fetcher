@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.5.4
+
+Tweaks to RSS file generation to make it more robust.
+
 ## v0.5.3
 
 Query bug fix.
