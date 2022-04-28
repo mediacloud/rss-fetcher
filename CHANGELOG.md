@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.5.2
+
+Handle podcast feeds, which don't have links by ignoring them in reporting script (they have enclosures instead)
+
 ## v0.5.1
 
 Deployment work for generating daily rss files.

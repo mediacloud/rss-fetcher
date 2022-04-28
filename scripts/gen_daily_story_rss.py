@@ -43,11 +43,14 @@ if __name__ == '__main__':
             fg.title("Media Cloud URL Snapshot for {}".format(day))
             fg.description("Auto generated feed of all stories discovered on the specified day - {}".format(VERSION))
             fg.link(href="https://mediacloud.org/")
-            # metadata
             # grab the stories fetched on that day
+            # (ignored ones that didn't have URLs - ie. podcast feeds, which have `<enclosure url="...">` instead)
             story_count = 0
-            query = "select id, url, guid, published_at from stories where fetched_at::date = '{}'::date".format(
-                day.strftime("%Y-%m-%d"))
+            query = """
+                select id, url, guid, published_at
+                from stories
+                where fetched_at::date = '{}'::date and url is not NULL
+            """.format(day.strftime("%Y-%m-%d"))
             with engine.begin() as connection:  # will auto-close
                 result = connection.execute(text(query))
                 for row in result:
@@ -57,11 +60,8 @@ if __name__ == '__main__':
                     fe.title(story['title'] if 'title' in story else None)
                     fe.link(href=story['url'])
                     fe.pubDate(story['published_at'])
+                    fe.mediacloud.canonical_domain = story['domain']
                     fe.content("")
-                    try:
-                        fe.mediacloud.canonical_domain = domains.from_url(story['url'])
-                    except Exception as e:
-                        logger.error("Couldn't get canonical domain {}".format(story['url']))
                     story_count += 1
             fg.rss_file(filepath)
             logger.info("   Found {} stories".format(story_count))
