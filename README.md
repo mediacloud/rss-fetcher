@@ -52,8 +52,8 @@ platform, make sure to create environment variables there for each setting in th
 
 ### Setup the fetcher
 
-1. scale it to get a regular fetcher (dokku doesn't add one by default): `dokku ps:scale rss-fetcher fetcher=1` (this will run the script once)
-2. add a cron job to fetch during feeds during the day: `0 * * * * dokku --rm run rss-fetcher fetcher /app/run-fetch-rss-feeds.sh >> /var/log/run-fetch-rss-feeds-cron.log 2>&1`
+1. Add a cron job to fetch during feeds during the day (every hour): `0 * * * * dokku --rm run rss-fetcher fetcher /app/run-fetch-rss-feeds.sh >> /var/log/run-fetch-rss-feeds-cron.log 2>&1`
+2. Add a cron job to generate RSS files once a day: `30 0 * * * dokku --rm run rss-fetcher generator /app/run-gen-daily-story-rss.sh >> /var/log/run-gen-daily-story-rss-cron.log 2>&1`
 
 ### Setup Database Backups
 

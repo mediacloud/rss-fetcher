@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.5.1
+
+Deployment work for generating daily rss files.
+
 ## v0.5.0
 
 Retry feeds that we tried by didn't respond (up to 3 times in a row before giving up).
