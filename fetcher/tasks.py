@@ -4,8 +4,6 @@ import requests
 import feedparser
 from typing import Dict
 import logging
-import urllib3.exceptions
-import http.client
 import time
 import hashlib
 from sqlalchemy.exc import IntegrityError
