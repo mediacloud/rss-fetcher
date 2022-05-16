@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.6.0
+
+Add in new feed. Prep to show some data on website. 
+
 ## v0.5.5
 
 More work on concurrency for prod server and related configurations. 
