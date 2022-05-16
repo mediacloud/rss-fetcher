@@ -1,7 +1,9 @@
-from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer
+from sqlalchemy.orm import declarative_base, Session
+from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, text
 import datetime as dt
+from typing import List
 
+from fetcher import engine
 from dateutil.parser import parse
 import mcmetadata.domains as domains
 
@@ -22,6 +24,7 @@ class Feed(Base):
     last_fetch_success = Column(DateTime)
     last_fetch_hash = Column(String)
     last_fetch_failures = Column(Integer)
+    import_round = Column(Integer)
 
     def __repr__(self):
         return '<Feed id={} name={} mc_media_id={} mc_feeds_id={}>'.format(
@@ -42,6 +45,24 @@ class Story(Base):
 
     def __repr__(self):
         return '<Story id={}>'.format(self.id)
+
+    @staticmethod
+    def recent_fetched_volume(limit: int = 30):
+        earliest_date = dt.date.today() - dt.timedelta(days=limit)
+        query = "select fetched_at::date as day, count(1) as stories from stories " \
+                "where fetched_at >= '{}'::DATE " \
+                "group by 1 order by 1 DESC"\
+            .format(earliest_date)
+        return _run_query(query)
+
+    @staticmethod
+    def recent_published_volume(limit: int = 30):
+        earliest_date = dt.date.today() - dt.timedelta(days=limit)
+        query = "select published_at::date as day, count(1) as stories from stories " \
+                "where published_at >= '{}'::DATE " \
+                "group by 1 order by 1 DESC"\
+            .format(earliest_date)
+        return _run_query(query)
 
     @staticmethod
     def from_rss_entry(feed_id: int, fetched_at: dt.datetime, entry):
@@ -67,3 +88,12 @@ class Story(Base):
             s.title = None
         s.fetched_at = fetched_at
         return s
+
+
+def _run_query(query: str) -> List:
+    data = []
+    with engine.begin() as connection:
+        result = connection.execute(text(query))
+        for row in result:
+            data.append(row)
+    return data
