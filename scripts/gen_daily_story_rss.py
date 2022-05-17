@@ -25,7 +25,7 @@ if __name__ == '__main__':
     logger.info("  writing to {}".format(target_dir))
 
     # generate a file for each of the last N days (skipping today, which might still be running)
-    for d in range(2, 60):
+    for d in range(1, 60):
         day = today - datetime.timedelta(d)
         logger.info(" Working on {} (day {})".format(day, d))
         # only do this day if it doesn't exist already
