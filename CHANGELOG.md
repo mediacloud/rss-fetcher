@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.6.1
+
+Generate files for yesterday (not 2 days ago) because that will make delivered results more timely. 
+
 ## v0.6.0
 
 Add in new feed. Prep to show some data on website. 
