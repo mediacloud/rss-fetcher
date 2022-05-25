@@ -2,10 +2,12 @@ from sqlalchemy.orm import declarative_base, Session
 from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, text
 import datetime as dt
 from typing import List
+import hashlib
 
 from fetcher import engine
 from dateutil.parser import parse
-import mcmetadata.domains as domains
+import mcmetadata.urls as urls
+import mcmetadata.titles as titles
 
 Base = declarative_base()
 
@@ -36,15 +38,32 @@ class Story(Base):
 
     id = Column(BigInteger, primary_key=True)
     feed_id = Column(BigInteger)
+    media_id = Column(BigInteger)
     url = Column(String)
+    normalized_url = Column(String)
     guid = Column(String)
     published_at = Column(DateTime)
     fetched_at = Column(DateTime)
     domain = Column(String)
     title = Column(String)
+    normalized_title = Column(String)
+    normalized_title_hash = Column(String)
 
     def __repr__(self):
         return '<Story id={}>'.format(self.id)
+
+    def title_already_exists(self, day_window: int = 7):
+        # for deduplication - check if this title hash exists in the last 7 days, if so it is a dupe
+        matches = Story.find_by_normalized_title_hash(self.normalized_title_hash, self.media_id, day_window)
+        return len(matches) > 0
+
+    @staticmethod
+    def find_by_normalized_title_hash(normalized_title_hash: str, media_id: int, limit: int = 7):
+        earliest_date = dt.date.today() - dt.timedelta(days=limit)
+        query = "select count(1) from stories " \
+                "where (published_at >= '{}'::DATE) AND (normalized_title_hash = '{}')"\
+            .format(earliest_date, normalized_title_hash)
+        return _run_query(query)
 
     @staticmethod
     def recent_fetched_volume(limit: int = 30):
@@ -65,14 +84,16 @@ class Story(Base):
         return _run_query(query)
 
     @staticmethod
-    def from_rss_entry(feed_id: int, fetched_at: dt.datetime, entry):
+    def from_rss_entry(feed_id: int, fetched_at: dt.datetime, entry, media_name: str = None):
         s = Story()
         s.feed_id = feed_id
         try:
             s.url = entry.link
-            s.domain = domains.from_url(entry.link)
+            s.url = urls.normalize_url(entry.link)
+            s.domain = urls.canonical_domain(entry.link)
         except AttributeError as _:
             s.url = None
+            s.normalized_url = None
             s.domain = None
         try:
             s.guid = entry.id
@@ -84,8 +105,12 @@ class Story(Base):
             s.published_at = None
         try:
             s.title = entry.title
+            s.normalized_title = titles.normalize_title(entry.title, media_name)
+            s.normalized_title_hash = hashlib.md5(s.normalized_title).hexdigest()
         except AttributeError as _:
             s.title = None
+            s.normalized_title = None
+            s.normalized_title_hash = None
         s.fetched_at = fetched_at
         return s
 

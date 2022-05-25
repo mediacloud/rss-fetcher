@@ -53,15 +53,17 @@ def feed_worker(self, feed: Dict):
                     skipped_count = 0
                     for entry in parsed_feed.entries:
                         s = models.Story.from_rss_entry(feed['id'], fetched_at, entry)
-                        # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
-                        # those are *expected* errors, so we can ignore them
-                        with Session(bind=connection) as session:
-                            try:
-                                session.add(s)
-                                session.commit()
-                            except IntegrityError as _:
-                                logger.debug("duplicate URL: {}".format(s.url))
-                                skipped_count += 1
+                        s.media_id = feed['media_id']
+                        if not s.title_already_exists():  # only save if title is unique recently
+                            # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
+                            # those are *expected* errors, so we can ignore them
+                            with Session(bind=connection) as session:
+                                try:
+                                    session.add(s)
+                                    session.commit()
+                                except IntegrityError as _:
+                                    logger.debug("duplicate normalized URL: {}".format(s.normalized_url))
+                                    skipped_count += 1
                 logger.info("  Feed {} - {} entries ({} skipped)".format(feed['id'], len(parsed_feed.entries),
                                                                          skipped_count))
             else:
