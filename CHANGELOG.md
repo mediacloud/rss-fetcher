@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+## v0.7.0
+
+Check a normalized story URL and title for uniqueness before saving, like we do on our production system. This is a 
+critical de-duplication step.
+
 ## v0.6.1
 
 Generate files for yesterday (not 2 days ago) because that will make delivered results more timely. 

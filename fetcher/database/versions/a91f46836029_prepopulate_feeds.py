@@ -15,20 +15,20 @@ down_revision = 'bc56acb800bf'
 branch_labels = None
 depends_on = None
 
+feeds_table = sa.sql.table('feeds',
+                           sa.sql.column('mc_feeds_id', sa.BigInteger),
+                           sa.sql.column('mc_media_id', sa.String),
+                           sa.sql.column('name', sa.String),
+                           sa.sql.column('url', sa.String),
+                           sa.sql.column('type', sa.String),
+                           sa.sql.column('active', sa.Boolean)
+                           )
 
 # Data generated with this command on the production database:
 #   psql -c "\copy (select * from feeds f where f.active=true and f.type='syndicated' and f.last_new_story_time > now() - '180 days'::interval) TO ‘/tmp/feeds-2022-02-16.csv' CSV HEADER;"
 def upgrade():
     csv_file_path = 'data/feeds-2022-02-16.csv'
     # insert (https://alembic.sqlalchemy.org/en/latest/ops.html?highlight=bulk_insert#alembic.operations.Operations.bulk_insert)
-    feeds_table = sa.sql.table('feeds',
-                               sa.sql.column('mc_feeds_id', sa.BigInteger),
-                               sa.sql.column('mc_media_id', sa.String),
-                               sa.sql.column('name', sa.String),
-                               sa.sql.column('url', sa.String),
-                               sa.sql.column('type', sa.String),
-                               sa.sql.column('active', sa.Boolean)
-                               )
     with open(csv_file_path) as csvfile:
         reader = csv.DictReader(csvfile)
         data = [r for r in reader]

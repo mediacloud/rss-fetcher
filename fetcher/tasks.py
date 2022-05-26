@@ -53,7 +53,7 @@ def feed_worker(self, feed: Dict):
                     skipped_count = 0
                     for entry in parsed_feed.entries:
                         s = models.Story.from_rss_entry(feed['id'], fetched_at, entry)
-                        s.media_id = feed['media_id']
+                        s.media_id = feed['mc_media_id']
                         if not s.title_already_exists():  # only save if title is unique recently
                             # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
                             # those are *expected* errors, so we can ignore them

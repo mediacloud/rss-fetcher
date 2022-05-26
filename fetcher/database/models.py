@@ -60,7 +60,7 @@ class Story(Base):
     @staticmethod
     def find_by_normalized_title_hash(normalized_title_hash: str, media_id: int, limit: int = 7):
         earliest_date = dt.date.today() - dt.timedelta(days=limit)
-        query = "select count(1) from stories " \
+        query = "select id from stories " \
                 "where (published_at >= '{}'::DATE) AND (normalized_title_hash = '{}')"\
             .format(earliest_date, normalized_title_hash)
         return _run_query(query)
@@ -106,7 +106,7 @@ class Story(Base):
         try:
             s.title = entry.title
             s.normalized_title = titles.normalize_title(entry.title, media_name)
-            s.normalized_title_hash = hashlib.md5(s.normalized_title).hexdigest()
+            s.normalized_title_hash = hashlib.md5(s.normalized_title.encode()).hexdigest()
         except AttributeError as _:
             s.title = None
             s.normalized_title = None

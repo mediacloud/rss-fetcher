@@ -11,7 +11,7 @@ import fetcher.database.models as models
 if __name__ == '__main__':
 
     logger = logging.getLogger(__name__)
-    logger.info("Starting Feed Queuer")
+    logger.info("Starting Feed Queueing")
     now = dt.datetime.now()
 
     # Find some syndicated and active feeds we need to check. This includes ones that:
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     #  c) we attempted to fetch it, but it hasn't succeeded ever
     # AND excludes ones that have failed to respond with content 3 times in a row
     query = """
-        select id, url, last_fetch_hash from feeds
+        select id, url, last_fetch_hash, mc_media_id from feeds
         where (
             (last_fetch_attempt is NULL)
             OR
