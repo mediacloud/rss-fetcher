@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.7.1
+
+Add in more feeds from production server.
+
 ## v0.7.0
 
 Check a normalized story URL and title for uniqueness before saving, like we do on our production system. This is a 
