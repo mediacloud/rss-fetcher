@@ -21,7 +21,8 @@ feeds_table = sa.sql.table('feeds',
                            sa.sql.column('name', sa.String),
                            sa.sql.column('url', sa.String),
                            sa.sql.column('type', sa.String),
-                           sa.sql.column('active', sa.Boolean)
+                           sa.sql.column('active', sa.Boolean),
+                           sa.sql.column('import_round', sa.Integer)
                            )
 
 # Data generated with this command on the production database:
