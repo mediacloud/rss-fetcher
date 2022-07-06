@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.7.2
+
+Update requirements and fix bug related to overly aggressive marking failures.
+
 ## v0.7.1
 
 Add in more feeds from production server.
