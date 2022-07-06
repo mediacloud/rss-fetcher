@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+## v0.7.3
+
+Fix bug that was checking for duplicate titles across all sources within last 7 days, instead of just within one
+media source.
+
 ## v0.7.2
 
 Update requirements and fix bug related to overly aggressive marking failures.
