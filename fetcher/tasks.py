@@ -31,24 +31,24 @@ def feed_worker(self, feed: Dict):
     :param feed:
     """
     try:
-        worked = False
+        worked = False  # did we fetch a file successfully?
         logger.debug("Working on feed {}".format(feed['id']))
         fetched_at = dt.datetime.now()
         response = requests.get(feed['url'], timeout=RSS_FETCH_TIMEOUT_SECS)
         if response.status_code == 200:
             new_hash = hashlib.md5(response.content).hexdigest()
-            if new_hash != feed['last_fetch_hash']:
-                # try to reduce overall connection churn but holding one connection per task
-                with engine.connect() as connection:  # will call close automatically
-                    # first mark the success
-                    with Session(bind=connection) as session:
-                        f = session.query(models.Feed).get(feed['id'])
-                        f.last_fetch_success = fetched_at
-                        f.last_fetch_hash = new_hash
-                        f.last_fetch_failures = 0
-                        session.commit()
-                        worked = True
-                    # now add all the stories
+            # try to reduce overall connection churn by holding one connection per task
+            with engine.connect() as connection:  # will call close automatically
+                # first mark the success
+                with Session(bind=connection) as session:
+                    f = session.query(models.Feed).get(feed['id'])
+                    f.last_fetch_success = fetched_at
+                    f.last_fetch_hash = new_hash
+                    f.last_fetch_failures = 0
+                    session.commit()
+                    worked = True
+                # now that we've marked that it worked, parse the stories (if it is a new file)
+                if new_hash != feed['last_fetch_hash']:
                     parsed_feed = feedparser.parse(response.content)
                     skipped_count = 0
                     for entry in parsed_feed.entries:
@@ -64,18 +64,18 @@ def feed_worker(self, feed: Dict):
                                 except IntegrityError as _:
                                     logger.debug("duplicate normalized URL: {}".format(s.normalized_url))
                                     skipped_count += 1
-                logger.info("  Feed {} - {} entries ({} skipped)".format(feed['id'], len(parsed_feed.entries),
-                                                                         skipped_count))
-            else:
-                logger.info("  Feed {} - skipping, same hash".format(feed['id']))
-        else:
+                    logger.info("  Feed {} - {} entries ({} skipped)".format(feed['id'], len(parsed_feed.entries),
+                                                                             skipped_count))
+                else:  # not a new file (failed hash check)
+                    logger.info("  Feed {} - skipping, same hash".format(feed['id']))
+        else:  # HTTP fail
             logger.info("  Feed {} - skipping, bad response {}".format(feed['id'], response.status_code))
-    # ignore as a "normal operation" error
+    # ignore fetch failure exceptions as a "normal operation" error
     except Exception as exc:
         # maybe the server didn't respond? ignore as normal operation perhaps?
         logger.info(" Feed {}: failed {}".format(feed['id'], exc))
+    # but also mark when things haven't worked
     if not worked:
-        # count failures
         with engine.connect() as connection:  # will call close automatically
             with Session(bind=connection) as session:
                 f = session.query(models.Feed).get(feed['id'])
