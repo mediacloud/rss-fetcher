@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.7.4
+
+Small tweak to skip relative URLs. Also more debug logging.
+
 ## v0.7.3
 
 Fix bug that was checking for duplicate titles across all sources within last 7 days, instead of just within one
