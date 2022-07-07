@@ -12,6 +12,7 @@ from fetcher import path_to_log_dir
 from fetcher.celery import app
 from fetcher.database import Session, engine
 import fetcher.database.models as models
+import fetcher.util as util
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 logFormatter = logging.Formatter("[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
@@ -52,6 +53,9 @@ def feed_worker(self, feed: Dict):
                     parsed_feed = feedparser.parse(response.content)
                     skipped_count = 0
                     for entry in parsed_feed.entries:
+                        if not util.is_absolute_url(entry.link):  # skip relative URLs
+                            logger.debug(" * skip relative URL: {}".format(entry.link))
+                            continue
                         s = models.Story.from_rss_entry(feed['id'], fetched_at, entry)
                         s.media_id = feed['mc_media_id']
                         if not s.title_already_exists():  # only save if title is unique recently
@@ -62,7 +66,7 @@ def feed_worker(self, feed: Dict):
                                     session.add(s)
                                     session.commit()
                                 except IntegrityError as _:
-                                    logger.debug("duplicate normalized URL: {}".format(s.normalized_url))
+                                    logger.debug(" * duplicate normalized URL: {}".format(s.normalized_url))
                                     skipped_count += 1
                     logger.info("  Feed {} - {} entries ({} skipped)".format(feed['id'], len(parsed_feed.entries),
                                                                              skipped_count))
@@ -84,3 +88,4 @@ def feed_worker(self, feed: Dict):
                 else:
                     f.last_fetch_failures = 1
                 session.commit()
+                logger.info(" Feed {}: upped last_fetch_failure to {}".format(feed['id'], f.last_fetch_failures))
