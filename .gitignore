@@ -114,5 +114,7 @@ __MACOSX
 *.tgz
 .DS_Store
 logs/*.log
+logs/rss-files/*.rss
+logs/rss-files/*.json
 fetcher/static/*.rss
 fetcher/static/*.gz

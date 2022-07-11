@@ -49,10 +49,14 @@ else:
     logger.info("  DB_POOL_SIZE: {}".format(DB_POOL_SIZE))
 engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_size=DB_POOL_SIZE)
 
-RSS_FILE_PATH = os.environ['RSS_FILE_PATH']
+RSS_FILE_PATH = os.environ.get('RSS_FILE_PATH')
 if RSS_FILE_PATH is None:
     logger.error("  You must set RSS_FILE_PATH env var to tell us where to store generated RSS files")
     sys.exit(1)
+
+SAVE_RSS_FILES = os.environ.get('SAVE_RSS_FILES', "0")
+SAVE_RSS_FILES = SAVE_RSS_FILES == "1"  # translate to more useful boolean value
+logger.info("  SAVE_RSS_FILES: {}".format(SAVE_RSS_FILES))
 
 
 def create_flask_app() -> Flask:

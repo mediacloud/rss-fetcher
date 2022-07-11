@@ -2,13 +2,14 @@ import os
 import datetime as dt
 import requests
 import feedparser
+import json
 from typing import Dict
 import logging
 import time
 import hashlib
 from sqlalchemy.exc import IntegrityError
 
-from fetcher import path_to_log_dir
+from fetcher import path_to_log_dir, SAVE_RSS_FILES
 from fetcher.celery import app
 from fetcher.database import Session, engine
 import fetcher.database.models as models
@@ -22,6 +23,7 @@ logger.addHandler(fileHandler)
 
 
 RSS_FETCH_TIMEOUT_SECS = 30
+RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 
 
 @app.task(serializer='json', bind=True)
@@ -36,6 +38,19 @@ def feed_worker(self, feed: Dict):
         logger.debug("Working on feed {}".format(feed['id']))
         fetched_at = dt.datetime.now()
         response = requests.get(feed['url'], timeout=RSS_FETCH_TIMEOUT_SECS)
+        # optional logging
+        if SAVE_RSS_FILES:
+            summary = {
+                'id': feed['id'],
+                'url': feed['url'],
+                'status_code': response.status_code,
+                'headers': dict(response.headers),
+            }
+            with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['id'])), 'w', encoding='utf-8') as f:
+                json.dump(summary, f, indent=4)
+            with open(os.path.join(RSS_FILE_LOG_DIR, "{}-content.rss".format(feed['id'])), 'w', encoding='utf-8') as f:
+                f.write(response.text)
+        # now process
         if response.status_code == 200:
             new_hash = hashlib.md5(response.content).hexdigest()
             # try to reduce overall connection churn by holding one connection per task
