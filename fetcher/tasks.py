@@ -48,9 +48,9 @@ def feed_worker(self, feed: Dict):
                 'statusCode': response.status_code,
                 'headers': dict(response.headers),
             }
-            with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['id'])), 'w', encoding='utf-8') as f:
+            with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['mc_media_id'])), 'w', encoding='utf-8') as f:
                 json.dump(summary, f, indent=4)
-            with open(os.path.join(RSS_FILE_LOG_DIR, "{}-content.rss".format(feed['id'])), 'w', encoding='utf-8') as f:
+            with open(os.path.join(RSS_FILE_LOG_DIR, "{}-content.rss".format(feed['mc_media_id'])), 'w', encoding='utf-8') as f:
                 f.write(response.text)
         # now process
         if response.status_code == 200:
