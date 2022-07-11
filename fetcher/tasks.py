@@ -43,7 +43,9 @@ def feed_worker(self, feed: Dict):
             summary = {
                 'id': feed['id'],
                 'url': feed['url'],
-                'status_code': response.status_code,
+                'mcFeedsId': feed['mc_feeds_id'],
+                'mcMediaId': feed['mc_media_id'],
+                'statusCode': response.status_code,
                 'headers': dict(response.headers),
             }
             with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['id'])), 'w', encoding='utf-8') as f:
