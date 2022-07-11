@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.7.5
+
+New option to log RSS info to files on disk, controlled via `SAVE_RSS_FILES` env-var (1 or 0)
+
 ## v0.7.4
 
 Small tweak to skip relative URLs. Also more debug logging.
