@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+## v0.8.0
+
+Switch to FastApi for returning counts to help debug. See `/redoc`, or `/docs` for full API documentation and Open API 
+specification file.
+
 ## v0.7.5
 
 New option to log RSS info to files on disk, controlled via `SAVE_RSS_FILES` env-var (1 or 0)
