@@ -52,7 +52,7 @@ class DBTask(Task):
 
     def after_return(self, *args, **kwargs):
         if self._session is not None:
-            self._session.commit()
+            self._session.commit()  # just in case
             self._session.close()
 
     @property
@@ -111,10 +111,10 @@ def feed_worker(self, feed: Dict):
         _save_rss_file(feed, response)
     # BAIL: HTTP failed
     if response.status_code != 200:
-        logger.info("  Feed {} - skipping, bad response {}".format(feed['id'], response.status_code))
+        logger.info("  Feed {} - skipping, bad response {} at {}".format(feed['id'], response.status_code, response.url))
         increment_fetch_failure_count(self.session, feed['id'])
         fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_FAILED,
-                                         "HTTP {}".format(response.status_code))
+                                         "HTTP {} / {}".format(response.status_code, response.url))
         self.session.add(fe)
         return
     # Mark as a success because it responded with data
