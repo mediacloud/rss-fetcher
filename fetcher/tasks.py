@@ -105,6 +105,7 @@ def feed_worker(self, feed: Dict):
         increment_fetch_failure_count(self.session, feed['id'])
         fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_FAILED, str(exc))
         self.session.add(fe)
+        self.session.commit()
         return
     # optional logging
     if SAVE_RSS_FILES:
@@ -116,6 +117,7 @@ def feed_worker(self, feed: Dict):
         fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_FAILED,
                                          "HTTP {} / {}".format(response.status_code, response.url))
         self.session.add(fe)
+        self.session.commit()
         return
     # Mark as a success because it responded with data
     new_hash = hashlib.md5(response.content).hexdigest()
@@ -130,6 +132,7 @@ def feed_worker(self, feed: Dict):
         fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED,
                                          "same hash")
         self.session.add(fe)
+        self.session.commit()
         return
     # worth parsing all the stories
     parsed_feed = feedparser.parse(response.content)
@@ -158,4 +161,5 @@ def feed_worker(self, feed: Dict):
                                                                                  skipped_count,
                                                                                  len(parsed_feed.entries)-skipped_count))
     self.session.add(fe)
+    self.session.commit()
 
