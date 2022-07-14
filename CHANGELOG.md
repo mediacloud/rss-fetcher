@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.9.3
+
+Added back in a necessary index for fast querying.
+
 ## v0.9.2
 
 More debug logging.
