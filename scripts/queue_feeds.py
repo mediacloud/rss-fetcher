@@ -43,5 +43,7 @@ if __name__ == '__main__':
         for feed_id in feeds_needing_update:
             f = session.query(models.Feed).get(feed_id)
             f.last_fetch_attempt = now
+            fe = models.FetchEvent.from_info(feed_id, models.FetchEvent.EVENT_QUEUED)
+            session.add(fe)
 
     logger.info("  queued {} feeds".format(len(feeds_needing_update)))

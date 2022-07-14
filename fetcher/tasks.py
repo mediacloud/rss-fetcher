@@ -102,6 +102,8 @@ def feed_worker(self, feed: Dict):
     except Exception as exc:
         logger.warning(" Feed {}: failed {}".format(feed['id'], exc))
         increment_fetch_failure_count(self.session, feed['id'])
+        fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_FAILED, str(exc))
+        self.session.add(fe)
         return
     # optional logging
     if SAVE_RSS_FILES:
@@ -110,6 +112,9 @@ def feed_worker(self, feed: Dict):
     if response.status_code != 200:
         logger.info("  Feed {} - skipping, bad response {}".format(feed['id'], response.status_code))
         increment_fetch_failure_count(self.session, feed['id'])
+        fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_FAILED,
+                                         "HTTP {}".format(response.status_code))
+        self.session.add(fe)
         return
     # Mark as a success because it responded with data
     new_hash = hashlib.md5(response.content).hexdigest()
@@ -121,6 +126,9 @@ def feed_worker(self, feed: Dict):
     # BAIL: no changes since last time
     if new_hash == feed['last_fetch_hash']:
         logger.info("  Feed {} - skipping, same hash".format(feed['id']))
+        fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED,
+                                         "same hash")
+        self.session.add(fe)
         return
     # worth parsing all the stories
     parsed_feed = feedparser.parse(response.content)
@@ -144,4 +152,9 @@ def feed_worker(self, feed: Dict):
                 skipped_count += 1
     logger.info("  Feed {} - {} entries ({} skipped)".format(feed['id'], len(parsed_feed.entries),
                                                              skipped_count))
+    fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED,
+                                     "{} entries / {} skipped / {} added".format(len(parsed_feed.entries),
+                                                                                 skipped_count,
+                                                                                 len(parsed_feed.entries)-skipped_count))
+    self.session.add(fe)
 

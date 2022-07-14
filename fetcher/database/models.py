@@ -109,3 +109,29 @@ def _run_query(query: str) -> List:
         for row in result:
             data.append(row)
     return data
+
+
+class FetchEvent(Base):
+    __tablename__ = 'fetch_events'
+
+    EVENT_QUEUED = 'queued'
+    EVENT_FETCH_FAILED = 'fetch_failed'
+    EVENT_FETCH_SUCCEEDED = 'fetch_succeeded'
+
+    id = Column(BigInteger, primary_key=True)
+    feed_id = Column(BigInteger)
+    event = Column(String)
+    note = Column(String)
+    created_at = Column(DateTime)
+
+    def __repr__(self):
+        return '<FetchEvent id={}>'.format(self.id)
+
+    @staticmethod
+    def from_info(feed_id: int, event: str, note: str = None):
+        fe = FetchEvent()
+        fe.feed_id = feed_id
+        fe.event = event
+        fe.note = note
+        fe.created_at = dt.datetime.now()
+        return fe
