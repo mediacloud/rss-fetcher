@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+## v0.9.0
+
+Add `fetch_events` table for history and debugging. Also move title uniqueness check to software (not DB) to allow for
+empty title fields.
+
 ## v0.8.1
 
 Rewrite main rss fetching task to make logic more obvious, and also try and streamline database handle usage.
