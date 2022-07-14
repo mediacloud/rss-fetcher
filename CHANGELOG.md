@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.8.1
+
+Rewrite main rss fetching task to make logic more obvious, and also try and streamline database handle usage.
+
 ## v0.8.0
 
 Switch to FastApi for returning counts to help debug. See `/redoc`, or `/docs` for full API documentation and Open API 
