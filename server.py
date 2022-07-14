@@ -6,7 +6,7 @@ from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 from flask import send_from_directory
 from itertools import chain
 from functools import wraps
-from typing import Dict, List
+from typing import Dict, List, Union
 from fastapi import FastAPI, Query
 import time
 import uvicorn
@@ -113,14 +113,14 @@ def _prep_for_graph(counts: List[List], names: List[str]) -> List[Dict]:
 
 @app.get("/api/stories/fetched-by-day")
 @api_method
-def stories_fetched_counts():
-    return _prep_for_graph([models.Story.recent_published_volume()], ["stories"])
+def stories_fetched_counts(days: Union[int, None] = None):
+    return _prep_for_graph([models.Story.recent_published_volume(limit=days)], ["stories"])
 
 
 @app.get("/api/stories/published-by-day")
 @api_method
-def stories_published_counts():
-    return _prep_for_graph([models.Story.recent_fetched_volume()], ["stories"])
+def stories_published_counts(days: Union[int, None] = None):
+    return _prep_for_graph([models.Story.recent_fetched_volume(limit=days)], ["stories"])
 
 
 @app.get("/api/rss/<filename>")
