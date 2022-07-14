@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.9.2
+
+More debug logging.
+
 ## v0.9.1
 
 Pretending to be a browser in order to see if it fixes a 403 bug.
