@@ -97,7 +97,8 @@ def feed_worker(self, feed: Dict):
         # first thin is to fetch the content
         logger.debug("Working on feed {}".format(feed['id']))
         fetched_at = dt.datetime.now()
-        response = requests.get(feed['url'], timeout=RSS_FETCH_TIMEOUT_SECS)
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+        response = requests.get(feed['url'], headers=headers, timeout=RSS_FETCH_TIMEOUT_SECS)
     # ignore fetch failure exceptions as a "normal operation" error
     except Exception as exc:
         logger.warning(" Feed {}: failed {}".format(feed['id'], exc))

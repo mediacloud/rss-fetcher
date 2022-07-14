@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.9.1
+
+Pretending to be a browser in order to see if it fixes a 403 bug.
+
 ## v0.9.0
 
 Add `fetch_events` table for history and debugging. Also move title uniqueness check to software (not DB) to allow for
