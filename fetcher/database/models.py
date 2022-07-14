@@ -69,7 +69,7 @@ class Story(Base):
     def recent_fetched_volume(limit: int = 30):
         earliest_date = dt.date.today() - dt.timedelta(days=limit)
         query = "select fetched_at::date as day, count(1) as stories from stories " \
-                "where fetched_at >= '{}'::DATE " \
+                "where fetched_at <= '{}'::DATE AND fetched_at >= '{}'::DATE " \
                 "group by 1 order by 1 DESC"\
             .format(earliest_date)
         return _run_query(query)
@@ -78,9 +78,9 @@ class Story(Base):
     def recent_published_volume(limit: int = 30):
         earliest_date = dt.date.today() - dt.timedelta(days=limit)
         query = "select published_at::date as day, count(1) as stories from stories " \
-                "where published_at >= '{}'::DATE " \
+                "where published_at <= '{}'::DATE AND published_at >= '{}'::DATE " \
                 "group by 1 order by 1 DESC"\
-            .format(earliest_date)
+            .format(dt.date.today, earliest_date)
         return _run_query(query)
 
     @staticmethod
