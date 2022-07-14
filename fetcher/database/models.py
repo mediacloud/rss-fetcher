@@ -52,19 +52,6 @@ class Story(Base):
     def __repr__(self):
         return '<Story id={}>'.format(self.id)
 
-    def title_already_exists(self, day_window: int = 7):
-        # for deduplication - check if this title hash exists in the last 7 days in the same media sources
-        matches = Story.find_by_normalized_title_hash(self.normalized_title_hash, self.media_id, day_window)
-        return len(matches) > 0
-
-    @staticmethod
-    def find_by_normalized_title_hash(normalized_title_hash: str, media_id: int, day_window: int = 7):
-        earliest_date = dt.date.today() - dt.timedelta(days=day_window)
-        query = "select id from stories " \
-                "where (published_at >= '{}'::DATE) AND (normalized_title_hash = '{}') and (media_id={})"\
-            .format(earliest_date, normalized_title_hash, media_id)
-        return _run_query(query)
-
     @staticmethod
     def recent_fetched_volume(limit: int = 30):
         earliest_date = dt.date.today() - dt.timedelta(days=limit)
