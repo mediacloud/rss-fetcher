@@ -86,6 +86,13 @@ def increment_fetch_failure_count(session, feed_id: int) -> int:
     return f.last_fetch_failures
 
 
+def _fetch_rss_feed(feed: Dict):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+    response = requests.get(feed['url'], headers=headers, timeout=RSS_FETCH_TIMEOUT_SECS)
+    return response
+
+
 @app.task(base=DBTask, serializer='json', bind=True)
 def feed_worker(self, feed: Dict):
     """
@@ -97,8 +104,7 @@ def feed_worker(self, feed: Dict):
         # first thin is to fetch the content
         logger.debug("Working on feed {}".format(feed['id']))
         fetched_at = dt.datetime.now()
-        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
-        response = requests.get(feed['url'], headers=headers, timeout=RSS_FETCH_TIMEOUT_SECS)
+        response = _fetch_rss_feed(feed)
     # ignore fetch failure exceptions as a "normal operation" error
     except Exception as exc:
         logger.warning(" Feed {}: failed {}".format(feed['id'], exc))
@@ -138,22 +144,27 @@ def feed_worker(self, feed: Dict):
     parsed_feed = feedparser.parse(response.content)
     skipped_count = 0
     for entry in parsed_feed.entries:
-        if not util.is_absolute_url(entry.link):  # skip relative URLs
-            logger.debug(" * skip relative URL: {}".format(entry.link))
-            skipped_count += 1
-            continue
-        s = models.Story.from_rss_entry(feed['id'], fetched_at, entry)
-        s.media_id = feed['mc_media_id']
-        # only save if title is unique recently
-        if not title_already_exists(self.session, s.normalized_title_hash, s.media_id):
-            # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
-            # those are *expected* errors, so we can ignore them
-            try:
+        try:
+            if not util.is_absolute_url(entry.link):  # skip relative URLs
+                logger.debug(" * skip relative URL: {}".format(entry.link))
+                skipped_count += 1
+                continue
+            s = models.Story.from_rss_entry(feed['id'], fetched_at, entry)
+            s.media_id = feed['mc_media_id']
+            # only save if title is unique recently
+            if not title_already_exists(self.session, s.normalized_title_hash, s.media_id):
+                # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
+                # those are *expected* errors, so we can ignore them
                 self.session.add(s)
                 self.session.commit()
-            except IntegrityError as _:
-                logger.debug(" * duplicate normalized URL: {}".format(s.normalized_url))
-                skipped_count += 1
+        except (AttributeError, KeyError) as exc:
+            # couldn't parse the entry - skip it
+            logger.debug("Missing something on rss entry {}".format(str(exc)))
+            skipped_count += 1
+        except IntegrityError as _:
+            # expected exception - log and ignore
+            logger.debug(" * duplicate normalized URL: {}".format(s.normalized_url))
+            skipped_count += 1
     logger.info("  Feed {} - {} entries ({} skipped)".format(feed['id'], len(parsed_feed.entries),
                                                              skipped_count))
     fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED,

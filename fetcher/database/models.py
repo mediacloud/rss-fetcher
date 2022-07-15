@@ -1,11 +1,11 @@
 from sqlalchemy.orm import declarative_base, Session
 from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, text
 import datetime as dt
+from time import mktime
 from typing import List
 import hashlib
 
 from fetcher import engine
-from dateutil.parser import parse
 import mcmetadata.urls as urls
 import mcmetadata.titles as titles
 
@@ -87,7 +87,8 @@ class Story(Base):
         except AttributeError as _:
             s.guid = None
         try:
-            s.published_at = parse(entry.published)
+            time_struct = entry.published_parsed
+            s.published_at = dt.datetime.fromtimestamp(mktime(time_struct))
         except Exception as _:  # likely to be an unknown string format - let the pipeline guess it from HTML later
             s.published_at = None
         try:
