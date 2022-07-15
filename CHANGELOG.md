@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.10.0
+
+Add feed history to help debugging, view new FetchEvents objects.
+
 ## v0.9.4
 
 Fix some date parsing bugs by using built-in approach from feed parsing library. Also add some more unit tests.

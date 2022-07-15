@@ -3,12 +3,11 @@ import logging
 import sys
 from dotenv import load_dotenv
 from flask import Flask
-from sentry_sdk.integrations.flask import FlaskIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk import init
 from sqlalchemy import create_engine
 
-VERSION = "0.9.4"
+VERSION = "0.10.0"
 
 load_dotenv()  # load config from .env file (local) or env vars (production)
 
