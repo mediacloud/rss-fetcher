@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.9.4
+
+Fix some date parsing bugs by using built-in approach from feed parsing library. Also add some more unit tests.
+
 ## v0.9.3
 
 Added back in a necessary index for fast querying.

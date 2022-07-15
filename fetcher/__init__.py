@@ -4,11 +4,11 @@ import sys
 from dotenv import load_dotenv
 from flask import Flask
 from sentry_sdk.integrations.flask import FlaskIntegration
-# from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk import init
 from sqlalchemy import create_engine
 
-VERSION = "0.9.3"
+VERSION = "0.9.4"
 
 load_dotenv()  # load config from .env file (local) or env vars (production)
 
@@ -34,8 +34,7 @@ logger.info("  MAX_FEEDS: {}".format(MAX_FEEDS))
 SENTRY_DSN = os.environ.get('SENTRY_DSN', None)  # optional
 if SENTRY_DSN:
     init(dsn=SENTRY_DSN, release=VERSION,
-         # integrations=[FlaskIntegration(), CeleryIntegration()])
-         integrations=[FlaskIntegration()])
+         integrations=[CeleryIntegration()])
     logger.info("  SENTRY_DSN: {}".format(SENTRY_DSN))
 else:
     logger.info("  Not logging errors to Sentry")
