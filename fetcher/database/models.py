@@ -12,6 +12,10 @@ import mcmetadata.titles as titles
 Base = declarative_base()
 
 
+def _class_as_dict(obj):
+    return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+
+
 class Feed(Base):
     __tablename__ = 'feeds'
 
@@ -31,6 +35,9 @@ class Feed(Base):
     def __repr__(self):
         return '<Feed id={} name={} mc_media_id={} mc_feeds_id={}>'.format(
             self.id, self.name, self.mc_media_id, self.mc_feeds_id)
+
+    def as_dict(self):
+        return _class_as_dict(self)
 
 
 class Story(Base):
@@ -102,6 +109,9 @@ class Story(Base):
         s.fetched_at = fetched_at
         return s
 
+    def as_dict(self):
+        return _class_as_dict(self)
+
 
 def _run_query(query: str) -> List:
     data = []
@@ -136,3 +146,6 @@ class FetchEvent(Base):
         fe.note = note
         fe.created_at = dt.datetime.now()
         return fe
+
+    def as_dict(self):
+        return _class_as_dict(self)
