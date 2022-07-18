@@ -3,7 +3,7 @@ from typing import Union
 from flask import send_from_directory
 from fastapi import Query, APIRouter
 
-from util import as_timeseries_data, api_method
+from server.util import as_timeseries_data, api_method
 from fetcher.database import models
 
 logger = logging.getLogger(__name__)
