@@ -4,7 +4,7 @@ from fastapi import APIRouter
 from sqlalchemy import select
 
 from fetcher.database import Session
-from util import api_method
+from server.util import api_method
 from fetcher.database.models import FetchEvent
 
 logger = logging.getLogger(__name__)

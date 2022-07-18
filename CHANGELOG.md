@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.10.1
+
+Small bug fixes.
+
 ## v0.10.0
 
 Add feed history to help debugging, view new FetchEvents objects.
