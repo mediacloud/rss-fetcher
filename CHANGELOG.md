@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+## v0.10.2
+
+Make Celery Backend a configuration option. We default to RabbitMQ for Broker and Redis for Backend because
+that is a super common setup that seems to scale well.
+
 ## v0.10.1
 
 Small bug fixes.

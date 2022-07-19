@@ -7,7 +7,7 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk import init
 from sqlalchemy import create_engine
 
-VERSION = "0.10.1"
+VERSION = "0.10.2"
 
 load_dotenv()  # load config from .env file (local) or env vars (production)
 
@@ -25,7 +25,9 @@ BROKER_URL = os.environ.get('BROKER_URL', None)
 if BROKER_URL is None:
     logger.error("No BROKER_URL env var specified. Pathetically refusing to start!")
     sys.exit(1)
-logger.info("  Queue at {}".format(BROKER_URL))
+logger.info("  Queue broker at {}".format(BROKER_URL))
+BACKEND_URL = os.environ.get('BACKEND_URL', 'db+sqlite:///celery-backend.db')
+logger.info("  Queue backend at {}".format(BACKEND_URL))
 
 MAX_FEEDS = int(os.environ.get('MAX_FEEDS', 10000))
 logger.info("  MAX_FEEDS: {}".format(MAX_FEEDS))
