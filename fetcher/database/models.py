@@ -6,6 +6,7 @@ from typing import List
 import hashlib
 
 from fetcher import engine
+import fetcher.util as util
 import mcmetadata.urls as urls
 import mcmetadata.titles as titles
 
@@ -99,8 +100,9 @@ class Story(Base):
         except Exception as _:  # likely to be an unknown string format - let the pipeline guess it from HTML later
             s.published_at = None
         try:
-            s.title = entry.title
-            s.normalized_title = titles.normalize_title(entry.title, media_name)
+            # code prior to this should have checked for title uniqueness biz logic
+            s.title = util.clean_str(entry.title)  # make sure we can save it in the DB by removing NULL chars and such
+            s.normalized_title = titles.normalize_title(s.title, media_name)
             s.normalized_title_hash = hashlib.md5(s.normalized_title.encode()).hexdigest()
         except AttributeError as _:
             s.title = None
