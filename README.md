@@ -36,19 +36,22 @@ platform, make sure to create environment variables there for each setting in th
 
 1. [install Dokku](http://dokku.viewdocs.io/dokku/getting-started/installation/)
 2. install the [Dokku rabbitmq plugin](https://github.com/dokku/dokku-rabbitmq)
-3. install the [Dokku postgres plugin](https://github.com/dokku/dokku-postgres)
-4. setup a rabbitmq queue: `dokku rabbitmq:create rss-fetcher-q`
-5. setup a postgres database: `dokku postgres:create rss-fetcher-db`
-6. create an app: `dokku apps:create rss-fetcher`
-7. link the app to the rabbit queue: `dokku rabbitmq:link rss-fetcher-q rss-fetcher`
-8. link the app to the postgres database: `dokku postgres:link rss-fetcher-db rss-fetcher`
+3. install the [Dokku redis plugin](https://github.com/dokku/dokku-redis)
+4. install the [Dokku postgres plugin](https://github.com/dokku/dokku-postgres)
+5. setup a rabbitmq queue: `dokku rabbitmq:create rss-fetcher-broker-q`
+6. setup a redis queue: `dokku redis:create rss-fetcher-backend-q`
+7. setup a postgres database: `dokku postgres:create rss-fetcher-db`
+8. create an app: `dokku apps:create rss-fetcher`
+9. link the app to the rabbit queue: `dokku rabbitmq:link rss-fetcher-broker-q rss-fetcher`
+10. link the app to the redis database: `dokku redis:link rss-fetcher-backend-q rss-fetcher`
+11. link the app to the postgres database: `dokku postgres:link rss-fetcher-db rss-fetcher`
 
 ### Release the worker app
 
-1. setup the configuration on the dokku app: `dokku config:set rss-fetcher BROKER_URL=http://my.rabbitmq.url SENTRY_DSN=https://mydsn@sentry.io/123 DATABASE_URL=postgresql:///rss-fetcher`
+1. setup the configuration on the dokku app: `dokku config:set rss-fetcher BROKER_URL=amqp://u:p@dokku-rabbitmq-rss-fetcher-q:5672/rss_fetcher_q BROKER_URL=BACKEND_URL=redis://u:p@dokku-redis-rss-fetcher-backend-q:6379 SENTRY_DSN=https://mydsn@sentry.io/123 DATABASE_URL=postgresql:///rss-fetcher`
 2. add a remote: `git remote add prod dokku@prod.server.org:rss-fetcher`
-4. push the code to the server: `git push prod main`
-5. scale it to get a worker (dokku doesn't add one by default): `dokku ps:scale rss-fetcher worker=1`
+3. push the code to the server: `git push prod main`
+4. scale it to get a worker (dokku doesn't add one by default): `dokku ps:scale rss-fetcher worker=1`
 
 ### Setup the fetcher
 
