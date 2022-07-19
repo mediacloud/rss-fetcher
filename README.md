@@ -13,16 +13,16 @@ Install for Development
 For development, install via standard Python approaches: `pip install -r requirements.txt`.
 You'll need to setup an instance of rabbitmq to connect to (on MacOS do `brew install rabbitmq`).
 Then `cp .env.template .env` and fill in the appropriate info for each setting in that file.
-Create a database called "rss-fetcher-db" in Postgres, then run `alembic upgrade head` to intialize it.
+Create a database called "rss-fetcher-db" in Postgres, then run `alembic upgrade head` to initialize it.
 
 Running
 -------
 
-To fill up the queue with new RSS URLs to fetch, execute `run-fetch-rss-feeds.sh`
-
-To start the workers that fetch feeds and pull out story URLs, execute `run-rss-workers.sh`.
-
-To generate the daily files of URLs found on each day, run `run-gen-daily-story-rss.sh`.
+Various scripts run each separate component:
+ * `run-fetch-rss-feeds.sh`: Fill up the queue with new RSS URLs to fetch (run via cron every 30 mins)
+ * `run-rss-workers.sh`: Start the workers that fetch feeds and pull out story URLs (run once)
+ * `run-gen-daily-story-rss.sh`: Generate the daily files of URLs found on each day (run nightly)
+ * `run-aws-sync.sh`: Copy all the generated daily story RSS files to an AWS bucket (run nightly)
 
 Deploying
 ---------
