@@ -13,7 +13,8 @@ import logging
 from alembic import op
 from sqlalchemy.sql import text
 import csv
-from fetcher.database.versions.a91f46836029_prepopulate_feeds import feeds_table
+
+from fetcher.database.helpers import feeds_table
 
 # revision identifiers, used by Alembic.
 revision = '324d49ce6374'

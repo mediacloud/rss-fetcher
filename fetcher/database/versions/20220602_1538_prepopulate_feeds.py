@@ -6,8 +6,9 @@ Create Date: 2022-02-17 12:05:34.020034
 
 """
 from alembic import op
-import sqlalchemy as sa
 import csv
+
+from fetcher.database.helpers import feeds_table
 
 # revision identifiers, used by Alembic.
 revision = 'a91f46836029'
@@ -15,15 +16,6 @@ down_revision = 'bc56acb800bf'
 branch_labels = None
 depends_on = None
 
-feeds_table = sa.sql.table('feeds',
-                           sa.sql.column('mc_feeds_id', sa.BigInteger),
-                           sa.sql.column('mc_media_id', sa.String),
-                           sa.sql.column('name', sa.String),
-                           sa.sql.column('url', sa.String),
-                           sa.sql.column('type', sa.String),
-                           sa.sql.column('active', sa.Boolean),
-                           sa.sql.column('import_round', sa.Integer)
-                           )
 
 # Data generated with this command on the production database:
 #   psql -c "\copy (select * from feeds f where f.active=true and f.type='syndicated' and f.last_new_story_time > now() - '180 days'::interval) TO ‘/tmp/feeds-2022-02-16.csv' CSV HEADER;"

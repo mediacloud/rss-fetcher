@@ -6,11 +6,11 @@ Create Date: 2022-06-02 15:22:35.542978
 
 """
 from alembic import op
-import sqlalchemy as sa
 import csv
 import logging
 from typing import List
-from fetcher.database.versions.a91f46836029_prepopulate_feeds import feeds_table
+
+from fetcher.database.helpers import feeds_table
 
 logger = logging.getLogger(__name__)
 

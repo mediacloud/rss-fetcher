@@ -9,7 +9,7 @@ import csv
 from alembic import op
 import sqlalchemy as sa
 
-from fetcher.database.versions.a91f46836029_prepopulate_feeds import feeds_table
+from fetcher.database.helpers import feeds_table
 
 # revision identifiers, used by Alembic.
 revision = 'a83638d0280b'
