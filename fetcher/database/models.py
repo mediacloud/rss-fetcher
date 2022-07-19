@@ -1,4 +1,4 @@
-from sqlalchemy.orm import declarative_base, Session
+from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, text
 import datetime as dt
 from time import mktime

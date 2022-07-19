@@ -5,7 +5,6 @@ import feedparser
 import json
 from typing import Dict
 import logging
-import copy
 import time
 import hashlib
 from sqlalchemy.exc import IntegrityError
