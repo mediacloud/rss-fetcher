@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.10.3
+
+Don't allow NULL chars in story titles.
+
 ## v0.10.2
 
 Make Celery Backend a configuration option. We default to RabbitMQ for Broker and Redis for Backend because
