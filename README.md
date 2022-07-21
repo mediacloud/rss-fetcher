@@ -41,14 +41,16 @@ platform, make sure to create environment variables there for each setting in th
 5. setup a rabbitmq queue: `dokku rabbitmq:create rss-fetcher-broker-q`
 6. setup a redis queue: `dokku redis:create rss-fetcher-backend-q`
 7. setup a postgres database: `dokku postgres:create rss-fetcher-db`
+12. create an external storage dir for generated RSS files: `dokku storage:ensure-directory rss-fetcher-daily-files`
 8. create an app: `dokku apps:create rss-fetcher`
 9. link the app to the rabbit queue: `dokku rabbitmq:link rss-fetcher-broker-q rss-fetcher`
 10. link the app to the redis database: `dokku redis:link rss-fetcher-backend-q rss-fetcher`
 11. link the app to the postgres database: `dokku postgres:link rss-fetcher-db rss-fetcher`
+13. link the app to the external storage directory: `dokku storage:mount rss-fetcher /var/lib/dokku/data/storage/rss-fetcher-daily-files:/app/storage`
 
 ### Release the worker app
 
-1. setup the configuration on the dokku app: `dokku config:set rss-fetcher BROKER_URL=amqp://u:p@dokku-rabbitmq-rss-fetcher-q:5672/rss_fetcher_q BROKER_URL=BACKEND_URL=redis://u:p@dokku-redis-rss-fetcher-backend-q:6379 SENTRY_DSN=https://mydsn@sentry.io/123 DATABASE_URL=postgresql:///rss-fetcher`
+1. setup the configuration on the dokku app: `dokku config:set rss-fetcher BROKER_URL=amqp://u:p@dokku-rabbitmq-rss-fetcher-q:5672/rss_fetcher_q BROKER_URL=BACKEND_URL=redis://u:p@dokku-redis-rss-fetcher-backend-q:6379 SENTRY_DSN=https://mydsn@sentry.io/123 DATABASE_URL=postgresql:///rss-fetcher MAX_FEEDS=10000 RSS_FILE_PATH=/app/storage SAVE_RSS_FILES=0`
 2. add a remote: `git remote add prod dokku@prod.server.org:rss-fetcher`
 3. push the code to the server: `git push prod main`
 4. scale it to get a worker (dokku doesn't add one by default): `dokku ps:scale rss-fetcher worker=1`
