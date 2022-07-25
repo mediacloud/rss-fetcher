@@ -7,9 +7,10 @@ from sqlalchemy import text
 import gzip
 import shutil
 
-import fetcher.util as util
 import fetcher.feedgen.ext.mediacloud
 from fetcher import base_dir, VERSION, engine, RSS_FILE_PATH
+
+HISTORY = 14
 
 # handle relative paths smartly for local devs
 if RSS_FILE_PATH[0] == "/":
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     logger.info("  writing to {}".format(target_dir))
 
     # generate a file for each of the last N days (skipping today, which might still be running)
-    for d in range(1, 60):
+    for d in range(1, HISTORY):
         try:
             day = today - datetime.timedelta(d)
             logger.info(" Working on {} (day {})".format(day, d))
