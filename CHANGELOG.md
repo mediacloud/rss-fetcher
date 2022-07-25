@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.10.4
+
+Requirements bump.
+
 ## v0.10.3
 
 Don't allow NULL chars in story titles.

@@ -7,7 +7,7 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk import init
 from sqlalchemy import create_engine
 
-VERSION = "0.10.3"
+VERSION = "0.10.4"
 
 load_dotenv()  # load config from .env file (local) or env vars (production)
 
