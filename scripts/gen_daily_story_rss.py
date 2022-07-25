@@ -7,6 +7,7 @@ from sqlalchemy import text
 import gzip
 import shutil
 
+import fetcher.util as util
 import fetcher.feedgen.ext.mediacloud
 from fetcher import base_dir, VERSION, engine, RSS_FILE_PATH
 
