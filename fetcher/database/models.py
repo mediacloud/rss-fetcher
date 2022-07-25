@@ -102,7 +102,7 @@ class Story(Base):
         try:
             # code prior to this should have checked for title uniqueness biz logic
             s.title = util.clean_str(entry.title)  # make sure we can save it in the DB by removing NULL chars and such
-            s.normalized_title = titles.normalize_title(s.title, media_name)
+            s.normalized_title = titles.normalize_title(s.title)
             s.normalized_title_hash = hashlib.md5(s.normalized_title.encode()).hexdigest()
         except AttributeError as _:
             s.title = None

@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.10.5
+
+Fix bug in function call
+
 ## v0.10.4
 
 Requirements bump.
