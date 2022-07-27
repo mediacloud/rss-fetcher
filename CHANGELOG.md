@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.11.4
+
+Refactored database code to support testing. Also handling failure counting more robustly now.
+
 ## v0.11.3
 
 Properly save and double-check against normalized URLs for uniqueness.
