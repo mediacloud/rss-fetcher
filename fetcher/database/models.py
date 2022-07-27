@@ -20,7 +20,7 @@ def _class_as_dict(obj):
 class Feed(Base):
     __tablename__ = 'feeds'
 
-    id = Column(BigInteger, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     mc_feeds_id = Column(BigInteger)
     mc_media_id = Column(BigInteger)
     name = Column(String)
@@ -44,7 +44,7 @@ class Feed(Base):
 class Story(Base):
     __tablename__ = 'stories'
 
-    id = Column(BigInteger, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     feed_id = Column(BigInteger)
     media_id = Column(BigInteger)
     url = Column(String)
@@ -131,7 +131,7 @@ class FetchEvent(Base):
     EVENT_FETCH_FAILED = 'fetch_failed'
     EVENT_FETCH_SUCCEEDED = 'fetch_succeeded'
 
-    id = Column(BigInteger, primary_key=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     feed_id = Column(BigInteger)
     event = Column(String)
     note = Column(String)

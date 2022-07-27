@@ -13,7 +13,7 @@ from celery import Task
 
 from fetcher import path_to_log_dir, SAVE_RSS_FILES
 from fetcher.celery import app
-from fetcher.database import Session, engine
+from fetcher.database import Session
 import fetcher.database.models as models
 import fetcher.util as util
 
@@ -58,8 +58,7 @@ class DBTask(Task):
     @property
     def session(self):
         if self._session is None:
-            connection = engine.connect()
-            self._session = Session(bind=connection)
+            self._session = Session()
         return self._session
 
 
@@ -71,7 +70,8 @@ def normalized_title_exists(session, normalized_title_hash: str, media_id: int, 
     query = "select id from stories " \
             "where (published_at >= '{}'::DATE) AND (normalized_title_hash = '{}') and (media_id={})"\
         .format(earliest_date, normalized_title_hash, media_id)
-    matches = [r for r in session.execute(query)]
+    with session.begin():
+        matches = [r for r in session.execute(query)]
     return len(matches) > 0
 
 
@@ -79,19 +79,31 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
     if normalized_url is None:
         return False
     query = "select id from stories where (normalized_url = '{}')".format(normalized_url)
-    matches = [r for r in session.execute(query)]
+    with session.begin():
+        matches = [r for r in session.execute(query)]
     return len(matches) > 0
 
 
 def increment_fetch_failure_count(session, feed_id: int) -> int:
-    f = session.query(models.Feed).get(feed_id)
-    if f.last_fetch_failures is not None:
-        f.last_fetch_failures += 1
-    else:
-        f.last_fetch_failures = 1
-    session.commit()
-    logger.info(" Feed {}: upped last_fetch_failure to {}".format(feed_id, f.last_fetch_failures))
-    return f.last_fetch_failures
+    with session.begin():
+        f = session.query(models.Feed).get(feed_id)
+        if f.last_fetch_failures is not None:
+            f.last_fetch_failures += 1
+        else:
+            f.last_fetch_failures = 1
+        new_value = f.last_fetch_failures
+        session.commit()
+        session.close()
+    logger.info(" Feed {}: upped last_fetch_failure to {}".format(feed_id, new_value))
+    return new_value
+
+
+def save_fetch_event(session, feed_id: int, event: str, note: str):
+    fe = models.FetchEvent.from_info(feed_id, event, note)
+    with session.begin():
+        session.add(fe)
+        session.commit()
+        session.close()
 
 
 def _fetch_rss_feed(feed: Dict):
@@ -101,64 +113,61 @@ def _fetch_rss_feed(feed: Dict):
     return response
 
 
-@app.task(base=DBTask, serializer='json', bind=True)
-def feed_worker(self, feed: Dict):
-    """
-    Fetch a feed, parse out stories, store them
-    :param self: this maintains the single session to use for all DB operations
-    :param feed: the feed to fetch
-    """
+def _parse_feed(session, feed_id: int, content: str):
+    # try to parse the content parsing all the stories
     try:
-        # first thin is to fetch the content
+        parsed_feed = feedparser.parse(content)
+        if parsed_feed.bozo:
+            raise RuntimeError(parsed_feed.bozo_exception)
+        return parsed_feed
+    except Exception as e:
+        # BAIL: couldn't parse it correctly
+        logger.warning("Couldn't parse feed: {}".format(str(e)))
+        increment_fetch_failure_count(session, feed_id)
+        save_fetch_event(session, feed_id, models.FetchEvent.EVENT_FETCH_FAILED,
+                         "parse failure: {}".format(str(e)))
+
+
+
+def fetch_feed_content(session, now: dt.datetime, feed: Dict):
+    try:
+        # first thing is to fetch the content
         logger.debug("Working on feed {}".format(feed['id']))
-        fetched_at = dt.datetime.now()
         response = _fetch_rss_feed(feed)
     # ignore fetch failure exceptions as a "normal operation" error
     except Exception as exc:
         logger.warning(" Feed {}: failed {}".format(feed['id'], exc))
-        increment_fetch_failure_count(self.session, feed['id'])
-        fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_FAILED, str(exc))
-        self.session.add(fe)
-        self.session.commit()
-        return
+        increment_fetch_failure_count(session, feed['id'])
+        save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_FAILED, str(exc))
+        return None
     # optional logging
     if SAVE_RSS_FILES:
         _save_rss_file(feed, response)
     # BAIL: HTTP failed
     if response.status_code != 200:
         logger.info("  Feed {} - skipping, bad response {} at {}".format(feed['id'], response.status_code, response.url))
-        increment_fetch_failure_count(self.session, feed['id'])
-        fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_FAILED,
-                                         "HTTP {} / {}".format(response.status_code, response.url))
-        self.session.add(fe)
-        self.session.commit()
-        return
+        increment_fetch_failure_count(session, feed['id'])
+        save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_FAILED,
+                         "HTTP {} / {}".format(response.status_code, response.url))
+        return None
     # Mark as a success because it responded with data
     new_hash = hashlib.md5(response.content).hexdigest()
-    f = self.session.query(models.Feed).get(feed['id'])
-    f.last_fetch_success = fetched_at
-    f.last_fetch_hash = new_hash
-    f.last_fetch_failures = 0
-    self.session.commit()
+    with session.begin():
+        f = session.query(models.Feed).get(feed['id'])
+        f.last_fetch_success = now
+        f.last_fetch_hash = new_hash
+        f.last_fetch_failures = 0
+        session.commit()
     # BAIL: no changes since last time
     if new_hash == feed['last_fetch_hash']:
         logger.info("  Feed {} - skipping, same hash".format(feed['id']))
-        fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED,
-                                         "same hash")
-        self.session.add(fe)
-        self.session.commit()
-        return
-    # try to parse the content parsing all the stories
-    try:
-        parsed_feed = feedparser.parse(response.content)
-    except Exception as e:
-        # BAIL: couldn't parse it correctly
-        logger.warning("Couldn't parse feed: {}".format(str(e)))
-        fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED,
-                                         "parse failure: {}".format(str(e)))
-        self.session.add(fe)
-        self.session.commit()
-        return
+        save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED, "same hash")
+        return None
+    parsed_feed = _parse_feed(session, feed['id'], response.content)
+    return parsed_feed
+
+
+def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
     # parsed OK, so insert all the (valid) entries
     skipped_count = 0
     for entry in parsed_feed.entries:
@@ -167,15 +176,18 @@ def feed_worker(self, feed: Dict):
                 logger.debug(" * skip relative URL: {}".format(entry.link))
                 skipped_count += 1
                 continue
-            s = models.Story.from_rss_entry(feed['id'], fetched_at, entry)
+            s = models.Story.from_rss_entry(feed['id'], now, entry)
             s.media_id = feed['mc_media_id']
             # only save if url is unique, and title is unique recently
-            if not normalized_url_exists(self.session, s.normalized_url) \
-                    and not normalized_title_exists(self.session, s.normalized_title_hash, s.media_id):
+            if not normalized_url_exists(session, s.normalized_url) \
+                    and not normalized_title_exists(session, s.normalized_title_hash, s.media_id):
                 # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
                 # those are *expected* errors, so we can ignore them
-                self.session.add(s)
-                self.session.commit()
+                with session.begin():
+                    session.add(s)
+                    session.commit()
+            else:
+                skipped_count += 1
         except (AttributeError, KeyError) as exc:
             # couldn't parse the entry - skip it
             logger.debug("Missing something on rss entry {}".format(str(exc)))
@@ -187,12 +199,23 @@ def feed_worker(self, feed: Dict):
 
     logger.info("  Feed {} - {} entries ({} skipped)".format(feed['id'], len(parsed_feed.entries),
                                                              skipped_count))
-    fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED,
-                                     "{} entries / {} skipped / {} added".format(len(parsed_feed.entries),
-                                                                                 skipped_count,
-                                                                                 len(parsed_feed.entries)-skipped_count))
-    self.session.add(fe)
-    self.session.commit()
+    saved_count = len(parsed_feed.entries)-skipped_count
+    save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED,
+                     "{} entries / {} skipped / {} added".format(len(parsed_feed.entries),
+                                                                 skipped_count,
+                                                                 saved_count))
+    return saved_count, skipped_count
 
 
-
+@app.task(base=DBTask, serializer='json', bind=True)
+def feed_worker(self, feed: Dict):
+    """
+    Fetch a feed, parse out stories, store them
+    :param self: this maintains the single session to use for all DB operations
+    :param feed: the feed to fetch
+    """
+    now = dt.datetime.now()
+    parsed_feed = fetch_feed_content(self.session, now, feed)
+    if parsed_feed is None:  # ie. valid content not fetched, so give up here
+        return
+    save_stories_from_feed(self.session, now, feed, parsed_feed)
