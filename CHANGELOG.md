@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.11.3
+
+Properly save and double-check against normalized URLs for uniqueness.
+
 ## v0.11.2
 
 Better testing of RSS generation.
