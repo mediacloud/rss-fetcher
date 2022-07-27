@@ -84,7 +84,7 @@ class Story(Base):
         s.feed_id = feed_id
         try:
             s.url = entry.link
-            s.url = urls.normalize_url(entry.link)
+            s.normalized_url = urls.normalize_url(entry.link)
             s.domain = urls.canonical_domain(entry.link)
         except AttributeError as _:
             s.url = None

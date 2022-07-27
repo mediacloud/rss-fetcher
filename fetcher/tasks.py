@@ -7,7 +7,8 @@ from typing import Dict
 import logging
 import time
 import hashlib
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, PendingRollbackError
+from psycopg2.errors import UniqueViolation
 from celery import Task
 
 from fetcher import path_to_log_dir, SAVE_RSS_FILES
@@ -62,7 +63,7 @@ class DBTask(Task):
         return self._session
 
 
-def title_already_exists(session, normalized_title_hash: str, media_id: int, day_window: int = 7) -> bool:
+def normalized_title_exists(session, normalized_title_hash: str, media_id: int, day_window: int = 7) -> bool:
     if normalized_title_hash is None or media_id is None:
         # err on the side of keeping URLs
         return False
@@ -70,6 +71,14 @@ def title_already_exists(session, normalized_title_hash: str, media_id: int, day
     query = "select id from stories " \
             "where (published_at >= '{}'::DATE) AND (normalized_title_hash = '{}') and (media_id={})"\
         .format(earliest_date, normalized_title_hash, media_id)
+    matches = [r for r in session.execute(query)]
+    return len(matches) > 0
+
+
+def normalized_url_exists(session, normalized_url: str) -> bool:
+    if normalized_url is None:
+        return False
+    query = "select id from stories where (normalized_url = '{}')".format(normalized_url)
     matches = [r for r in session.execute(query)]
     return len(matches) > 0
 
@@ -139,8 +148,18 @@ def feed_worker(self, feed: Dict):
         self.session.add(fe)
         self.session.commit()
         return
-    # worth parsing all the stories
-    parsed_feed = feedparser.parse(response.content)
+    # try to parse the content parsing all the stories
+    try:
+        parsed_feed = feedparser.parse(response.content)
+    except Exception as e:
+        # BAIL: couldn't parse it correctly
+        logger.warning("Couldn't parse feed: {}".format(str(e)))
+        fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED,
+                                         "parse failure: {}".format(str(e)))
+        self.session.add(fe)
+        self.session.commit()
+        return
+    # parsed OK, so insert all the (valid) entries
     skipped_count = 0
     for entry in parsed_feed.entries:
         try:
@@ -150,8 +169,9 @@ def feed_worker(self, feed: Dict):
                 continue
             s = models.Story.from_rss_entry(feed['id'], fetched_at, entry)
             s.media_id = feed['mc_media_id']
-            # only save if title is unique recently
-            if not title_already_exists(self.session, s.normalized_title_hash, s.media_id):
+            # only save if url is unique, and title is unique recently
+            if not normalized_url_exists(self.session, s.normalized_url) \
+                    and not normalized_title_exists(self.session, s.normalized_title_hash, s.media_id):
                 # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
                 # those are *expected* errors, so we can ignore them
                 self.session.add(s)
@@ -160,10 +180,11 @@ def feed_worker(self, feed: Dict):
             # couldn't parse the entry - skip it
             logger.debug("Missing something on rss entry {}".format(str(exc)))
             skipped_count += 1
-        except IntegrityError as _:
+        except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
             # expected exception - log and ignore
             logger.debug(" * duplicate normalized URL: {}".format(s.normalized_url))
             skipped_count += 1
+
     logger.info("  Feed {} - {} entries ({} skipped)".format(feed['id'], len(parsed_feed.entries),
                                                              skipped_count))
     fe = models.FetchEvent.from_info(feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED,
@@ -172,4 +193,6 @@ def feed_worker(self, feed: Dict):
                                                                                  len(parsed_feed.entries)-skipped_count))
     self.session.add(fe)
     self.session.commit()
+
+
 
