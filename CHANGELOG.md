@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.11.2
+
+Better testing of RSS generation.
+
 ## v0.11.1
 
 Better handling of missing dates in output RSS files.
