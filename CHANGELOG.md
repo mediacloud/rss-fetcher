@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.11.1
+
+Better handling of missing dates in output RSS files.
+
 ## v0.11.0
 
 Write out own feed so we can customize error handling and fields outputted more closely. Also fix a small URL validity
