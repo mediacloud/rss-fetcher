@@ -68,19 +68,19 @@ def normalized_title_exists(session, normalized_title_hash: str, media_id: int, 
         return False
     earliest_date = dt.date.today() - dt.timedelta(days=day_window)
     query = "select id from stories " \
-            "where (published_at >= '{}'::DATE) AND (normalized_title_hash = '{}') and (media_id={})"\
-        .format(earliest_date, normalized_title_hash, media_id)
+            "where (published_at >= '{}'::DATE) AND (normalized_title_hash = :hash_title) and (media_id=:media_id)"\
+        .format(earliest_date)
     with session.begin():
-        matches = [r for r in session.execute(query)]
+        matches = [r for r in session.execute(query, params=dict(hash_title=normalized_title_hash, media_id=media_id))]
     return len(matches) > 0
 
 
 def normalized_url_exists(session, normalized_url: str) -> bool:
     if normalized_url is None:
         return False
-    query = "select id from stories where (normalized_url = '{}')".format(normalized_url)
+    query = "select id from stories where (normalized_url = :normalized_url)"
     with session.begin():
-        matches = [r for r in session.execute(query)]
+        matches = [r for r in session.execute(query, params=dict(normalized_url=normalized_url))]
     return len(matches) > 0
 
 
@@ -126,7 +126,6 @@ def _parse_feed(session, feed_id: int, content: str):
         increment_fetch_failure_count(session, feed_id)
         save_fetch_event(session, feed_id, models.FetchEvent.EVENT_FETCH_FAILED,
                          "parse failure: {}".format(str(e)))
-
 
 
 def fetch_feed_content(session, now: dt.datetime, feed: Dict):
