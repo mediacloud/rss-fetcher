@@ -1,4 +1,5 @@
 from urllib.parse import urlparse
+from typing import Optional
 
 
 def is_absolute_url(url):
@@ -10,6 +11,8 @@ def is_absolute_url(url):
         return False
 
 
-def clean_str(s: str) -> str:
+def clean_str(s: Optional[str]) -> Optional[str]:
     # Some titles had null characters in them, which can't be saved to XML
+    if s is None:
+        return ''
     return s.replace("\x00", "")

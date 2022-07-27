@@ -52,7 +52,7 @@ if __name__ == '__main__':
                             story = dict(row)
                             try:
                                 rsswriter.add_item(outfile, story['url'], story['published_at'], story['domain'],
-                                                   util.clean_str(story['title']) if 'title' in story else None)
+                                                   util.clean_str(story['title']) if 'title' in story else '')
                             except Exception as e:
                                 # probably some kind of XML encoding problem, just log and skip
                                 logger.warning("Skipped story {} - {}".format(story['id'], str(e)))
