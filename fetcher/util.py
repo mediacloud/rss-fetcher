@@ -3,7 +3,11 @@ from urllib.parse import urlparse
 
 def is_absolute_url(url):
     # https://stackoverflow.com/questions/8357098/how-can-i-check-if-a-url-is-absolute-using-python
-    return bool(urlparse(url).netloc)
+    try:
+        return bool(urlparse(url).netloc)
+    except ValueError:
+        # could be an invalid UPv6 URL
+        return False
 
 
 def clean_str(s: str) -> str:

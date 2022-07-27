@@ -19,6 +19,11 @@ class TestUrlUtil(unittest.TestCase):
         cleaned_str = util.clean_str(s)
         assert cleaned_str == 'Golden Curls -“Say Love– ”“What’Golden Curls -“Say Love”'
 
+    def test_invalid_url(self):
+        # an actual one from an RSS feed
+        url = "http://[#item_custom_link%5D"
+        assert util.is_absolute_url(url) is False
+
 
 if __name__ == "__main__":
     unittest.main()
