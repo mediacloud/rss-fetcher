@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<rss version="2.0">
+    <channel>
+        <title>Media Cloud URL Snapshot for {{day}}</title>
+        <link>https://mediacloud.org/</link>
+        <description>Auto generated feed of all stories discovered by the Media Cloud system on {{ day }}</description>
+        <generator>rss-fetcher {{ version }}</generator>
+        <lastBuildDate>{{ now }}</lastBuildDate>
+
