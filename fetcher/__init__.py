@@ -2,7 +2,6 @@ import os
 import logging
 import sys
 from dotenv import load_dotenv
-from flask import Flask
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk import init
 from sqlalchemy import create_engine
@@ -57,11 +56,3 @@ if RSS_FILE_PATH is None:
 SAVE_RSS_FILES = os.environ.get('SAVE_RSS_FILES', "0")
 SAVE_RSS_FILES = SAVE_RSS_FILES == "1"  # translate to more useful boolean value
 logger.info("  SAVE_RSS_FILES: {}".format(SAVE_RSS_FILES))
-
-
-def create_flask_app() -> Flask:
-    """
-    Create and configure the Flask app. Standard practice is to do this in a factory method like this.
-    :return: a fully configured Flask web app
-    """
-    return Flask(__name__)
