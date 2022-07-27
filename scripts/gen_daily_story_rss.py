@@ -2,13 +2,13 @@ import datetime
 import logging
 import datetime as dt
 import os.path
-from feedgen.feed import FeedGenerator
 from sqlalchemy import text
 import gzip
 import shutil
 
-import fetcher.feedgen.ext.mediacloud
-from fetcher import base_dir, VERSION, engine, RSS_FILE_PATH
+from fetcher import base_dir, engine, RSS_FILE_PATH
+import fetcher.rss.rsswriter as rsswriter
+import fetcher.util as util
 
 HISTORY = 14
 
@@ -36,36 +36,28 @@ if __name__ == '__main__':
             filepath = os.path.join(target_dir, filename)
             compressed_filepath = '{}.gz'.format(filepath)
             if not os.path.exists(compressed_filepath):
-                # start a feed
-                fg = FeedGenerator()
-                #fg.load_extension('mediacloud')
-                fg.register_extension('mediacloud',
-                                      fetcher.feedgen.ext.mediacloud.MediacloudExtension,
-                                      fetcher.feedgen.ext.mediacloud.MediacloudEntryExtension)
-                fg.title("Media Cloud URL Snapshot for {}".format(day))
-                fg.description("Auto generated feed of all stories discovered on the specified day - {}".format(VERSION))
-                fg.link(href="https://mediacloud.org/")
-                # grab the stories fetched on that day
-                # (ignore ones that didn't have URLs - ie. podcast feeds, which have `<enclosure url="...">` instead)
-                story_count = 0
-                query = """
-                    select id, url, guid, published_at, domain, title
-                    from stories
-                    where fetched_at::date = '{}'::date and url is not NULL
-                """.format(day.strftime("%Y-%m-%d"))
-                with engine.begin() as connection:  # will auto-close
-                    result = connection.execute(text(query))
-                    for row in result:
-                        story = dict(row)
-                        fe = fg.add_entry()
-                        fe.id(story['guid'])
-                        fe.title(story['title'] if 'title' in story else None)
-                        fe.link(href=story['url'])
-                        fe.pubDate(story['published_at'])
-                        fe.mediacloud.canonical_domain = story['domain']
-                        fe.content("")
-                        story_count += 1
-                fg.rss_file(filepath)
+                with open(filepath, 'w') as outfile:
+                    rsswriter.add_header(outfile, day)
+                    # grab the stories fetched on that day
+                    # (ignore ones that didn't have URLs - ie. podcast feeds, which have `<enclosure url="...">` instead)
+                    story_count = 0
+                    query = """
+                        select id, url, guid, published_at, domain, title
+                        from stories
+                        where fetched_at::date = '{}'::date and url is not NULL
+                    """.format(day.strftime("%Y-%m-%d"))
+                    with engine.begin() as connection:  # will auto-close
+                        result = connection.execute(text(query))
+                        for row in result:
+                            story = dict(row)
+                            try:
+                                rsswriter.add_item(outfile, story['url'], story['published_at'], story['domain'],
+                                                   util.clean_str(story['title']) if 'title' in story else None)
+                            except Exception as e:
+                                # probably some kind of XML encoding problem, just log and skip
+                                logger.warning("Skipped story {} - {}".format(story['id'], str(e)))
+                            story_count += 1
+                    rsswriter.add_footer(outfile)
                 logger.info("   Found {} stories".format(story_count))
                 logger.info("   Wrote out to {}".format(filepath))
                 # compress for storage and transmission speed
