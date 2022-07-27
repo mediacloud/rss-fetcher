@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+## v0.11.0
+
+Write out own feed so we can customize error handling and fields outputted more closely. Also fix a small URL validity
+check bug fix.
+
 ## v0.10.5
 
 Fix bug in function call
