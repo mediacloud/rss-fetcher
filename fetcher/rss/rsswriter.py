@@ -37,7 +37,10 @@ def add_item(file, link: str, pub_date: dt.datetime, domain: str, title: Optiona
     with open(os.path.join(template_path, "item.template")) as f:
         template_str = f.read()
     tm = Template(template_str)
-    content = tm.render(link=_escape(link), pub_date=formatdate(pub_date), domain=_escape(domain),
+    date_for_output = ""
+    if pub_date is not None:
+        date_for_output = formatdate(pub_date.timestamp())
+    content = tm.render(link=_escape(link), pub_date=date_for_output, domain=_escape(domain),
                         title=_escape(title))
     file.write(content)
     file.write(content)
