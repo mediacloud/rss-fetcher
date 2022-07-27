@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.11.5
+
+Safer normalized title/url queries.
+
 ## v0.11.4
 
 Refactored database code to support testing. Also handling failure counting more robustly now.
