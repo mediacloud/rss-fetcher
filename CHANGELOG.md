@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.11.6
+
+Skip homepage-like URLs.
+
 ## v0.11.5
 
 Safer normalized title/url queries.
