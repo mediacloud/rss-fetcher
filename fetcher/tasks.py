@@ -10,6 +10,7 @@ import hashlib
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
 from psycopg2.errors import UniqueViolation
 from celery import Task
+from mcmetadata import urls
 
 from fetcher import path_to_log_dir, SAVE_RSS_FILES
 from fetcher.celery import app
@@ -173,6 +174,10 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
         try:
             if not util.is_absolute_url(entry.link):  # skip relative URLs
                 logger.debug(" * skip relative URL: {}".format(entry.link))
+                skipped_count += 1
+                continue
+            if urls.is_homepage_url(entry.link):
+                logger.debug(" * skip homepage URL: {}".format(entry.link))
                 skipped_count += 1
                 continue
             s = models.Story.from_rss_entry(feed['id'], now, entry)
