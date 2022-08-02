@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.11.7
+
+Fix requirements bug by forcing a minimum verison of mediacloud-metadata library.
+
 ## v0.11.6
 
 Skip homepage-like URLs.
