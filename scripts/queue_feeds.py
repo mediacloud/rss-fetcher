@@ -1,6 +1,7 @@
 import logging
 import datetime as dt
 from sqlalchemy import text
+import sys
 
 from fetcher import MAX_FEEDS
 import fetcher.tasks as tasks
@@ -14,23 +15,33 @@ if __name__ == '__main__':
     logger.info("Starting Feed Queueing")
     now = dt.datetime.now()
 
-    # Find some syndicated and active feeds we need to check. This includes ones that:
-    #  a) we haven't attempted to fetch it yet OR
-    #  b) we haven't attempted to fetch it recently  OR
-    #  c) we attempted to fetch it, but it hasn't succeeded ever
-    # AND excludes ones that have failed to respond with content 3 times in a row
-    query = """
-        select id, url, last_fetch_hash, mc_media_id, mc_feeds_id from feeds
-        where (
-            (last_fetch_attempt is NULL)
-            OR
-            (last_fetch_attempt <= NOW() - INTERVAL '1 DAY')
-            OR
-            ((last_fetch_attempt is not NULL) and (last_fetch_success is NULL))
-          ) and (type='syndicated') and (active=true) and ((last_fetch_failures is NULL) OR (last_fetch_failures < 3))
-        order by last_fetch_attempt ASC, id DESC
-        LIMIT {}
-    """.format(MAX_FEEDS)
+    # support passing in a specific feed id on command line
+    arg_count = len(sys.argv)
+    query_start = "select id, url, last_fetch_hash, mc_media_id, mc_feeds_id from feeds "
+    if arg_count == 2:
+        feed_id = int(sys.argv[1])
+        query = query_start + """
+            where id = {}
+        """.format(feed_id)
+    else:
+        # no id, so default to regular automated behaviour:
+        # Find some syndicated and active feeds we need to check. This includes ones that:
+        #  a) we haven't attempted to fetch it yet OR
+        #  b) we haven't attempted to fetch it recently  OR
+        #  c) we attempted to fetch it, but it hasn't succeeded ever
+        # AND excludes ones that have failed to respond with content 3 times in a row
+        query = query_start + """
+            where (
+                (last_fetch_attempt is NULL)
+                OR
+                (last_fetch_attempt <= NOW() - INTERVAL '1 DAY')
+                OR
+                ((last_fetch_attempt is not NULL) and (last_fetch_success is NULL))
+              ) and (type='syndicated') and (active=true) and ((last_fetch_failures is NULL) OR (last_fetch_failures < 3))
+            order by last_fetch_attempt ASC, id DESC
+            LIMIT {}
+        """.format(MAX_FEEDS)
+
     feeds_needing_update = []
     with engine.begin() as connection:  # will automatically close
         result = connection.execute(text(query))
