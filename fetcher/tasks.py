@@ -183,14 +183,18 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
             s = models.Story.from_rss_entry(feed['id'], now, entry)
             s.media_id = feed['mc_media_id']
             # only save if url is unique, and title is unique recently
-            if not normalized_url_exists(session, s.normalized_url) \
-                    and not normalized_title_exists(session, s.normalized_title_hash, s.media_id):
-                # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
-                # those are *expected* errors, so we can ignore them
-                with session.begin():
-                    session.add(s)
-                    session.commit()
+            if not normalized_url_exists(session, s.normalized_url):
+                if not normalized_title_exists(session, s.normalized_title_hash, s.media_id):
+                    # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
+                    # those are *expected* errors, so we can ignore them
+                    with session.begin():
+                        session.add(s)
+                        session.commit()
+                else:
+                    logger.debug(" * skip duplicate title URL: {} | {} | {}".format(entry.link, s.normalized_title_hash, s.media_id))
+                    skipped_count += 1
             else:
+                logger.debug(" * skip duplicate normalized URL: {} | {}".format(entry.link, s.normalized_url))
                 skipped_count += 1
         except (AttributeError, KeyError) as exc:
             # couldn't parse the entry - skip it
