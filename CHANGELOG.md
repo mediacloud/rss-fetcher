@@ -1,10 +1,14 @@
 Change Log
 ==========
 
+## v0.11.9
+
+Pull in more aggresive URL query param removal for URL normalization.
+
 ## v0.11.8
 
 Disable extra verbose debugging. Also update some requirements.
-
+`
 ## v0.11.7
 
 Fix requirements bug by forcing a minimum verison of mediacloud-metadata library.
