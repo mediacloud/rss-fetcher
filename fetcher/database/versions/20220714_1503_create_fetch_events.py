@@ -31,5 +31,5 @@ def upgrade():
 
 def downgrade():
     op.drop_table('fetch_events')
-    op.drop_index('fetch_events_feeds_id', 'fetch_events')
+    #op.drop_index('fetch_events_feeds_id', 'fetch_events')
     #pass

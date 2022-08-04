@@ -17,11 +17,11 @@ if __name__ == '__main__':
 
     # support passing in a specific feed id on command line
     arg_count = len(sys.argv)
-    query_start = "select id, url, last_fetch_hash, mc_media_id, mc_feeds_id from feeds "
+    query_start = "select id, url, last_fetch_hash, media_id from feeds "
     feed_id = None
     try:
         feed_id = int(sys.argv[1])
-    except ValueError:
+    except (ValueError, IndexError):
         pass
     if feed_id:
         query = query_start + """

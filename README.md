@@ -19,6 +19,7 @@ Running
 -------
 
 Various scripts run each separate component:
+ * `python -m scripts.import_feeds my-feeds.csv`: Use this to import from a CSV dump of feeds (a one-time operation)
  * `run-fetch-rss-feeds.sh`: Fill up the queue with new RSS URLs to fetch (run via cron every 30 mins)
  * `run-rss-workers.sh`: Start the workers that fetch feeds and pull out story URLs (run once)
  * `run-gen-daily-story-rss.sh`: Generate the daily files of URLs found on each day (run nightly)

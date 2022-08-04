@@ -118,3 +118,5 @@ logs/rss-files/*.rss
 logs/rss-files/*.json
 fetcher/static/*.rss
 fetcher/static/*.gz
+backup/export
+tmp/

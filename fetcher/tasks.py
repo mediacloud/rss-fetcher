@@ -34,15 +34,14 @@ def _save_rss_file(feed: Dict, response):
     summary = {
         'id': feed['id'],
         'url': feed['url'],
-        'mcFeedsId': feed['mc_feeds_id'],
-        'mcMediaId': feed['mc_media_id'],
+        'mediaId': feed['media_id'],
         'statusCode': response.status_code,
         'headers': dict(response.headers),
     }
-    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['mc_media_id'])), 'w',
+    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['media_id'])), 'w',
               encoding='utf-8') as f:
         json.dump(summary, f, indent=4)
-    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-content.rss".format(feed['mc_media_id'])), 'w', encoding='utf-8') as f:
+    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-content.rss".format(feed['media_id'])), 'w', encoding='utf-8') as f:
         f.write(response.text)
 
 
@@ -181,7 +180,7 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
                 skipped_count += 1
                 continue
             s = models.Story.from_rss_entry(feed['id'], now, entry)
-            s.media_id = feed['mc_media_id']
+            s.media_id = feed['media_id']
             # only save if url is unique, and title is unique recently
             if not normalized_url_exists(session, s.normalized_url):
                 if not normalized_title_exists(session, s.normalized_title_hash, s.media_id):

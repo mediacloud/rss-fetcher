@@ -30,5 +30,5 @@ def downgrade():
     op.drop_column('stories', 'normalized_title')
     op.drop_column('stories', 'normalized_title_hash')
     op.create_unique_constraint('stories_unique_url', 'stories', ['url'])
-    op.drop_index('unique_story_url', 'stories')
-    op.drop_index('unique_story_title', 'stories')
+    #op.drop_index('unique_story_url', 'stories')
+    #op.drop_index('unique_story_title', 'stories')

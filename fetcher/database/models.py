@@ -21,8 +21,7 @@ class Feed(Base):
     __tablename__ = 'feeds'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    mc_feeds_id = Column(BigInteger)
-    mc_media_id = Column(BigInteger)
+    media_id = Column(BigInteger)
     name = Column(String)
     url = Column(String)
     active = Column(Boolean)
@@ -31,11 +30,11 @@ class Feed(Base):
     last_fetch_success = Column(DateTime)
     last_fetch_hash = Column(String)
     last_fetch_failures = Column(Integer)
-    import_round = Column(Integer)
+    created_at = Column(DateTime)
 
     def __repr__(self):
-        return '<Feed id={} name={} mc_media_id={} mc_feeds_id={}>'.format(
-            self.id, self.name, self.mc_media_id, self.mc_feeds_id)
+        return '<Feed id={} name={} media_id={}>'.format(
+            self.id, self.name, self.media_id)
 
     def as_dict(self):
         return _class_as_dict(self)
