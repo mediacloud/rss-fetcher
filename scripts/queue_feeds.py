@@ -38,7 +38,7 @@ if __name__ == '__main__':
             where (
                 (last_fetch_attempt is NULL)
                 OR
-                (last_fetch_attempt <= NOW() - INTERVAL '1 DAY')
+                (last_fetch_attempt <= NOW() - INTERVAL '12 hours')
                 OR
                 ((last_fetch_attempt is not NULL) and (last_fetch_success is NULL))
               ) and (type='syndicated') and (active=true) and ((last_fetch_failures is NULL) OR (last_fetch_failures < 3))
