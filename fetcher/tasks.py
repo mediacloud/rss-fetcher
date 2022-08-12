@@ -1,5 +1,7 @@
 import os
 import datetime as dt
+
+import mcmetadata.urls
 import requests
 import feedparser
 import json
@@ -176,11 +178,15 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
                 logger.debug(" * skip relative URL: {}".format(entry.link))
                 skipped_count += 1
                 continue
-            if urls.is_homepage_url(entry.link):
+            if urls.is_homepage_url(entry.link):  # and skip very common homepage patterns
                 logger.debug(" * skip homepage URL: {}".format(entry.link))
                 skipped_count += 1
                 continue
             s = models.Story.from_rss_entry(feed['id'], now, entry)
+            if s.domain in mcmetadata.urls.NON_NEWS_DOMAINS:  # skip urls from high-quantity domains we see in feeds
+                logger.debug(" * skip non_news_domain URL: {}".format(entry.link))
+                skipped_count += 1
+                continue
             s.media_id = feed['mc_media_id']
             # only save if url is unique, and title is unique recently
             if not normalized_url_exists(session, s.normalized_url):
