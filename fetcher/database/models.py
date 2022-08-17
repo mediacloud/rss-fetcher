@@ -21,7 +21,7 @@ class Feed(Base):
     __tablename__ = 'feeds'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    media_id = Column(BigInteger)
+    sources_id = Column(BigInteger)
     name = Column(String)
     url = Column(String)
     active = Column(Boolean)
@@ -33,8 +33,8 @@ class Feed(Base):
     created_at = Column(DateTime)
 
     def __repr__(self):
-        return '<Feed id={} name={} media_id={}>'.format(
-            self.id, self.name, self.media_id)
+        return '<Feed id={} name={} sources_id={}>'.format(
+            self.id, self.name, self.sources_id)
 
     def as_dict(self):
         return _class_as_dict(self)
@@ -45,7 +45,7 @@ class Story(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     feed_id = Column(BigInteger)
-    media_id = Column(BigInteger)
+    sources_id = Column(BigInteger)
     url = Column(String)
     normalized_url = Column(String)
     guid = Column(String)

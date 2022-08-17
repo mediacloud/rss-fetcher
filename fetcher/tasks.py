@@ -34,14 +34,14 @@ def _save_rss_file(feed: Dict, response):
     summary = {
         'id': feed['id'],
         'url': feed['url'],
-        'mediaId': feed['media_id'],
+        'sourcesId': feed['sources_id'],
         'statusCode': response.status_code,
         'headers': dict(response.headers),
     }
-    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['media_id'])), 'w',
+    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['sources_id'])), 'w',
               encoding='utf-8') as f:
         json.dump(summary, f, indent=4)
-    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-content.rss".format(feed['media_id'])), 'w', encoding='utf-8') as f:
+    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-content.rss".format(feed['sources_id'])), 'w', encoding='utf-8') as f:
         f.write(response.text)
 
 
@@ -62,16 +62,16 @@ class DBTask(Task):
         return self._session
 
 
-def normalized_title_exists(session, normalized_title_hash: str, media_id: int, day_window: int = 7) -> bool:
-    if normalized_title_hash is None or media_id is None:
+def normalized_title_exists(session, normalized_title_hash: str, sources_id: int, day_window: int = 7) -> bool:
+    if normalized_title_hash is None or sources_id is None:
         # err on the side of keeping URLs
         return False
     earliest_date = dt.date.today() - dt.timedelta(days=day_window)
     query = "select id from stories " \
-            "where (published_at >= '{}'::DATE) AND (normalized_title_hash = :hash_title) and (media_id=:media_id)"\
+            "where (published_at >= '{}'::DATE) AND (normalized_title_hash = :hash_title) and (sources_id=:sources_id)"\
         .format(earliest_date)
     with session.begin():
-        matches = [r for r in session.execute(query, params=dict(hash_title=normalized_title_hash, media_id=media_id))]
+        matches = [r for r in session.execute(query, params=dict(hash_title=normalized_title_hash, sources_id=sources_id))]
     return len(matches) > 0
 
 
@@ -180,17 +180,17 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
                 skipped_count += 1
                 continue
             s = models.Story.from_rss_entry(feed['id'], now, entry)
-            s.media_id = feed['media_id']
+            s.sources_id = feed['sources_id']
             # only save if url is unique, and title is unique recently
             if not normalized_url_exists(session, s.normalized_url):
-                if not normalized_title_exists(session, s.normalized_title_hash, s.media_id):
+                if not normalized_title_exists(session, s.normalized_title_hash, s.sources_id):
                     # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
                     # those are *expected* errors, so we can ignore them
                     with session.begin():
                         session.add(s)
                         session.commit()
                 else:
-                    logger.debug(" * skip duplicate title URL: {} | {} | {}".format(entry.link, s.normalized_title_hash, s.media_id))
+                    logger.debug(" * skip duplicate title URL: {} | {} | {}".format(entry.link, s.normalized_title_hash, s.sources_id))
                     skipped_count += 1
             else:
                 logger.debug(" * skip duplicate normalized URL: {} | {}".format(entry.link, s.normalized_url))

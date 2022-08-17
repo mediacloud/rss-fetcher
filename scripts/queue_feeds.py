@@ -15,9 +15,9 @@ if __name__ == '__main__':
     logger.info("Starting Feed Queueing")
     now = dt.datetime.now()
 
-    # support passing in a specific feed id on command line
+    # support passing in a specific feed id on the command line
     arg_count = len(sys.argv)
-    query_start = "select id, url, last_fetch_hash, media_id from feeds "
+    query_start = "select id, url, last_fetch_hash, sources_id from feeds "
     feed_id = None
     try:
         feed_id = int(sys.argv[1])

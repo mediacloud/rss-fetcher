@@ -35,15 +35,16 @@ if __name__ == '__main__':
     input_file = csv.DictReader(open(filename))
     with engine.begin() as conn:  # will automatically close
         result = conn.execute(text("DELETE FROM feeds;"))
+        result = conn.execute(text("DELETE FROM fetch_events;"))
+        result = conn.execute(text("DELETE FROM stories;"))
     with Session() as session:
         for row in input_file:
             f = models.Feed(
-                id=row['feeds_id'],
+                id=row['id'],
                 url=row['url'],
-                media_id=row['media_id'],
+                sources_id=row['sources_id'],
                 name=row['name'],
-                type=row['type'],
-                active=(row['active'] == 't'),
+                active=True,
                 created_at=dt.datetime.now()
             )
             if f.type == 'syndicated':

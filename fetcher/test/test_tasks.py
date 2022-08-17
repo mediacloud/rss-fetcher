@@ -75,7 +75,7 @@ class TestFetchFeedContent(DBTest):
 
     def _create_feed(self):
         f = models.Feed()
-        f.media_id = 1
+        f.sources_id = 1
         f.name = "Media Cloud"
         f.url = "https://mediacloud.org"
         f.active = True
@@ -130,7 +130,7 @@ class TestSaveStoriesFromFeed(DBTest):
         parsed_feed = feedparser.parse(content)
         assert len(parsed_feed.entries) == 195
         with self._Session() as session:
-            feed = dict(id=1, media_id=1, name='cnn')
+            feed = dict(id=1, sources_id=1, name='cnn')
             tasks.save_stories_from_feed(session, dt.datetime.now(), feed, parsed_feed)
             total_stories = session.query(models.Story.id).count()
             assert total_stories == 195
@@ -144,7 +144,7 @@ class TestSaveStoriesFromFeed(DBTest):
         parsed_feed = feedparser.parse(content)
         assert len(parsed_feed.entries) == 69
         with self._Session() as session:
-            feed = dict(id=1, media_id=1, name='cnn')
+            feed = dict(id=1, sources_id=1, name='cnn')
             tasks.save_stories_from_feed(session, dt.datetime.now(), feed, parsed_feed)
             total_stories = session.query(models.Story.id).count()
             assert total_stories == 69
@@ -158,7 +158,7 @@ class TestSaveStoriesFromFeed(DBTest):
         parsed_feed = feedparser.parse(content)
         assert len(parsed_feed.entries) == 69
         with self._Session() as session:
-            feed = dict(id=1, media_id=1, name='cnn')
+            feed = dict(id=1, sources_id=1, name='cnn')
             saved, skipped = tasks.save_stories_from_feed(session, dt.datetime.now(), feed, parsed_feed)
             assert saved == 69
             assert skipped == 0
