@@ -79,7 +79,6 @@ class TestFetchFeedContent(DBTest):
         f.name = "Media Cloud"
         f.url = "https://mediacloud.org"
         f.active = True
-        f.type = "syndicated"
         f.last_fetch_attempt = None
         f.last_fetch_success = None
         f.last_fetch_hash = None

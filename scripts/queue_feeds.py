@@ -29,7 +29,7 @@ if __name__ == '__main__':
         """.format(feed_id)
     else:
         # no id, so default to regular automated behaviour:
-        # Find some syndicated and active feeds we need to check. This includes ones that:
+        # Find some active feeds we need to check. This includes ones that:
         #  a) we haven't attempted to fetch it yet OR
         #  b) we haven't attempted to fetch it recently  OR
         #  c) we attempted to fetch it, but it hasn't succeeded ever
@@ -41,7 +41,7 @@ if __name__ == '__main__':
                 (last_fetch_attempt <= NOW() - INTERVAL '1 DAY')
                 OR
                 ((last_fetch_attempt is not NULL) and (last_fetch_success is NULL))
-              ) and (type='syndicated') and (active=true) and ((last_fetch_failures is NULL) OR (last_fetch_failures < 3))
+              ) and (active=true) and ((last_fetch_failures is NULL) OR (last_fetch_failures < 3))
             order by last_fetch_attempt ASC, id DESC
             LIMIT {}
         """.format(MAX_FEEDS)

@@ -25,7 +25,6 @@ class Feed(Base):
     name = Column(String)
     url = Column(String)
     active = Column(Boolean)
-    type = Column(String)
     last_fetch_attempt = Column(DateTime)
     last_fetch_success = Column(DateTime)
     last_fetch_hash = Column(String)

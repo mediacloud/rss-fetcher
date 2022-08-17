@@ -47,6 +47,5 @@ if __name__ == '__main__':
                 active=True,
                 created_at=dt.datetime.now()
             )
-            if f.type == 'syndicated':
-                session.add(f)
+            session.add(f)
         session.commit()
