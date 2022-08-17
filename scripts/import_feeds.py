@@ -34,9 +34,9 @@ if __name__ == '__main__':
     logger.info("Importing from {}".format(filename))
     input_file = csv.DictReader(open(filename))
     with engine.begin() as conn:  # will automatically close
-        result = conn.execute(text("DELETE FROM feeds;"))
-        result = conn.execute(text("DELETE FROM fetch_events;"))
-        result = conn.execute(text("DELETE FROM stories;"))
+        conn.execute(text("DELETE FROM feeds;"))
+        conn.execute(text("DELETE FROM fetch_events;"))
+        conn.execute(text("DELETE FROM stories;"))
     with Session() as session:
         for row in input_file:
             f = models.Feed(
