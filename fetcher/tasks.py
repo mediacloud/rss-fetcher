@@ -162,7 +162,13 @@ def fetch_feed_content(session, now: dt.datetime, feed: Dict):
         logger.info("  Feed {} - skipping, same hash".format(feed['id']))
         save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED, "same hash")
         return None
-    parsed_feed = _parse_feed(session, feed['id'], response.content)
+    parsed_feed = _parse_feed(session, feed['id'], response.text)
+    # update feed title (if it has one and it changed)
+    with session.begin():
+        f = session.query(models.Feed).get(feed['id'])
+        if (parsed_feed is not None) and (len(parsed_feed.feed.title) > 0) and (f.name != parsed_feed.feed.title):
+            f.title = parsed_feed.feed.title
+            session.commit()
     return parsed_feed
 
 
