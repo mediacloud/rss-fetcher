@@ -36,15 +36,14 @@ def _save_rss_file(feed: Dict, response):
     summary = {
         'id': feed['id'],
         'url': feed['url'],
-        'mcFeedsId': feed['mc_feeds_id'],
-        'mcMediaId': feed['mc_media_id'],
+        'sourcesId': feed['sources_id'],
         'statusCode': response.status_code,
         'headers': dict(response.headers),
     }
-    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['mc_media_id'])), 'w',
+    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['sources_id'])), 'w',
               encoding='utf-8') as f:
         json.dump(summary, f, indent=4)
-    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-content.rss".format(feed['mc_media_id'])), 'w', encoding='utf-8') as f:
+    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-content.rss".format(feed['sources_id'])), 'w', encoding='utf-8') as f:
         f.write(response.text)
 
 
@@ -65,16 +64,16 @@ class DBTask(Task):
         return self._session
 
 
-def normalized_title_exists(session, normalized_title_hash: str, media_id: int, day_window: int = 7) -> bool:
-    if normalized_title_hash is None or media_id is None:
+def normalized_title_exists(session, normalized_title_hash: str, sources_id: int, day_window: int = 7) -> bool:
+    if normalized_title_hash is None or sources_id is None:
         # err on the side of keeping URLs
         return False
     earliest_date = dt.date.today() - dt.timedelta(days=day_window)
     query = "select id from stories " \
-            "where (published_at >= '{}'::DATE) AND (normalized_title_hash = :hash_title) and (media_id=:media_id)"\
+            "where (published_at >= '{}'::DATE) AND (normalized_title_hash = :hash_title) and (sources_id=:sources_id)"\
         .format(earliest_date)
     with session.begin():
-        matches = [r for r in session.execute(query, params=dict(hash_title=normalized_title_hash, media_id=media_id))]
+        matches = [r for r in session.execute(query, params=dict(hash_title=normalized_title_hash, sources_id=sources_id))]
     return len(matches) > 0
 
 
@@ -165,7 +164,13 @@ def fetch_feed_content(session, now: dt.datetime, feed: Dict):
         logger.info("  Feed {} - skipping, same hash".format(feed['id']))
         save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED, "same hash")
         return None
-    parsed_feed = _parse_feed(session, feed['id'], response.content)
+    parsed_feed = _parse_feed(session, feed['id'], response.text)
+    # update feed title (if it has one and it changed)
+    with session.begin():
+        f = session.query(models.Feed).get(feed['id'])
+        if (parsed_feed is not None) and (len(parsed_feed.feed.title) > 0) and (f.name != parsed_feed.feed.title):
+            f.title = parsed_feed.feed.title
+            session.commit()
     return parsed_feed
 
 
@@ -183,21 +188,22 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
                 skipped_count += 1
                 continue
             s = models.Story.from_rss_entry(feed['id'], now, entry)
-            if s.domain in mcmetadata.urls.NON_NEWS_DOMAINS:  # skip urls from high-quantity domains we see in feeds
+            # skip urls from high-quantity non-news domains we see a lot in feeds
+            if s.domain in mcmetadata.urls.NON_NEWS_DOMAINS:
                 logger.debug(" * skip non_news_domain URL: {}".format(entry.link))
                 skipped_count += 1
                 continue
-            s.media_id = feed['mc_media_id']
+            s.sources_id = feed['sources_id']
             # only save if url is unique, and title is unique recently
             if not normalized_url_exists(session, s.normalized_url):
-                if not normalized_title_exists(session, s.normalized_title_hash, s.media_id):
+                if not normalized_title_exists(session, s.normalized_title_hash, s.sources_id):
                     # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
                     # those are *expected* errors, so we can ignore them
                     with session.begin():
                         session.add(s)
                         session.commit()
                 else:
-                    logger.debug(" * skip duplicate title URL: {} | {} | {}".format(entry.link, s.normalized_title_hash, s.media_id))
+                    logger.debug(" * skip duplicate title URL: {} | {} | {}".format(entry.link, s.normalized_title_hash, s.sources_id))
                     skipped_count += 1
             else:
                 logger.debug(" * skip duplicate normalized URL: {} | {}".format(entry.link, s.normalized_url))

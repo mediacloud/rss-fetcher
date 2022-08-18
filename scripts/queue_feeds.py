@@ -15,13 +15,13 @@ if __name__ == '__main__':
     logger.info("Starting Feed Queueing")
     now = dt.datetime.now()
 
-    # support passing in a specific feed id on command line
+    # support passing in a specific feed id on the command line
     arg_count = len(sys.argv)
-    query_start = "select id, url, last_fetch_hash, mc_media_id, mc_feeds_id from feeds "
+    query_start = "select id, url, last_fetch_hash, sources_id from feeds "
     feed_id = None
     try:
         feed_id = int(sys.argv[1])
-    except ValueError:
+    except (ValueError, IndexError):
         pass
     if feed_id:
         query = query_start + """
@@ -29,7 +29,7 @@ if __name__ == '__main__':
         """.format(feed_id)
     else:
         # no id, so default to regular automated behaviour:
-        # Find some syndicated and active feeds we need to check. This includes ones that:
+        # Find some active feeds we need to check. This includes ones that:
         #  a) we haven't attempted to fetch it yet OR
         #  b) we haven't attempted to fetch it recently  OR
         #  c) we attempted to fetch it, but it hasn't succeeded ever
@@ -41,7 +41,7 @@ if __name__ == '__main__':
                 (last_fetch_attempt <= NOW() - INTERVAL '12 hours')
                 OR
                 ((last_fetch_attempt is not NULL) and (last_fetch_success is NULL))
-              ) and (type='syndicated') and (active=true) and ((last_fetch_failures is NULL) OR (last_fetch_failures < 3))
+              ) and (active=true) and ((last_fetch_failures is NULL) OR (last_fetch_failures < 3))
             order by last_fetch_attempt ASC, id DESC
             LIMIT {}
         """.format(MAX_FEEDS)
