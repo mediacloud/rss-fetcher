@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+## v0.11.11
+
+Integrate non-news-domain skiplist from mcmetadata library.
+
+## v0.11.10
+
+Increase default fetch frequency to twice a day.
+
 ## v0.11.9
 
 Pull in more aggresive URL query param removal for URL normalization.
