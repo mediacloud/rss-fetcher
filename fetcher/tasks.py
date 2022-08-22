@@ -166,11 +166,16 @@ def fetch_feed_content(session, now: dt.datetime, feed: Dict):
         return None
     parsed_feed = _parse_feed(session, feed['id'], response.text)
     # update feed title (if it has one and it changed)
-    with session.begin():
-        f = session.query(models.Feed).get(feed['id'])
-        if (parsed_feed is not None) and (len(parsed_feed.feed.title) > 0) and (f.name != parsed_feed.feed.title):
-            f.title = parsed_feed.feed.title
-            session.commit()
+    try:
+        with session.begin():
+            f = session.query(models.Feed).get(feed['id'])
+            if (parsed_feed is not None) and (len(parsed_feed.feed.title) > 0) and (f.name != parsed_feed.feed.title):
+                f.title = parsed_feed.feed.title
+                session.commit()
+    except AttributeError:
+        # if the feed has no title that isn't really an error, just skip safely
+        logger.debug("feed {} has no title".format(feed['id']))
+        pass
     return parsed_feed
 
 
@@ -208,7 +213,7 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
             else:
                 logger.debug(" * skip duplicate normalized URL: {} | {}".format(entry.link, s.normalized_url))
                 skipped_count += 1
-        except (AttributeError, KeyError) as exc:
+        except (AttributeError, KeyError, ValueError, UnicodeError) as exc:
             # couldn't parse the entry - skip it
             logger.debug("Missing something on rss entry {}".format(str(exc)))
             skipped_count += 1
