@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.11.12
+
+Handle some more feed and url parsing errors.
+
 ## v0.11.11
 
 Integrate non-news-domain skiplist from mcmetadata library.
@@ -19,7 +23,7 @@ Disable extra verbose debugging. Also update some requirements.
 `
 ## v0.11.7
 
-Fix requirements bug by forcing a minimum verison of mediacloud-metadata library.
+Fix requirements bug by forcing a minimum version of mediacloud-metadata library.
 
 ## v0.11.6
 
