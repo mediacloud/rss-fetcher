@@ -3,7 +3,7 @@ Change Log
 
 ## v0.11.12
 
-Handle some more feed and url parsing errors.
+Handle some more feed and url parsing errors. Update feed title after fetch. Switch database to merged feeds.
 
 ## v0.11.11
 
