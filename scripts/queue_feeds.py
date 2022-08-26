@@ -16,7 +16,12 @@ if __name__ == '__main__':
     now = dt.datetime.now()
 
     # support passing in a specific feed id on the command line
-    arg_count = len(sys.argv)
+
+    # PLB: not adding http_{etag,last_modified} here, since time
+    # sensitive (will be wrong if feed queued more than once), instead
+    # re-fetching row in fetcher (only expects id), but keeping this
+    # unmodified to allow version mismatches.  If/Once we send only the id,
+    # could handle multiple ids on command line.
     query_start = "select id, url, last_fetch_hash, sources_id from feeds "
     feed_id = None
     try:

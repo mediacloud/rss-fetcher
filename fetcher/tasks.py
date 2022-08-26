@@ -29,7 +29,7 @@ logger.addHandler(fileHandler)
 
 RSS_FETCH_TIMEOUT_SECS = 30
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
-
+USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 
 def _save_rss_file(feed: Dict, response):
     # debugging helper method - saves two files for the feed to /logs/rss-feeds
@@ -107,10 +107,23 @@ def save_fetch_event(session, feed_id: int, event: str, note: str):
         session.commit()
         session.close()
 
-
 def _fetch_rss_feed(feed: Dict):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+    headers = { 'User-Agent': USER_AGENT }
+
+    etag = feed.get('http_etag', None)
+    if etag:
+        # If-None-Match takes one or more etag values
+        headers['If-None-Match'] = etag # "value" or W/"value"
+    else:
+        # https://www.rfc-editor.org/rfc/rfc9110.html#name-if-modified-since says
+        #     "A recipient MUST ignore If-Modified-Since if the request
+        #     contains an If-None-Match header field"
+        # The Internet credo is "be conservative in what you send"
+        # so only sending one.
+        lastmod = feed.get('http_last_modified', None)
+        if lastmod:
+            headers['If-Modified-Since'] = lastmod
+
     response = requests.get(feed['url'], headers=headers, timeout=RSS_FETCH_TIMEOUT_SECS)
     return response
 
@@ -144,21 +157,52 @@ def fetch_feed_content(session, now: dt.datetime, feed: Dict):
     # optional logging
     if SAVE_RSS_FILES:
         _save_rss_file(feed, response)
-    # BAIL: HTTP failed
-    if response.status_code != 200:
+
+    # BAIL: HTTP failed (not full response or "Not Changed")
+    if response.status_code != 200 and response.status_code != 304:
         logger.info("  Feed {} - skipping, bad response {} at {}".format(feed['id'], response.status_code, response.url))
         increment_fetch_failure_count(session, feed['id'])
         save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_FAILED,
                          "HTTP {} / {}".format(response.status_code, response.url))
         return None
-    # Mark as a success because it responded with data
+
+    # NOTE! 304 response will not have a body (terminated by end of headers)
+    # so the hash isn't (over)written below.
     new_hash = hashlib.md5(response.content).hexdigest()
+
+    # ETag may be W/"value" or "value", so keep with quotes
+    etag = response.headers.get('ETag', None)
+
+    # kept unparsed; just sent back with If-Modified-Since.
+    lastmod = response.headers.get('Last-Modified', None)
+
+    # Mark as a success because it responded with data, or "not changed"
     with session.begin():
         f = session.query(models.Feed).get(feed['id'])
         f.last_fetch_success = now
-        f.last_fetch_hash = new_hash
+
+        # only save hash from full response (304 has no body)
+        if response.status_code == 200:
+            f.last_fetch_hash = new_hash
+
+        # https://www.rfc-editor.org/rfc/rfc9110.html#status.304
+        # says a 304 response MUST have an ETag if 200 would have.
+        # so always save it.
+        f.http_etag = etag
+
+        # Last-Modified is not required in 304 response!
+        if response.status_code == 200 or lastmod:
+            f.http_last_modified = lastmod
+
         f.last_fetch_failures = 0
         session.commit()
+
+    # BAIL: server says file hasn't changed (no data returned) BEFORE looking at hash!!
+    if response.status_code == 304:
+        logger.info("  Feed {} - skipping, file not modified".format(feed['id']))
+        save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED, "not modified")
+        return None
+
     # BAIL: no changes since last time
     if new_hash == feed['last_fetch_hash']:
         logger.info("  Feed {} - skipping, same hash".format(feed['id']))
@@ -240,7 +284,24 @@ def feed_worker(self, feed: Dict):
     :param feed: the feed to fetch
     """
     now = dt.datetime.now()
-    parsed_feed = fetch_feed_content(self.session, now, feed)
+
+    # re-fetch row to avoid honoring time-sensitive data in queue.
+    # with this in place, scripts/queue_feeds.py need only send id.
+
+    feed_id = feed.get('id', None)
+    if feed_id is None:
+        # XXX PLB log??
+        return
+
+    session = self.session
+    with session.begin():
+        f = session.query(models.Feed).get(feed_id)
+        if f is None:
+            # XXX PLB log??
+            return
+        feed = f.as_dict()      # code expects dict
+
+    parsed_feed = fetch_feed_content(session, now, feed)
     if parsed_feed is None:  # ie. valid content not fetched, so give up here
         return
-    save_stories_from_feed(self.session, now, feed, parsed_feed)
+    save_stories_from_feed(session, now, feed, parsed_feed)
