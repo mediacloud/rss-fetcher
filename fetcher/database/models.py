@@ -32,6 +32,7 @@ class Feed(Base):
     created_at = Column(DateTime)
     http_etag = Column(String)  # "Entity Tag"
     http_last_modified = Column(String)
+    next_fetch_attempt = Column(DateTime)
 
     def __repr__(self):
         return '<Feed id={} name={} sources_id={}>'.format(
