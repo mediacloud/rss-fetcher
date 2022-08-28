@@ -4,6 +4,7 @@ import datetime as dt
 from time import mktime
 from typing import List
 import hashlib
+from numbers import Real        # allows int or float
 
 from fetcher import engine
 import fetcher.util as util
@@ -15,6 +16,16 @@ Base = declarative_base()
 
 def _class_as_dict(obj):
     return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+
+
+def utc(seconds : Real = 0.0):
+    """
+    Return a UTC datetime with optional offset of `seconds` from current time
+    """
+    d = dt.datetime.utcnow() # or dt.datetime.now(dt.timezone.utc) ??
+    if seconds != 0.0:
+        d += dt.timedelta(seconds=seconds)
+    return d
 
 
 class Feed(Base):
@@ -33,6 +44,8 @@ class Feed(Base):
     http_etag = Column(String)  # "Entity Tag"
     http_last_modified = Column(String)
     next_fetch_attempt = Column(DateTime)
+    queued = Column(Boolean, nullable=False, server_default=text('false'))
+    system_enabled = Column(Boolean, nullable=False, server_default=text('true'))
 
     def __repr__(self):
         return '<Feed id={} name={} sources_id={}>'.format(

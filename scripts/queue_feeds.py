@@ -1,8 +1,11 @@
 import logging
 import datetime as dt
-from sqlalchemy import text
 import sys
 
+# PyPI
+from sqlalchemy import text, or_
+
+# app
 from fetcher import MAX_FEEDS
 import fetcher.tasks as tasks
 from fetcher.database import engine, Session
@@ -15,55 +18,37 @@ if __name__ == '__main__':
     logger.info("Starting Feed Queueing")
     now = dt.datetime.now()
 
-    # support passing in a specific feed id on the command line
-
-    # PLB: not adding http_{etag,last_modified} here, since time
-    # sensitive (will be wrong if feed queued more than once), instead
-    # re-fetching row in fetcher (only expects id), but keeping this
-    # unmodified to allow version mismatches.  If/Once we send only the id,
-    # could handle multiple ids on command line.
-    query_start = "select id, url, last_fetch_hash, sources_id from feeds "
-    feed_id = None
-    try:
-        feed_id = int(sys.argv[1])
-    except (ValueError, IndexError):
-        pass
-    if feed_id:
-        query = query_start + """
-            where id = {}
-        """.format(feed_id)
+    # support passing in one or more feed ids on the command line
+    args = sys.argv[1:]         # PLB want just positional args
+    if args:
+        feed_ids = [int(id) for id in args]
     else:
-        # no id, so default to regular automated behaviour:
-        # Find some active feeds we need to check. This includes ones that:
-        #  a) we haven't attempted to fetch it yet OR
-        #  b) we haven't attempted to fetch it recently  OR
-        #  c) we attempted to fetch it, but it hasn't succeeded ever
-        # AND excludes ones that have failed to respond with content 3 times in a row
-        query = query_start + """
-            where (
-                (last_fetch_attempt is NULL)
-                OR
-                (last_fetch_attempt <= NOW() - INTERVAL '12 hours')
-                OR
-                ((last_fetch_attempt is not NULL) and (last_fetch_success is NULL))
-              ) and (active=true) and ((last_fetch_failures is NULL) OR (last_fetch_failures < 3))
-            order by last_fetch_attempt ASC, id DESC
-            LIMIT {}
-        """.format(MAX_FEEDS)
+        # no ids on command line, so default to regular automated behaviour:
+        # Find some active, unqueued feeds that have not been checked,
+        # or are past due for a check (oldest first).
+        with Session.begin() as session:  # this automatically commits and closes
+            rows = session.query(models.Feed)\
+                          .filter(models.Feed.active.is_(True),
+                                  models.Feed.system_enabled.is_(True),
+                                  models.Feed.queued.is_(False),
+                                  or_(models.Feed.next_fetch_attempt.is_(None),
+                                      models.Feed.next_fetch_attempt <= models.utc()))\
+                          .order_by(models.Feed.next_fetch_attempt.asc(),
+                                    models.Feed.id.desc())\
+                          .all()
+            feed_ids = [row.id for row in rows]
 
-    feeds_needing_update = []
-    with engine.begin() as connection:  # will automatically close
-        result = connection.execute(text(query))
-        for row in result:
-            feeds_needing_update.append(row['id'])
-            tasks.feed_worker.delay(dict(row))
-
-    # mark that we've queued them
+    # mark as queued first to avoid race with workers
     with Session.begin() as session:  # this automatically commits and closes
-        for feed_id in feeds_needing_update:
-            f = session.query(models.Feed).get(feed_id)
-            f.last_fetch_attempt = now
-            fe = models.FetchEvent.from_info(feed_id, models.FetchEvent.EVENT_QUEUED)
-            session.add(fe)
+        session.query(models.Feed)\
+               .filter(models.Feed.id.in_(feed_ids))\
+               .update({'last_fetch_attempt': now, 'queued': True}, # PLB just set queued??
+                       synchronize_session=False)
+        for feed_id in feed_ids:
+            session.add(models.FetchEvent.from_info(feed_id, models.FetchEvent.EVENT_QUEUED))
 
-    logger.info("  queued {} feeds".format(len(feeds_needing_update)))
+    # queue work:
+    for id in feed_ids:
+        tasks.feed_worker.delay(id)
+        
+    logger.info("  queued {} feeds".format(len(feed_ids)))

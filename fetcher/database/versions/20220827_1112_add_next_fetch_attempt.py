@@ -1,4 +1,4 @@
-"""add next_fetch_attempt
+"""add next_fetch_attempt, queued, system_enabled
 
 Revision ID: 184509e31258
 Revises: ccbf360c92f8
@@ -17,8 +17,14 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('feeds', sa.Column('next_fetch_attempt', sa.DateTime())) # GMT please!
+    op.add_column('feeds', sa.Column('next_fetch_attempt', sa.DateTime())) # GMT
+    op.add_column('feeds', sa.Column('queued', sa.Boolean,
+                                     nullable=False, server_default=sa.text('false')))
+    op.add_column('feeds', sa.Column('system_enabled', sa.Boolean,
+                                     nullable=False, server_default=sa.text('true')))
 
 
 def downgrade():
-    op.drop_column('feeds', 'next_fetch_attempt_deadline')
+    op.drop_column('feeds', 'next_fetch_attempt')
+    op.drop_column('feeds', 'queued')
+    op.drop_column('feeds', 'system_enabled')

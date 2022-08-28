@@ -1,2 +1,2 @@
 #!/bin/sh
-python -m scripts.queue_feeds $1
+python -m scripts.queue_feeds "$@"
