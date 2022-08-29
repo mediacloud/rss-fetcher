@@ -1,11 +1,23 @@
-# PLB: WISHES:
+# PLB ISSUES to be resolved:
+# search for PLB!
+# ESPECIALLY: when to pass feed_col_updates!!!!
+# database columns w/ timezone?  run worker & PG server w/ TZ=UTC??!!!
+# any times NOT to increment failure count??
+# always pass feed_col_updates???
+
+# PLB: cleanup WISHES
 # convert all "".format calls to f""
 # convert all feed['x'] to feed.x
+# type hints for session objects
+# type hints for void (-> None) functions
+# create NewType for feeds_id?
+# check type hints with mypy
 
 import os
 import datetime as dt
 import json
-from typing import Dict, Tuple
+from numbers import Real
+from typing import Dict, Tuple, Union
 import logging
 import time
 import hashlib
@@ -26,6 +38,9 @@ from fetcher.database import Session
 import fetcher.database.models as models
 import fetcher.util as util
 
+# shorthands:
+FeedParserDict = feedparser.FeedParserDict
+
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 logFormatter = logging.Formatter("[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
 fileHandler = logging.FileHandler(os.path.join(path_to_log_dir, "tasks-{}.log".format(time.strftime("%Y%m%d-%H%M%S"))))
@@ -35,17 +50,19 @@ logger.addHandler(fileHandler)
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 
-# https://web.resource.org/rss/1.0/modules/syndication/
 # RDF Site Summary 1.0 Modules: Syndication
-_DAY = 24*60*60
+# https://web.resource.org/rss/1.0/modules/syndication/
+_DAY_SEC = 24*60*60
 UPDATE_PERIODS_SEC = {
-    '': 60*60,                  # if tag present, but empty, default to a day
     'hourly': 60*60,
-    'daily': _DAY,
-    'dayly': _DAY,              # http://cuba.cu/feed & http://tribuna.cu/feed
-    'monthly': 7*_DAY,
-    'yearly': 365*_DAY,
+    'daily': _DAY_SEC,
+    'dayly': _DAY_SEC,  # http://cuba.cu/feed & http://tribuna.cu/feed
+    'weekly': 7*_DAY_SEC,
+    'monthly': 30*_DAY_SEC,
+    'yearly': 365*_DAY_SEC,
 }
+DEFAULT_UPDATE_PERIOD = 'daily' # specified in Syndication spec
+DEFAULT_UPDATE_FREQUENCY = '1' # specified in Syndication spec
 
 def _save_rss_file(feed: Dict, response):
     # debugging helper method - saves two files for the feed to /logs/rss-feeds
@@ -56,7 +73,7 @@ def _save_rss_file(feed: Dict, response):
         'statusCode': response.status_code,
         'headers': dict(response.headers),
     }
-    # PLB: only save one feed per source? bug and feature!
+    # PLB: only saves one feed per source? bug and feature!
     with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['sources_id'])), 'w',
               encoding='utf-8') as f:
         json.dump(summary, f, indent=4)
@@ -88,6 +105,7 @@ def normalized_title_exists(session, normalized_title_hash: str,
         # err on the side of keeping URLs
         return False
     earliest_date = dt.date.today() - dt.timedelta(days=day_window)
+    # PLB: just query count, and avoid moving/translating data?
     query = "select id from stories " \
             "where (published_at >= '{}'::DATE) AND (normalized_title_hash = :hash_title) and (sources_id=:sources_id)"\
         .format(earliest_date)
@@ -98,6 +116,7 @@ def normalized_title_exists(session, normalized_title_hash: str,
 def normalized_url_exists(session, normalized_url: str) -> bool:
     if normalized_url is None:
         return False
+    # PLB: just query count, and avoid moving/translating data?
     query = "select id from stories where (normalized_url = :normalized_url)"
     with session.begin():
         matches = [r for r in session.execute(query, params=dict(normalized_url=normalized_url))]
@@ -105,22 +124,30 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
 
 
 def update_feed(session, feed_id: int, success: bool, note: str,
-                feed_col_updates: dict = {},
+                feed_col_updates: Union[Dict,None] = None,
                 next_seconds: int = DEFAULT_INTERVAL_SECS):
     """
-    update Feed row, insert FeedEvent row; MUST be called from all code paths!
-    trying to make this the one place that updates the Feed row,
-    and hopefully centralize policy
+    Update Feed row, insert FeedEvent row; MUST be called from all
+    feed_worker code paths in order to clear "queued" and update
+    "next_fetch_attempt"!!!
+
+    Trying to make this the one place that updates the Feed row,
+    so all policy can be centralized here.
     """
-    # XXX log?? likely makes numerous other log messages redundant!
-    # XXX detect if called inside transaction!!!!
+    # PLB log w/note?? likely makes numerous other log messages redundant!
     with session.begin():
-        f = session.query(models.Feed).with_for_update().get(feed_id) # NOTE! locks row!
+        # NOTE! locks row, so increment atomic
+        # (atomic increment IS possible without this,
+        # but we want to make choices based on the new value)
+        f = session.query(models.Feed).with_for_update().get(feed_id)
 
         f.queued = False        # safe to requeue
         if success:
             event = models.FetchEvent.EVENT_FETCH_SUCCEEDED
             # most success values come in via 'feed_col_updates'
+            f.last_fetch_failures = 0
+
+            # PLB: save "working" as system_status??
         else:
             failures = f.last_fetch_failures = f.last_fetch_failures + 1
 
@@ -129,41 +156,91 @@ def update_feed(session, feed_id: int, success: bool, note: str,
                 f.system_enabled = False
                 next_seconds = None # don't reschedule
                 logger.warning(f" Feed {feed_id}: disabled after {failures} failures")
+                # PLB: save "disabled" as system_status????
             else:
                 event = models.FetchEvent.EVENT_FETCH_FAILED
                 logger.info(f" Feed {feed_id}: upped last_fetch_failure to {failures}")
 
-                # backoff to be kind to servers:
+                # back off to be kind to servers:
                 # linear backoff (ie; 12h, 1d, 1.5d, 2d)
                 next_seconds *= failures
 
-                # exponential backoff (ie; 12h, 1d, 2d, 4d):
+                # exponential backoff:
+                # kinder, but excessive delays with long initial period.
+                # (ie; 12h, 1d, 2d, 4d)
                 #next_seconds *= 2 ** (failures - 1)
 
-        if next_seconds is not None:
-            f.next_fetch_attempt = models.utc(seconds=next_seconds)
-            # PLB log new time?
+            # PLB: save note as f.system_status
+            # (split w/ " / " and/or ":" and save front part)???
+            # or pass note in two halves: system_status & detail????
 
-        # apply additional updates (currently only used on success)
-        # last, so can override default actions of this function.
-        for key, value in feed_col_updates.items():
-            setattr(f, key, value)
+        if next_seconds is not None: # reschedule?
+            f.next_fetch_attempt = next_dt = models.utc(seconds=next_seconds)
+            logger.debug(f"  Feed {feed_id} rescheduled for {next_dt}")
+        # PLB: else error if sys_enabled is True?
 
-        # PLB: save note as f.system_status??
+        # apply additional updates (currently only used on success) last,
+        # so can override default actions of this function.
+        if feed_col_updates is not None:
+            for key, value in feed_col_updates.items():
+                setattr(f, key, value)
 
         session.add(models.FetchEvent.from_info(feed_id, event, note))
         session.commit()
         session.close()
 
-def _fetch_rss_feed(feed: Dict):
+def _feed_update_period(parsed_feed: FeedParserDict) -> Union[None, Real]:
+    """
+    Extract feed update period in seconds, if any from parsed feed.
+    Returns None if <sy:updatePeriod> not present, or bogus in some way.
+    """
+    try:
+        pff = parsed_feed.feed
+        # (spec says default to 24h, but our current default is less,
+        # so only process if tag present (which SHOULD manifest
+        # as a string value, even if empty, in which case applying
+        # the default is reasonable) and None if tag not present
+        update_period = pff.get('sy_updateperiod')
+        if update_period is None:
+            return None
+
+        # translate string to value: empty string (or pure whitespace)
+        # is treated as DEFAULT_UPDATE_PERIOD
+        ups = UPDATE_PERIODS_SEC.get(
+            update_period.strip() or DEFAULT_UPDATE_PERIOD)
+        # *should* get here with a value (unless DEFAULT_UPDATE_PERIOD is bad)
+
+        # get divisor.  use default if not present or empty, or whitespace only
+        update_frequency = pff.get('sy_updatefrequency', DEFAULT_UPDATE_PERIOD)
+
+        # translate to number
+        ufn = float(update_frequency.strip() or DEFAULT_UPDATE_PERIOD)
+
+        if ufn <= 0.0:
+            return None
+
+        return ups / ufn
+    except:
+        return None
+
+def _fetch_rss_feed(feed: Dict) -> requests.Response:
+    """
+    Fetch current feed document using Feed.url
+    may add headers that make GET conditional (result in 304 status_code).
+    Raises exceptions on errors
+    """
     headers = { 'User-Agent': USER_AGENT }
 
+    # if ETag (Entity-Tag) stashed, make GET conditional
     etag = feed.get('http_etag', None)
     if etag:
         # If-None-Match takes one or more etag values
         headers['If-None-Match'] = etag # "value" or W/"value"
     else:
-        # https://www.rfc-editor.org/rfc/rfc9110.html#name-if-modified-since says
+        # if no ETag, but have an old Last-Modified header value
+        # make GET conditional on THAT.
+        # https://www.rfc-editor.org/rfc/rfc9110.html#name-if-modified-since
+        # says:
         #     "A recipient MUST ignore If-Modified-Since if the request
         #     contains an If-None-Match header field"
         # The Internet credo is "be conservative in what you send"
@@ -176,7 +253,7 @@ def _fetch_rss_feed(feed: Dict):
     return response
 
 
-# was fetch_feed_content; now calls processing to avoid having to pass up feed column updates
+# was fetch_feed_content
 def fetch_and_process_feed(session, feed: Dict):
     feed_id = feed['id']
     now = dt.datetime.now()     # PLB: use UTC??
@@ -213,39 +290,44 @@ def fetch_and_process_feed(session, feed: Dict):
     # kept unparsed; just sent back with If-Modified-Since.
     lastmod = response.headers.get('Last-Modified', None)
 
-    # Mark as a success because it responded with data, or "not changed"
+    # responded with data, or "not changed", so update last_fetch_success
     feed_col_updates = {
-        # PLB: only set these in update_feed, on success?
-        'last_fetch_success': now,
-        'last_fetch_failures': 0
+        'last_fetch_success': now, # HTTP fetch succeeded
     }
 
-    # only save hash from full response (304 has no body)
-    if response.status_code == 200:
-        feed_col_updates['last_fetch_hash'] = new_hash
+    # NOTE!!! feed_col_updates only currently used on "success",
+    # if feed processing stopped by a bug in our code, we will
+    # try again with unchanged data after the bug is fixed,
+    # and the feed is reenabled.
 
     # https://www.rfc-editor.org/rfc/rfc9110.html#status.304
     # says a 304 response MUST have an ETag if 200 would have.
-    # so always save it.
+    # so always save it (even if that means NULLing it out)
     feed_col_updates['http_etag'] = etag
 
     # Last-Modified is not required in 304 response!
+    # always save on 200 (even if that means NULLing it out)
     if response.status_code == 200 or lastmod:
         feed_col_updates['http_last_modified'] = lastmod
 
-    # BAIL: server says file hasn't changed (no data returned) BEFORE looking at hash!!
+    # BAIL: server says file hasn't changed (no data returned)
     if response.status_code == 304:
         logger.info(f"  Feed {feed_id} - skipping, file not modified")
+        # PLB feed_col_updates??
         update_feed(session, feed_id, True, "not modified", feed_col_updates)
         return
 
     # BAIL: no changes since last time
     if new_hash == feed['last_fetch_hash']:
         logger.info(f"  Feed {feed_id} - skipping, same hash")
-        update_feed(session, feed_id, True, "same hash")
+        # PLB feed_col_updates??
+        update_feed(session, feed_id, True, "same hash", feed_col_updates)
         return
 
-    # try to parse the content parsing all the stories
+    # PLB: log error if here w/o status_code == 200?
+    feed_col_updates['last_fetch_hash'] = new_hash
+
+    # try to parse the content, parsing all the stories
     try:
         parsed_feed = feedparser.parse(response.text)
         if parsed_feed.bozo:
@@ -253,28 +335,27 @@ def fetch_and_process_feed(session, feed: Dict):
     except Exception as e:
         # BAIL: couldn't parse it correctly
         logger.warning(f"Couldn't parse feed {feed_id}: {e}")
+        # PLB pass feed_col_updates?? (set last_fetch_success)
         update_feed(session, feed_id, False, f"parse: {e}")
         return
 
-    # may update feed_col_updates!
-    saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed,
-                                            feed_col_updates)
+    saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
+
+    # may update feed_col_updates:
+    check_feed_title(feed, parsed_feed, feed_col_updates)
 
     # see if feed indicates update period:
     next_seconds = DEFAULT_INTERVAL_SECS
-    try:
-        pff = parsed_feed.feed
-        update_period = pff.get('sy_updateperiod')
+    try:                        # paranoia
+        update_period = _feed_update_period(feed, parsed_feed)
         if update_period is not None:
-            update_period = UPDATE_PERIODS_SEC.get(update_period.strip())
-            update_frequency = float(pff.get('sy_updatefrequency', '1').strip() or '1')
-            secs = update_period / update_frequency
             # for now, only if use if slower than our default
             if secs >= DEFAULT_INTERVAL_SECS:
                 # PLB: save in DB as base for backoff & when no change????
                 # (ie; add to feed_col_updates!!)
                 next_seconds = secs
                 logger.debug(f"  Feed {feed_id} period {dt.timedelta(seconds=secs)}")
+            # PLB: else log value we're ignoring (as too small)??
     except:
         pass
 
@@ -282,23 +363,11 @@ def fetch_and_process_feed(session, feed: Dict):
                 feed_col_updates, next_seconds)
 
 def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
-                           parsed_feed: feedparser.FeedParserDict,
-                           feed_col_updates: Dict) -> Tuple[int,int]:
-    """parsed OK, so insert all the (valid) entries"""
-
-    # update feed title (if it has one and it changed)
-    try:
-        title = parsed_feed.feed.title
-        if len(title) > 0:
-            title = ' '.join(title.split()) # condense whitespace
-
-            if title and feed['name'] != title:
-                logger.info(f" Feed {feed['id']} updating name from {feed['name']!r} to {title!r}")
-                feed_col_updates['name'] = title
-    except AttributeError:
-        # if the feed has no title that isn't really an error, just skip safely
-        pass
-
+                           parsed_feed: FeedParserDict) -> Tuple[int,int]:
+    """
+    Take parsed feed, so insert all the (valid) entries.
+    returns (saved_count, skipped_count)
+    """
     skipped_count = 0
     for entry in parsed_feed.entries:
         try:
@@ -346,6 +415,26 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
     return saved_count, skipped_count
 
 
+def check_feed_title(feed: Dict, parsed_feed: FeedParserDict,
+                           feed_col_updates: Dict):
+    # update feed title (if it has one and it changed)
+    try:
+        title = parsed_feed.feed.title
+        if len(title) > 0:
+            title = ' '.join(title.split()) # condense whitespace
+
+            if title and feed['name'] != title:
+                # use !r (repr) to display strings w/ quotes
+                logger.info(f" Feed {feed['id']} updating name from {feed['name']!r} to {title!r}")
+                feed_col_updates['name'] = title
+    except AttributeError:
+        # if the feed has no title that isn't really an error, just skip safely
+        pass
+    except:
+        # not REALLY worth pulling a fire alarm over, but still
+        # should be fixed!
+        logger.exception("check_feed_title")
+
 @app.task(base=DBTask, serializer='json', bind=True)
 def feed_worker(self, feed_id: int):
     """
@@ -354,10 +443,12 @@ def feed_worker(self, feed_id: int):
     :param feed_id: integer Feed id
     """
     if not isinstance(feed_id, int):
-        logger.warn(f"feed_worker: expected int, got {feed_id!r}")
+        # !r to display repr
+        logger.error(f"feed_worker: expected int, got {feed_id!r}")
         return
 
     session = self.session
+    logger.info(f"session: {session} {type(session)}")
     with session.begin():
         f = session.query(models.Feed).get(feed_id)
         if f is None:

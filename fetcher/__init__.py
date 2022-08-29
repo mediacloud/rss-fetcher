@@ -19,6 +19,12 @@ path_to_log_dir = os.path.join(base_dir, 'logs')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(name)s | %(message)s')
 logger = logging.getLogger(__name__)
 logger.info("------------------------------------------------------------------------")
+
+# PLB: NOTE! This gets output many times/places (scripts, alembic)!!!
+# put in a routine (elsewhere) connected via a worker signal?
+# https://docs.celeryq.dev/en/stable/userguide/signals.html#worker-signals
+# or just change message to be more generic?!
+# use getattr(sys.modules['__main__'], '__file__', 'unknown')???
 logger.info("Starting up MC Backup RSS Fetcher v{}".format(VERSION))
 
 # read in environment variables
