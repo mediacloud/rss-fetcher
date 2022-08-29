@@ -1,7 +1,11 @@
+# PLB: WISHES:
+# convert all "".format calls to f""
+# convert all feed['x'] to feed.x
+
 import os
 import datetime as dt
 import json
-from typing import Dict
+from typing import Dict, Tuple
 import logging
 import time
 import hashlib
@@ -14,7 +18,7 @@ from sqlalchemy.exc import IntegrityError, PendingRollbackError
 from psycopg2.errors import UniqueViolation
 from celery import Task
 
-# app
+# feed fetcher:
 from fetcher import path_to_log_dir, DAY_WINDOW, DEFAULT_INTERVAL_SECS, \
     MAX_FAILURES, RSS_FETCH_TIMEOUT_SECS, SAVE_RSS_FILES
 from fetcher.celery import app
@@ -40,6 +44,7 @@ def _save_rss_file(feed: Dict, response):
         'statusCode': response.status_code,
         'headers': dict(response.headers),
     }
+    # PLB: only save one feed per source? bug and feature!
     with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['sources_id'])), 'w',
               encoding='utf-8') as f:
         json.dump(summary, f, indent=4)
@@ -88,36 +93,40 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
 
 
 def update_feed(session, feed_id: int, success: bool, note: str,
-                updates: dict = {},
+                feed_col_updates: dict = {},
                 next_seconds: int = DEFAULT_INTERVAL_SECS):
     """
     update Feed row, insert FeedEvent row; MUST be called from all code paths!
     trying to make this the one place that updates the Feed row,
     and hopefully centralize policy
     """
+    # XXX log?? likely makes numerous other log messages redundant!
+    # XXX detect if called inside transaction!!!!
     with session.begin():
-        f = session.query(models.Feed).get(feed_id)
+        f = session.query(models.Feed).with_for_update().get(feed_id) # NOTE! locks row!
 
         f.queued = False        # safe to requeue
         if success:
             event = models.FetchEvent.EVENT_FETCH_SUCCEEDED
-            # most success values come in via 'updates'
+            # most success values come in via 'feed_col_updates'
         else:
-            event = models.FetchEvent.EVENT_FETCH_FAILED
-            if f.last_fetch_failures is not None:
-                failures = f.last_fetch_failures = f.last_fetch_failures + 1
-            else:
-                failures = f.last_fetch_failures = 1
+            failures = f.last_fetch_failures = f.last_fetch_failures + 1
 
             if failures >= MAX_FAILURES:
+                event = models.FetchEvent.EVENT_FETCH_FAILED_DISABLED
                 f.system_enabled = False
-                next_seconds = None
+                next_seconds = None # don't reschedule
                 logger.warning(f" Feed {feed_id}: disabled after {failures} failures")
             else:
+                event = models.FetchEvent.EVENT_FETCH_FAILED
                 logger.info(f" Feed {feed_id}: upped last_fetch_failure to {failures}")
-                # PLB: for backoff multiply next_seconds by failure count?!
-                # would need a database column (set on success)
-                # to base on interval suggested by feed
+
+                # backoff to be kind to servers:
+                # linear backoff (ie; 12h, 1d, 1.5d, 2d)
+                next_seconds *= failures
+
+                # exponential backoff (ie; 12h, 1d, 2d, 4d):
+                #next_seconds *= 2 ** (failures - 1)
 
         if next_seconds is not None:
             f.next_fetch_attempt = models.utc(seconds=next_seconds)
@@ -125,8 +134,10 @@ def update_feed(session, feed_id: int, success: bool, note: str,
 
         # apply additional updates (currently only used on success)
         # last, so can override default actions of this function.
-        for key, value in updates:
+        for key, value in feed_col_updates.items():
             setattr(f, key, value)
+
+        # PLB: save note as f.system_status??
 
         session.add(models.FetchEvent.from_info(feed_id, event, note))
         session.commit()
@@ -153,30 +164,20 @@ def _fetch_rss_feed(feed: Dict):
     return response
 
 
-def _parse_feed(session, feed_id: int, content: str):
-    # try to parse the content parsing all the stories
-    try:
-        parsed_feed = feedparser.parse(content)
-        if parsed_feed.bozo:
-            raise RuntimeError(parsed_feed.bozo_exception)
-        return parsed_feed
-    except Exception as e:
-        # BAIL: couldn't parse it correctly
-        logger.warning(f"Couldn't parse feed: {e}")
-        update_feed(session, feed_id, False, f"parse failure: {e}")
-        return None
-
-def fetch_feed_content(session, now: dt.datetime, feed: Dict):
+# was fetch_feed_content; now calls processing to avoid having to pass up feed column updates
+def fetch_and_process_feed(session, feed: Dict):
     feed_id = feed['id']
+    now = dt.datetime.now()     # PLB: use UTC??
     try:
         # first thing is to fetch the content
         logger.debug(f"Working on feed {feed_id}")
         response = _fetch_rss_feed(feed)
     # ignore fetch failure exceptions as a "normal operation" error
+    # XXX PLB does this mean no failure count increment?
     except Exception as exc:
-        logger.warning(f" Feed {feed_id}: failed {exc}")
-        update_feed(session, feed_id, False, str(exc))
-        return None
+        logger.warning(f" Feed {feed_id}: fetch failed {exc}")
+        update_feed(session, feed_id, False, f"fetch: {exc}")
+        return
     # optional logging
     if SAVE_RSS_FILES:
         _save_rss_file(feed, response)
@@ -186,7 +187,7 @@ def fetch_feed_content(session, now: dt.datetime, feed: Dict):
         logger.info(f"  Feed {feed_id} - skipping, bad response {response.status_code} at {response.url}")
         update_feed(session, feed_id, False,
                     f"HTTP {response.status_code} / {response.url}")
-        return None
+        return
 
     # NOTE! 304 response will not have a body (terminated by end of headers)
     # so the last hash isn't (over)written below
@@ -201,51 +202,73 @@ def fetch_feed_content(session, now: dt.datetime, feed: Dict):
     lastmod = response.headers.get('Last-Modified', None)
 
     # Mark as a success because it responded with data, or "not changed"
-    updates = {'last_fetch_success': now,
-               'last_fetch_failures': 0}
+    feed_col_updates = {
+        # PLB: only set these in update_feed, on success?
+        'last_fetch_success': now,
+        'last_fetch_failures': 0
+    }
 
     # only save hash from full response (304 has no body)
     if response.status_code == 200:
-        updates['last_fetch_hash'] = new_hash
+        feed_col_updates['last_fetch_hash'] = new_hash
 
     # https://www.rfc-editor.org/rfc/rfc9110.html#status.304
     # says a 304 response MUST have an ETag if 200 would have.
     # so always save it.
-    updates['http_etag'] = etag
+    feed_col_updates['http_etag'] = etag
 
     # Last-Modified is not required in 304 response!
     if response.status_code == 200 or lastmod:
-        updates['http_last_modified'] = lastmod
+        feed_col_updates['http_last_modified'] = lastmod
 
     # BAIL: server says file hasn't changed (no data returned) BEFORE looking at hash!!
     if response.status_code == 304:
         logger.info(f"  Feed {feed_id} - skipping, file not modified")
-        update_feed(session, feed_id, True, "not modified", updates)
-        return None
+        update_feed(session, feed_id, True, "not modified", feed_col_updates)
+        return
 
     # BAIL: no changes since last time
     if new_hash == feed['last_fetch_hash']:
         logger.info(f"  Feed {feed_id} - skipping, same hash")
         update_feed(session, feed_id, True, "same hash")
-        return None
+        return
 
-    parsed_feed = _parse_feed(session, feed_id, response.text)
+    # try to parse the content parsing all the stories
+    try:
+        parsed_feed = feedparser.parse(response.text)
+        if parsed_feed.bozo:
+            raise RuntimeError(parsed_feed.bozo_exception)
+    except Exception as e:
+        # BAIL: couldn't parse it correctly
+        logger.warning(f"Couldn't parse feed {feed_id}: {e}")
+        update_feed(session, feed_id, False, f"parse: {e}")
+        return
+
+    # may update feed_col_updates!
+    saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed,
+                                            feed_col_updates)
+
+    update_feed(session, feed_id, True, f"{skipped} skipped / {saved} added",
+                feed_col_updates)
+
+def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
+                           parsed_feed: feedparser.FeedParserDict,
+                           feed_col_updates: Dict) -> Tuple[int,int]:
+    """parsed OK, so insert all the (valid) entries"""
+
     # update feed title (if it has one and it changed)
     try:
-        with session.begin():
-            f = session.query(models.Feed).get(feed_id)
-            if (parsed_feed is not None) and (len(parsed_feed.feed.title) > 0) and (f.name != parsed_feed.feed.title):
-                f.title = parsed_feed.feed.title
-                session.commit()
+        title = parsed_feed.feed.title
+        if len(title) > 0:
+            title = ' '.join(title.split()) # condense whitespace
+
+            if title and feed['name'] != title:
+                logger.info(f" Feed {feed['id']} updating name from {feed['name']!r} to {title!r}")
+                feed_col_updates['name'] = title
     except AttributeError:
         # if the feed has no title that isn't really an error, just skip safely
-        logger.debug(f"feed {feed_id} has no title")
         pass
-    return parsed_feed
 
-
-def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
-    # parsed OK, so insert all the (valid) entries
     skipped_count = 0
     for entry in parsed_feed.entries:
         try:
@@ -287,12 +310,9 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
             logger.debug(" * duplicate normalized URL: {}".format(s.normalized_url))
             skipped_count += 1
 
-    logger.info("  Feed {} - {} entries ({} skipped)".format(feed['id'], len(parsed_feed.entries),
-                                                             skipped_count))
-    ent = len(parsed_feed.entries)
-    saved_count = ent-skipped_count
-    update_feed(session, feed['id'], True,
-                f"{ent} entries / {skipped_count} skipped / {saved_count} added")
+    entries = len(parsed_feed.entries)
+    logger.info(f"  Feed {feed['id']} - {entries} entries ({skipped_count} skipped)")
+    saved_count = entries - skipped_count
     return saved_count, skipped_count
 
 
@@ -303,24 +323,16 @@ def feed_worker(self, feed_id: int):
     :param self: this maintains the single session to use for all DB operations
     :param feed_id: integer Feed id
     """
-    now = dt.datetime.now()
-
-    # re-fetch row to avoid honoring time-sensitive data in queue.
-    # with this in place, scripts/queue_feeds.py need only send id.
-
-    if feed_id is None:
-        # XXX PLB log??
+    if not isinstance(feed_id, int):
+        logger.warn(f"feed_worker: expected int, got {feed_id!r}")
         return
 
     session = self.session
     with session.begin():
         f = session.query(models.Feed).get(feed_id)
         if f is None:
-            # XXX PLB log??
+            logger.info(f"feed_worker: feed {feed_id} not found")
             return
-        feed = f.as_dict()      # code expects dict
+        feed = f.as_dict()      # code expects dict PLB: fix?
 
-    parsed_feed = fetch_feed_content(session, now, feed)
-    if parsed_feed is None:  # ie. valid content not fetched, so give up here
-        return
-    save_stories_from_feed(session, now, feed, parsed_feed)
+    fetch_and_process_feed(session, feed)
