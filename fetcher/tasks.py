@@ -15,7 +15,8 @@ from psycopg2.errors import UniqueViolation
 from celery import Task
 
 # app
-from fetcher import path_to_log_dir, SAVE_RSS_FILES
+from fetcher import path_to_log_dir, DAY_WINDOW, DEFAULT_INTERVAL_SECS, \
+    MAX_FAILURES, RSS_FETCH_TIMEOUT_SECS, SAVE_RSS_FILES
 from fetcher.celery import app
 from fetcher.database import Session
 import fetcher.database.models as models
@@ -27,11 +28,8 @@ fileHandler = logging.FileHandler(os.path.join(path_to_log_dir, "tasks-{}.log".f
 fileHandler.setFormatter(logFormatter)
 logger.addHandler(fileHandler)
 
-RSS_FETCH_TIMEOUT_SECS = 30
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
-MAX_FAILURES = 3                # XXX get from environment?
-DEFAULT_INTERVAL = 12*60*60
 
 def _save_rss_file(feed: Dict, response):
     # debugging helper method - saves two files for the feed to /logs/rss-feeds
@@ -66,7 +64,9 @@ class DBTask(Task):
         return self._session
 
 
-def normalized_title_exists(session, normalized_title_hash: str, sources_id: int, day_window: int = 7) -> bool:
+def normalized_title_exists(session, normalized_title_hash: str,
+                            sources_id: int,
+                            day_window: int = DAY_WINDOW) -> bool:
     if normalized_title_hash is None or sources_id is None:
         # err on the side of keeping URLs
         return False
@@ -89,7 +89,7 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
 
 def update_feed(session, feed_id: int, success: bool, note: str,
                 updates: dict = {},
-                next_seconds: int = DEFAULT_INTERVAL):
+                next_seconds: int = DEFAULT_INTERVAL_SECS):
     """
     update Feed row, insert FeedEvent row; MUST be called from all code paths!
     trying to make this the one place that updates the Feed row,

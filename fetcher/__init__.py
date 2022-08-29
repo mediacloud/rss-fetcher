@@ -1,6 +1,8 @@
 import os
 import logging
 import sys
+
+# PyPI
 from dotenv import load_dotenv
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk import init
@@ -20,18 +22,32 @@ logger.info("-------------------------------------------------------------------
 logger.info("Starting up MC Backup RSS Fetcher v{}".format(VERSION))
 
 # read in environment variables
-BROKER_URL = os.environ.get('BROKER_URL', None)
-if BROKER_URL is None:
+BROKER_URL = os.environ.get('BROKER_URL')
+if not BROKER_URL:
     logger.error("No BROKER_URL env var specified. Pathetically refusing to start!")
     sys.exit(1)
 logger.info("  Queue broker at {}".format(BROKER_URL))
+
 BACKEND_URL = os.environ.get('BACKEND_URL', 'db+sqlite:///celery-backend.db')
 logger.info("  Queue backend at {}".format(BACKEND_URL))
 
-MAX_FEEDS = int(os.environ.get('MAX_FEEDS', 10000))
-logger.info("  MAX_FEEDS: {}".format(MAX_FEEDS))
+def _get_env_int(name: str, defval: int) -> int:
+    try:
+        val = int(os.environ.get(name, defval))
+    except ValueError:
+        val = defval
+    logger.info(f"  {name}: {val}")
+    return val
 
-SENTRY_DSN = os.environ.get('SENTRY_DSN', None)  # optional
+# integer values params in alphabetical order
+DAY_WINDOW = _get_env_int('DAY_WINDOW', 7) # days to check in DB: only needed until table partitioned by day?
+DB_POOL_SIZE = _get_env_int('DB_POOL_SIZE', 32)  # keep this above the worker concurrency set in Procfile
+DEFAULT_INTERVAL_SECS = _get_env_int('DEFAULT_INTERVAL_SECS', 12*60*60) # requeue interval
+MAX_FAILURES = _get_env_int('MAX_FAILURES', 4) # failures before disabling feed
+MAX_FEEDS = _get_env_int('MAX_FEEDS', 10000)   # feeds to queue before quitting
+RSS_FETCH_TIMEOUT_SECS = _get_env_int('RSS_FETCH_TIMEOUT_SECS', 30) # timeout in sec. for fetching an RSS file
+
+SENTRY_DSN = os.environ.get('SENTRY_DSN')  # optional
 if SENTRY_DSN:
     init(dsn=SENTRY_DSN, release=VERSION,
          integrations=[CeleryIntegration()])
@@ -39,20 +55,28 @@ if SENTRY_DSN:
 else:
     logger.info("  Not logging errors to Sentry")
 
-DB_POOL_SIZE = int(os.environ.get('DB_POOL_SIZE', 32))  # keep this above the worker concurrency set in Procfile
-SQLALCHEMY_DATABASE_URI = os.environ['DATABASE_URL']
-if SQLALCHEMY_DATABASE_URI is None:
+SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+if not SQLALCHEMY_DATABASE_URI:
     logger.error("  No SQLALCHEMY_DATABASE_URI is specified. Bailing because we can't save things to a DB for tracking")
     sys.exit(1)
-else:
-    logger.info("  DB_POOL_SIZE: {}".format(DB_POOL_SIZE))
 engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_size=DB_POOL_SIZE)
 
 RSS_FILE_PATH = os.environ.get('RSS_FILE_PATH')
-if RSS_FILE_PATH is None:
+if not RSS_FILE_PATH:
     logger.error("  You must set RSS_FILE_PATH env var to tell us where to store generated RSS files")
     sys.exit(1)
 
-SAVE_RSS_FILES = os.environ.get('SAVE_RSS_FILES', "0")
-SAVE_RSS_FILES = SAVE_RSS_FILES == "1"  # translate to more useful boolean value
-logger.info("  SAVE_RSS_FILES: {}".format(SAVE_RSS_FILES))
+def _get_env_bool(name: str, defval: bool) -> bool:
+    val = os.environ.get(name)
+    if val is None:
+        val = defval
+    else:
+        val = val.strip().rstrip().lower()
+        if val.isdigit():
+            val = bool(int(val))
+        else:
+            val = val in ['true', 't', 'on'] # be liberal
+    logger.info(f"  {name}: {val}")
+    return val
+
+SAVE_RSS_FILES = _get_env_bool('SAVE_RSS_FILES', False)
