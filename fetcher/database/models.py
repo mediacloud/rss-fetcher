@@ -35,11 +35,11 @@ class Feed(Base):
     sources_id = Column(BigInteger)
     name = Column(String)
     url = Column(String)
-    active = Column(Boolean)
+    active = Column(Boolean, nullable=False, server_default=text('true'))
     last_fetch_attempt = Column(DateTime)
     last_fetch_success = Column(DateTime)
     last_fetch_hash = Column(String)
-    last_fetch_failures = Column(Integer)
+    last_fetch_failures = Column(Integer, nullable=False, server_default=text('0'))
     created_at = Column(DateTime)
     http_etag = Column(String)  # "Entity Tag"
     http_last_modified = Column(String)
@@ -144,6 +144,7 @@ class FetchEvent(Base):
     EVENT_QUEUED = 'queued'
     EVENT_FETCH_FAILED = 'fetch_failed'
     EVENT_FETCH_SUCCEEDED = 'fetch_succeeded'
+    EVENT_FETCH_FAILED_DISABLED = 'fetch_disabled' # disabled due to excessive failures
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     feed_id = Column(BigInteger)
