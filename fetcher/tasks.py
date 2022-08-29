@@ -35,6 +35,18 @@ logger.addHandler(fileHandler)
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 
+# https://web.resource.org/rss/1.0/modules/syndication/
+# RDF Site Summary 1.0 Modules: Syndication
+_DAY = 24*60*60
+UPDATE_PERIODS_SEC = {
+    '': 60*60,                  # if tag present, but empty, default to a day
+    'hourly': 60*60,
+    'daily': _DAY,
+    'dayly': _DAY,              # http://cuba.cu/feed & http://tribuna.cu/feed
+    'monthly': 7*_DAY,
+    'yearly': 365*_DAY,
+}
+
 def _save_rss_file(feed: Dict, response):
     # debugging helper method - saves two files for the feed to /logs/rss-feeds
     summary = {
@@ -248,8 +260,26 @@ def fetch_and_process_feed(session, feed: Dict):
     saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed,
                                             feed_col_updates)
 
+    # see if feed indicates update period:
+    next_seconds = DEFAULT_INTERVAL_SECS
+    try:
+        pff = parsed_feed.feed
+        update_period = pff.get('sy_updateperiod')
+        if update_period is not None:
+            update_period = UPDATE_PERIODS_SEC.get(update_period.strip())
+            update_frequency = float(pff.get('sy_updatefrequency', '1').strip() or '1')
+            secs = update_period / update_frequency
+            # for now, only if use if slower than our default
+            if secs >= DEFAULT_INTERVAL_SECS:
+                # PLB: save in DB as base for backoff & when no change????
+                # (ie; add to feed_col_updates!!)
+                next_seconds = secs
+                logger.debug(f"  Feed {feed_id} period {dt.timedelta(seconds=secs)}")
+    except:
+        pass
+
     update_feed(session, feed_id, True, f"{skipped} skipped / {saved} added",
-                feed_col_updates)
+                feed_col_updates, next_seconds)
 
 def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                            parsed_feed: feedparser.FeedParserDict,
