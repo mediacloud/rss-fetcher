@@ -201,13 +201,13 @@ def fetch_feed_content(session, now: dt.datetime, feed: Dict):
         f.last_fetch_failures = 0
         session.commit()
 
-    # BAIL: server says file hasn't changed (no data returned) BEFORE looking at hash!!
+    # BAIL: *server* says file hasn't changed (no data returned) BEFORE looking at hash!!
     if response.status_code == 304:
         logger.info("  Feed {} - skipping, file not modified".format(feed['id']))
         save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED, "not modified")
         return None
 
-    # BAIL: no changes since last time
+    # BAIL: no changes since last time (based on hash of response content)
     if new_hash == feed['last_fetch_hash']:
         logger.info("  Feed {} - skipping, same hash".format(feed['id']))
         save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_SUCCEEDED, "same hash")
