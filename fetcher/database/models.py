@@ -79,7 +79,7 @@ class Story(Base):
         return _run_query(query)
 
     @staticmethod
-    def from_rss_entry(feed_id: int, fetched_at: dt.datetime, entry, media_name: str = None):
+    def from_rss_entry(feed_id: int, fetched_at: dt.datetime, entry):
         s = Story()
         s.feed_id = feed_id
         try:

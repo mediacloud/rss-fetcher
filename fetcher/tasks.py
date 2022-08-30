@@ -31,6 +31,7 @@ RSS_FETCH_TIMEOUT_SECS = 30
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 
+
 def _save_rss_file(feed: Dict, response):
     # debugging helper method - saves two files for the feed to /logs/rss-feeds
     summary = {
@@ -73,7 +74,8 @@ def normalized_title_exists(session, normalized_title_hash: str, sources_id: int
             "where (published_at >= '{}'::DATE) AND (normalized_title_hash = :hash_title) and (sources_id=:sources_id)"\
         .format(earliest_date)
     with session.begin():
-        matches = [r for r in session.execute(query, params=dict(hash_title=normalized_title_hash, sources_id=sources_id))]
+        matches = [r for r in session.execute(query, params=dict(hash_title=normalized_title_hash,
+                                                                 sources_id=sources_id))]
     return len(matches) > 0
 
 
@@ -107,13 +109,14 @@ def save_fetch_event(session, feed_id: int, event: str, note: str):
         session.commit()
         session.close()
 
-def _fetch_rss_feed(feed: Dict):
-    headers = { 'User-Agent': USER_AGENT }
 
+def _fetch_rss_feed(feed: Dict):
+    headers = {'User-Agent': USER_AGENT}
+    # use etag and last modified to be smart about only fetched content that has changed
     etag = feed.get('http_etag', None)
     if etag:
         # If-None-Match takes one or more etag values
-        headers['If-None-Match'] = etag # "value" or W/"value"
+        headers['If-None-Match'] = etag  # "value" or W/"value"
     else:
         # https://www.rfc-editor.org/rfc/rfc9110.html#name-if-modified-since says
         #     "A recipient MUST ignore If-Modified-Since if the request
@@ -160,7 +163,8 @@ def fetch_feed_content(session, now: dt.datetime, feed: Dict):
 
     # BAIL: HTTP failed (not full response or "Not Changed")
     if response.status_code != 200 and response.status_code != 304:
-        logger.info("  Feed {} - skipping, bad response {} at {}".format(feed['id'], response.status_code, response.url))
+        logger.info("  Feed {} - skipping, bad response {} at {}".format(feed['id'], response.status_code,
+                                                                         response.url))
         increment_fetch_failure_count(session, feed['id'])
         save_fetch_event(session, feed['id'], models.FetchEvent.EVENT_FETCH_FAILED,
                          "HTTP {} / {}".format(response.status_code, response.url))
@@ -252,7 +256,8 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict, parsed_feed):
                         session.add(s)
                         session.commit()
                 else:
-                    logger.debug(" * skip duplicate title URL: {} | {} | {}".format(entry.link, s.normalized_title_hash, s.sources_id))
+                    logger.debug(" * skip duplicate title URL: {} | {} | {}".format(entry.link, s.normalized_title_hash,
+                                                                                    s.sources_id))
                     skipped_count += 1
             else:
                 logger.debug(" * skip duplicate normalized URL: {} | {}".format(entry.link, s.normalized_url))
@@ -290,14 +295,14 @@ def feed_worker(self, feed: Dict):
 
     feed_id = feed.get('id', None)
     if feed_id is None:
-        # XXX PLB log??
+        logger.error("feed_worker received no id - was sent {}".format(feed))
         return
 
     session = self.session
     with session.begin():
         f = session.query(models.Feed).get(feed_id)
         if f is None:
-            # XXX PLB log??
+            logger.error("feed_worker received unknown feed id: {}".format(feed_id))
             return
         feed = f.as_dict()      # code expects dict
 
