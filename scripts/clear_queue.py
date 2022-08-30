@@ -1,6 +1,6 @@
 """
-run this as a script `python -m scripts.queue_feeds`
-before starting celery workers
+This script run as `python -m scripts.queue_feeds`
+from run-rss-workers.sh before starting celery workers
 """
 
 import logging
@@ -17,14 +17,15 @@ if __name__ == '__main__':
 
     with Session() as session:
         logger.info("Locking feeds table.")
-        session.execute("LOCK TABLE feeds") 
+        session.execute("LOCK TABLE feeds") # for duration of transaction.
 
         logger.info("Purging celery queue.")
         app.control.purge()
 
         logger.info("Clearing Feed.queued column.")
-        session.query(Feed).filter(Feed.queued == True).update({'queued': False})
+        session.query(Feed).filter(Feed.queued == True)\
+                           .update({'queued': False})
 
-        logger.info("Done.")
         session.commit() # releases lock
+    logger.info("Done.")
 
