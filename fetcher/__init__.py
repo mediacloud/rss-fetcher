@@ -18,14 +18,20 @@ path_to_log_dir = os.path.join(base_dir, 'logs')
 # set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(name)s | %(message)s')
 logger = logging.getLogger(__name__)
+
+# output for every script, AND invocations of "alembic {up,down}grade"
 logger.info("------------------------------------------------------------------------")
 
-# PLB: NOTE! This gets output many times/places (scripts, alembic)!!!
-# put in a routine (elsewhere) connected via a worker signal?
-# https://docs.celeryq.dev/en/stable/userguide/signals.html#worker-signals
-# or just change message to be more generic?!
-# use getattr(sys.modules['__main__'], '__file__', 'unknown')???
-logger.info("Starting up MC Backup RSS Fetcher v{}".format(VERSION))
+# PLB this will come after all the environment variables (which run at
+# module load time) but I haven't found a way to reliably get the
+# identity of the importing main script
+# (sys.modules['__main__'].__file__ isn't set in all circumstances) If
+# we really want the program name up top (which would be nice),
+# perhaps we should move the getenvs and get_env_{int,bool} calls to
+# the code (inside functions) that actually use them (and avoids
+# displaying everthing every time)
+def startup(program: str):
+    logger.info(f"Starting up {program} v{VERSION}")
 
 # read in environment variables
 BROKER_URL = os.environ.get('BROKER_URL')

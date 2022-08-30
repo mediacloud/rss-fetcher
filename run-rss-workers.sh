@@ -1,3 +1,3 @@
 #!/bin/sh
 python -m scripts.clear_queue
-celery -A fetcher worker -l debug --concurrency=16
+python -m fetcher.main -A fetcher worker -l debug --concurrency=16
