@@ -16,8 +16,9 @@ if __name__ == '__main__':
     # NOTE: queuer updates table first, then queues
 
     with Session() as session:
-        logger.info("Locking feeds table.")
+        logger.info("Getting feeds table lock.")
         session.execute("LOCK TABLE feeds") # for duration of transaction.
+        logger.info("Locked.")
 
         logger.info("Purging celery queue.")
         app.control.purge()
@@ -26,6 +27,7 @@ if __name__ == '__main__':
         session.query(Feed).filter(Feed.queued == True)\
                            .update({'queued': False})
 
+        logger.info("Committing.")
         session.commit() # releases lock
     logger.info("Done.")
 
