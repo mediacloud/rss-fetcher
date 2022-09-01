@@ -105,7 +105,8 @@ def normalized_title_exists(session, normalized_title_hash: str,
         # err on the side of keeping URLs
         return False
     earliest_date = dt.date.today() - dt.timedelta(days=day_window)
-    # PLB: just query count, and avoid moving/translating data?
+    # PLB: just query count, or EXISTS(select....),
+    #   and avoid moving/translating data?
     query = "select id from stories " \
             "where (published_at >= '{}'::DATE) AND (normalized_title_hash = :hash_title) and (sources_id=:sources_id)"\
         .format(earliest_date)
@@ -116,7 +117,8 @@ def normalized_title_exists(session, normalized_title_hash: str,
 def normalized_url_exists(session, normalized_url: str) -> bool:
     if normalized_url is None:
         return False
-    # PLB: just query count, and avoid moving/translating data?
+    # PLB: just query count, or EXISTS(select....),
+    #   and avoid moving/translating data?
     query = "select id from stories where (normalized_url = :normalized_url)"
     with session.begin():
         matches = [r for r in session.execute(query, params=dict(normalized_url=normalized_url))]
@@ -448,7 +450,6 @@ def feed_worker(self, feed_id: int):
         return
 
     session = self.session
-    logger.info(f"session: {session} {type(session)}")
     with session.begin():
         f = session.query(models.Feed).get(feed_id)
         if f is None:
