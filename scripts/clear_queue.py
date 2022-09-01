@@ -1,9 +1,13 @@
 """
 This script run as `python -m scripts.queue_feeds`
 from run-rss-workers.sh before starting celery workers
+to allow starting in a 100% clean state
+(nothing queued or marked as queued)
 """
 
 import logging
+
+from sqlalchemy import text
 
 from fetcher.database import Session
 from fetcher.celery import app
@@ -17,7 +21,7 @@ if __name__ == '__main__':
 
     with Session() as session:
         logger.info("Getting feeds table lock.")
-        session.execute("LOCK TABLE feeds") # for duration of transaction.
+        session.execute(text("LOCK TABLE feeds")) # for duration of transaction.
         logger.info("Locked.")
 
         logger.info("Purging celery queue.")
