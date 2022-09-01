@@ -35,6 +35,7 @@ if __name__ == '__main__':
                                       models.Feed.next_fetch_attempt <= models.utc()))\
                           .order_by(models.Feed.next_fetch_attempt.asc(),
                                     models.Feed.id.desc())\
+                          .limit(MAX_FEEDS)\
                           .all()
             feed_ids = [row.id for row in rows]
 
