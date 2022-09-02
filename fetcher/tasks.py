@@ -31,12 +31,14 @@ from psycopg2.errors import UniqueViolation
 from celery import Task
 
 # feed fetcher:
-from fetcher import path_to_log_dir, DAY_WINDOW, DEFAULT_INTERVAL_SECS, \
+from fetcher import path_to_log_dir, DAY_WINDOW, DEFAULT_INTERVAL_MINS, \
     MAX_FAILURES, RSS_FETCH_TIMEOUT_SECS, SAVE_RSS_FILES
 from fetcher.celery import app
 from fetcher.database import Session
 import fetcher.database.models as models
 import fetcher.util as util
+
+MINIMUM_INTERVAL_MINS = DEFAULT_INTERVAL_MINS # have separate param?
 
 # shorthands:
 FeedParserDict = feedparser.FeedParserDict
@@ -52,17 +54,17 @@ USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36
 
 # RDF Site Summary 1.0 Modules: Syndication
 # https://web.resource.org/rss/1.0/modules/syndication/
-_DAY_SEC = 24*60*60
-UPDATE_PERIODS_SEC = {
-    'hourly': 60*60,
-    'daily': _DAY_SEC,
-    'dayly': _DAY_SEC,  # http://cuba.cu/feed & http://tribuna.cu/feed
-    'weekly': 7*_DAY_SEC,
-    'monthly': 30*_DAY_SEC,
-    'yearly': 365*_DAY_SEC,
+_DAY_MINS = 24*60
+UPDATE_PERIODS_MINS = {
+    'hourly': 60,
+    'daily': _DAY_MINS,
+    'dayly': _DAY_MINS,  # http://cuba.cu/feed & http://tribuna.cu/feed
+    'weekly': 7*_DAY_MINS,
+    'monthly': 30*_DAY_MINS,
+    'yearly': 365*_DAY_MINS,
 }
 DEFAULT_UPDATE_PERIOD = 'daily' # specified in Syndication spec
-DEFAULT_UPDATE_FREQUENCY = '1' # specified in Syndication spec
+DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
 
 def _save_rss_file(feed: Dict, response):
     # debugging helper method - saves two files for the feed to /logs/rss-feeds
@@ -126,8 +128,7 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
 
 
 def update_feed(session, feed_id: int, success: bool, note: str,
-                feed_col_updates: Union[Dict,None] = None,
-                next_seconds: int = DEFAULT_INTERVAL_SECS):
+                feed_col_updates: Union[Dict,None] = None):
     """
     Update Feed row, insert FeedEvent row; MUST be called from all
     feed_worker code paths in order to clear "queued" and update
@@ -136,18 +137,35 @@ def update_feed(session, feed_id: int, success: bool, note: str,
     Trying to make this the one place that updates the Feed row,
     so all policy can be centralized here.
     """
+
     # PLB log w/note?? likely makes numerous other log messages redundant!
     with session.begin():
-        # NOTE! locks row, so increment atomic
+        # NOTE! locks row, so update atomic.
         # (atomic increment IS possible without this,
         # but we want to make choices based on the new value)
-        f = session.query(models.Feed).with_for_update().get(feed_id)
+        f = session.get(models.Feed, feed_id, with_for_update=True)
+        if f is None:
+            log.info(f"  Feed {feed_id} not found in update_feed")
+            return
+
+        # apply additional updates first to simplify checks
+        if feed_col_updates:
+            for key, value in feed_col_updates.items():
+                setattr(f, key, value)
 
         f.queued = False        # safe to requeue
+
+        # get normal feed update period in minutes, one of:
+        # 1. new value being passed in to update Feed row (from RSS)
+        # 2. value currently stored in feed row (if fetch or parse failed)
+        # 3. default
+        # (update_minutes is either a value from feed, or NULL)
+        next_minutes = f.update_minutes or DEFAULT_INTERVAL_MINS
+
         if success:
             event = models.FetchEvent.EVENT_FETCH_SUCCEEDED
-            # most success values come in via 'feed_col_updates'
             f.last_fetch_failures = 0
+            # many values come in via 'feed_col_updates'
 
             # PLB: save "working" as system_status??
         else:
@@ -156,7 +174,7 @@ def update_feed(session, feed_id: int, success: bool, note: str,
             if failures >= MAX_FAILURES:
                 event = models.FetchEvent.EVENT_FETCH_FAILED_DISABLED
                 f.system_enabled = False
-                next_seconds = None # don't reschedule
+                next_minutes = None # don't reschedule
                 logger.warning(f" Feed {feed_id}: disabled after {failures} failures")
                 # PLB: save "disabled" as system_status????
             else:
@@ -165,35 +183,34 @@ def update_feed(session, feed_id: int, success: bool, note: str,
 
                 # back off to be kind to servers:
                 # linear backoff (ie; 12h, 1d, 1.5d, 2d)
-                next_seconds *= failures
+                next_minutes *= failures
 
                 # exponential backoff:
                 # kinder, but excessive delays with long initial period.
                 # (ie; 12h, 1d, 2d, 4d)
-                #next_seconds *= 2 ** (failures - 1)
+                #next_minutes *= 2 ** (failures - 1)
 
-            # PLB: save note as f.system_status
+            # PLB: save note as f.system_status??
             # (split w/ " / " and/or ":" and save front part)???
             # or pass note in two halves: system_status & detail????
 
-        if next_seconds is not None: # reschedule?
-            f.next_fetch_attempt = next_dt = models.utc(seconds=next_seconds)
+        if next_minutes is not None: # reschedule?
+            if next_minutes < MINIMUM_INTERVAL_MINS:
+                next_minutes = MINIMUM_INTERVAL_MINS # clamp to minimum
+            f.next_fetch_attempt = next_dt = models.utc(seconds=next_minutes*60)
             logger.debug(f"  Feed {feed_id} rescheduled for {next_dt}")
-        # PLB: else error if sys_enabled is True?
+        elif f.system_enabled:
+            logger.error("  Feed {feed_id} enabled but not rescheduled!")
 
-        # apply additional updates (currently only used on success) last,
-        # so can override default actions of this function.
-        if feed_col_updates is not None:
-            for key, value in feed_col_updates.items():
-                setattr(f, key, value)
-
+        # PLB: use now value from top level fetch_and_process_feed
+        #   so matches up with Story (and Feed.last_fetch_success)??
         session.add(models.FetchEvent.from_info(feed_id, event, note))
         session.commit()
         session.close()
 
-def _feed_update_period(parsed_feed: FeedParserDict) -> Union[None, Real]:
+def _feed_update_period_mins(parsed_feed: FeedParserDict) -> Union[None, Real]:
     """
-    Extract feed update period in seconds, if any from parsed feed.
+    Extract feed update period in minutes, if any from parsed feed.
     Returns None if <sy:updatePeriod> not present, or bogus in some way.
     """
     try:
@@ -203,26 +220,33 @@ def _feed_update_period(parsed_feed: FeedParserDict) -> Union[None, Real]:
         # as a string value, even if empty, in which case applying
         # the default is reasonable) and None if tag not present
         update_period = pff.get('sy_updateperiod')
-        if update_period is None:
+        if update_period is None: # tag not present
             return None
 
         # translate string to value: empty string (or pure whitespace)
         # is treated as DEFAULT_UPDATE_PERIOD
-        ups = UPDATE_PERIODS_SEC.get(
-            update_period.strip() or DEFAULT_UPDATE_PERIOD)
+        update_period = update_period.strip().rstrip()
+        upm = UPDATE_PERIODS_MINS.get(update_period or DEFAULT_UPDATE_PERIOD)
         # *should* get here with a value (unless DEFAULT_UPDATE_PERIOD is bad)
 
+        #logger.debug(f" update_period {update_period} upm {upm}")
+
         # get divisor.  use default if not present or empty, or whitespace only
-        update_frequency = pff.get('sy_updatefrequency', DEFAULT_UPDATE_PERIOD)
+        update_frequency = pff.get('sy_updatefrequency')
+        if update_frequency is not None:
+            # translate to number: have seen 0.1 as update_frequency!
+            ufn = float(update_frequency.strip() or DEFAULT_UPDATE_FREQUENCY)
+            #logger.debug(f" update_frequency {update_frequency} ufn {ufn}")
+            if ufn <= 0.0:
+                return None     # treat as missing tags
+        else:
+            ufn = DEFAULT_UPDATE_FREQUENCY
 
-        # translate to number
-        ufn = float(update_frequency.strip() or DEFAULT_UPDATE_PERIOD)
-
-        if ufn <= 0.0:
-            return None
-
-        return ups / ufn
+        ret = int(upm / ufn)    # XXX never return zero?
+        #logger.debug(f" _feed_update_period_mins pd {update_period} fq {update_frequency} => {ret}")
+        return ret
     except:
+        #logger.exception("_feed_update_period_mins") # DEBUG
         return None
 
 def _fetch_rss_feed(feed: Dict) -> requests.Response:
@@ -255,10 +279,23 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     return response
 
 
-# was fetch_feed_content
 def fetch_and_process_feed(session, feed: Dict):
+    """
+    Was fetch_feed_content: this is THE routine called in a worker.
+    Made a single routine for clarity/communication
+    (communication could be eased by encapsulating as a class)
+    ALL exits from this function should call `update_feed` to:
+    * clear "Feed.queued"
+    * create FetchEvent row
+    * increment or clear Feed.last_fetch_failure
+    * update Feed.next_fetch_attempt (or not) to reschedule
+    """
     feed_id = feed['id']
-    now = dt.datetime.now()     # PLB: use UTC??
+
+    # used in Feed.last_fetch_success, Story.fetched_at, but NOT FetchEvent?
+    # PLB: use UTC??
+    now = dt.datetime.now()
+
     try:
         # first thing is to fetch the content
         logger.debug(f"Working on feed {feed_id}")
@@ -337,32 +374,29 @@ def fetch_and_process_feed(session, feed: Dict):
     except Exception as e:
         # BAIL: couldn't parse it correctly
         logger.warning(f"Couldn't parse feed {feed_id}: {e}")
-        # PLB pass feed_col_updates?? (set last_fetch_success)
         update_feed(session, feed_id, False, f"parse: {e}")
         return
 
+    # XXX PLB: take stats dict, update with details on skip reasons?
     saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
 
     # may update feed_col_updates:
     check_feed_title(feed, parsed_feed, feed_col_updates)
 
-    # see if feed indicates update period:
-    next_seconds = DEFAULT_INTERVAL_SECS
+    # see if feed indicates update period
     try:                        # paranoia
-        update_period = _feed_update_period(feed, parsed_feed)
-        if update_period is not None:
-            # for now, only if use if slower than our default
-            if secs >= DEFAULT_INTERVAL_SECS:
-                # PLB: save in DB as base for backoff & when no change????
-                # (ie; add to feed_col_updates!!)
-                next_seconds = secs
-                logger.debug(f"  Feed {feed_id} period {dt.timedelta(seconds=secs)}")
-            # PLB: else log value we're ignoring (as too small)??
-    except:
-        pass
+        update_period_mins = _feed_update_period_mins(parsed_feed)
 
+        if update_period_mins is not None:
+            period_str = dt.timedelta(seconds=update_period_mins*60)
+            logger.debug(f"  Feed {feed_id} update period {period_str}")
+    except:
+        logger.exception("update period") # XXX debug only?
+        update_period_mins = None
+
+    feed_col_updates['update_minutes'] = update_period_mins
     update_feed(session, feed_id, True, f"{skipped} skipped / {saved} added",
-                feed_col_updates, next_seconds)
+               feed_col_updates)
 
 def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                            parsed_feed: FeedParserDict) -> Tuple[int,int]:
@@ -451,10 +485,11 @@ def feed_worker(self, feed_id: int):
 
     session = self.session
     with session.begin():
-        f = session.query(models.Feed).get(feed_id)
+        f = session.get(models.Feed, feed_id)
         if f is None:
             logger.info(f"feed_worker: feed {feed_id} not found")
             return
         feed = f.as_dict()      # code expects dict PLB: fix?
 
+    # for total paranoia, wrap in try, call update_feed on exception??
     fetch_and_process_feed(session, feed)

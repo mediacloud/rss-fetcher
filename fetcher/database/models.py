@@ -46,6 +46,7 @@ class Feed(Base):
     next_fetch_attempt = Column(DateTime)
     queued = Column(Boolean, nullable=False, server_default=text('false'))
     system_enabled = Column(Boolean, nullable=False, server_default=text('true'))
+    update_minutes = Column(Integer) # sy:updatePeriod/sy:updateFrequency
 
     def __repr__(self):
         return '<Feed id={} name={} sources_id={}>'.format(

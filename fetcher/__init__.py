@@ -54,7 +54,7 @@ def _get_env_int(name: str, defval: int) -> int:
 # integer values params in alphabetical order
 DAY_WINDOW = _get_env_int('DAY_WINDOW', 7) # days to check in DB: only needed until table partitioned by day?
 DB_POOL_SIZE = _get_env_int('DB_POOL_SIZE', 32)  # keep this above the worker concurrency set in Procfile
-DEFAULT_INTERVAL_SECS = _get_env_int('DEFAULT_INTERVAL_SECS', 12*60*60) # requeue interval
+DEFAULT_INTERVAL_MINS = _get_env_int('DEFAULT_INTERVAL_MINS', 12*60) # requeue interval
 MAX_FAILURES = _get_env_int('MAX_FAILURES', 4) # failures before disabling feed
 MAX_FEEDS = _get_env_int('MAX_FEEDS', 10000)   # feeds to queue before quitting
 RSS_FETCH_TIMEOUT_SECS = _get_env_int('RSS_FETCH_TIMEOUT_SECS', 30) # timeout in sec. for fetching an RSS file
