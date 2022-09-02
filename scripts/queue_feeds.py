@@ -18,6 +18,9 @@ if __name__ == '__main__':
     logger.info("Starting Feed Queueing")
     now = dt.datetime.now()
 
+    # PLB TEMP: try to show SQL (put on an option?)
+    #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
     # support passing in one or more feed ids on the command line
     args = sys.argv[1:]         # PLB want just positional args
     if args:
@@ -33,7 +36,7 @@ if __name__ == '__main__':
                                   models.Feed.queued.is_(False),
                                   or_(models.Feed.next_fetch_attempt.is_(None),
                                       models.Feed.next_fetch_attempt <= models.utc()))\
-                          .order_by(models.Feed.next_fetch_attempt.asc(),
+                          .order_by(models.Feed.next_fetch_attempt.asc().nulls_first(),
                                     models.Feed.id.desc())\
                           .limit(MAX_FEEDS)\
                           .all()
