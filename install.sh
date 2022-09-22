@@ -1,4 +1,3 @@
 #!/bin/bash
-# "predeploy" script (see app.json) invoked by dokku
-echo cwd `pwd`
+# "predeploy" script (see app.json) invoked by dokku, run in /app
 alembic upgrade head
