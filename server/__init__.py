@@ -50,7 +50,7 @@ else:
 @app.get("/api/version")
 @api_method
 def version():
-    return {}
+    return {'GIT_REV': os.environ.get('GIT_REV')}
 
 
 if __name__ == "__main__":
