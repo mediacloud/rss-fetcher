@@ -31,7 +31,10 @@ logger.info("-------------------------------------------------------------------
 # the code (inside functions) that actually use them (and avoids
 # displaying everthing every time)
 def startup(program: str):
-    logger.info(f"Starting up {program} v{VERSION}")
+    gitrev = os.environ.get('GIT_REV') # set by Dokku
+    if gitrev:
+        gitrev = f" GIT_REV {gitrev}"
+    logger.info(f"Starting up {program} v{VERSION}{gitrev}")
 
 # read in environment variables
 BROKER_URL = os.environ.get('BROKER_URL')
