@@ -54,4 +54,5 @@ def version():
 
 
 if __name__ == "__main__":
+    fetcher.startup("RSS Fetcher FastAPI Server")
     uvicorn.run(app, host="0.0.0.0", port=8000)
