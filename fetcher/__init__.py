@@ -21,20 +21,9 @@ logger = logging.getLogger(__name__)
 
 # output for every script, AND invocations of "alembic {up,down}grade"
 logger.info("------------------------------------------------------------------------")
+git_rev = os.environ.get('GIT_REV', '(not set)') # set by Dokku
+logger.info(f"Starting version {VERSION} GIT_REV {git_rev}")
 
-# PLB this will come after all the environment variables (which run at
-# module load time) but I haven't found a way to reliably get the
-# identity of the importing main script
-# (sys.modules['__main__'].__file__ isn't set in all circumstances) If
-# we really want the program name up top (which would be nice),
-# perhaps we should move the getenvs and get_env_{int,bool} calls to
-# the code (inside functions) that actually use them (and avoids
-# displaying everthing every time)
-def startup(program: str):
-    gitrev = os.environ.get('GIT_REV') # set by Dokku
-    if gitrev:
-        gitrev = f" GIT_REV {gitrev}"
-    logger.info(f"Starting up {program} v{VERSION}{gitrev}")
 
 # read in environment variables
 BROKER_URL = os.environ.get('BROKER_URL')

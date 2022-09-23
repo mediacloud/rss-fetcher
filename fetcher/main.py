@@ -14,7 +14,4 @@ from celery.__main__ import main
 import fetcher                  # logs PROGRAM & params
 
 if __name__ == '__main__':
-    # logged AFTER -----... and environment variables
-    # see note in fetcher/__init__.py
-    fetcher.startup("MC Backup RSS Fetcher")
     sys.exit(main())
