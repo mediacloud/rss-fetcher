@@ -36,6 +36,7 @@ from fetcher import path_to_log_dir, DAY_WINDOW, DEFAULT_INTERVAL_MINS, \
 from fetcher.celery import app
 from fetcher.database import Session
 import fetcher.database.models as models
+from fetcher.stats import Stats
 import fetcher.util as util
 
 MINIMUM_INTERVAL_MINS = DEFAULT_INTERVAL_MINS # have separate param?
@@ -51,6 +52,10 @@ logger.addHandler(fileHandler)
 
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
+
+# stats names, in case need to add prefix to avoid confusion
+FEEDS = 'feeds'
+STORIES = 'stories'
 
 # RDF Site Summary 1.0 Modules: Syndication
 # https://web.resource.org/rss/1.0/modules/syndication/
@@ -279,7 +284,7 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     return response
 
 
-def fetch_and_process_feed(session, feed: Dict):
+def fetch_and_process_feed(session, feed_id: int):
     """
     Was fetch_feed_content: this is THE routine called in a worker.
     Made a single routine for clarity/communication
@@ -290,31 +295,57 @@ def fetch_and_process_feed(session, feed: Dict):
     * increment or clear Feed.last_fetch_failure
     * update Feed.next_fetch_attempt (or not) to reschedule
     """
-    feed_id = feed['id']
+
+    stats = Stats.get()
+    def feeds_incr(status):
+        """call exactly ONCE for each feed processed"""
+        stats.incr(FEEDS, 1, labels=[['stat', status]])
+
+    with session.begin():
+        f = session.get(models.Feed, feed_id)
+        if f is None:
+            feeds_incr('missing')
+            logger.info(f"feed_worker: feed {feed_id} not found")
+            return
+        feed = f.as_dict()      # code expects dict PLB: fix?
 
     # used in Feed.last_fetch_success, Story.fetched_at, but NOT FetchEvent?
-    # PLB: use UTC??
-    now = dt.datetime.now()
+    now = dt.datetime.utcnow()
 
     try:
         # first thing is to fetch the content
         logger.debug(f"Working on feed {feed_id}")
         response = _fetch_rss_feed(feed)
-    # ignore fetch failure exceptions as a "normal operation" error
-    # XXX PLB does this mean no failure count increment?
     except Exception as exc:
+        # ignore fetch failure exceptions as a "normal operation" error
+        # XXX PLB does this mean no failure count increment?
         logger.warning(f" Feed {feed_id}: fetch failed {exc}")
         update_feed(session, feed_id, False, f"fetch: {exc}")
+
+        # NOTE!! try to limit cardinality (eats stats storage)
+        es = str(exc)
+        if 'ConnectionPool' in es: # XXX on class?
+            feeds_incr('conn_err')
+        else:
+            feeds_incr('fetch_err')
         return
-    # optional logging
+
     if SAVE_RSS_FILES:
         _save_rss_file(feed, response)
 
     # BAIL: HTTP failed (not full response or "Not Changed")
     if response.status_code != 200 and response.status_code != 304:
+        # NOTE! 429 is "too many requests",
+        # but fetcher doesn't track domains, so no way to honor it!
         logger.info(f"  Feed {feed_id} - skipping, bad response {response.status_code} at {response.url}")
         update_feed(session, feed_id, False,
                     f"HTTP {response.status_code} / {response.url}")
+
+        # limiting tag cardinality, only a few, common codes
+        if response.status_code in (403, 404, 429):
+            feeds_incr(f"http_{response.status_code}")
+        else:
+            feeds_incr(f"http_{response.status_code//100}")
         return
 
     # NOTE! 304 response will not have a body (terminated by end of headers)
@@ -354,6 +385,7 @@ def fetch_and_process_feed(session, feed: Dict):
         logger.info(f"  Feed {feed_id} - skipping, file not modified")
         # PLB feed_col_updates??
         update_feed(session, feed_id, True, "not modified", feed_col_updates)
+        feeds_incr('not_mod')
         return
 
     # BAIL: no changes since last time
@@ -361,6 +393,7 @@ def fetch_and_process_feed(session, feed: Dict):
         logger.info(f"  Feed {feed_id} - skipping, same hash")
         # PLB feed_col_updates??
         update_feed(session, feed_id, True, "same hash", feed_col_updates)
+        feeds_incr('same_hash')
         return
 
     # PLB: log error if here w/o status_code == 200?
@@ -375,7 +408,10 @@ def fetch_and_process_feed(session, feed: Dict):
         # BAIL: couldn't parse it correctly
         logger.warning(f"Couldn't parse feed {feed_id}: {e}")
         update_feed(session, feed_id, False, f"parse: {e}")
+        feeds_incr('parse_err')
         return
+
+    feeds_incr('ok')
 
     # XXX PLB: take stats dict, update with details on skip reasons?
     saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
@@ -398,12 +434,17 @@ def fetch_and_process_feed(session, feed: Dict):
     update_feed(session, feed_id, True, f"{skipped} skipped / {saved} added",
                feed_col_updates)
 
+STORIES = 'stories'
 def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                            parsed_feed: FeedParserDict) -> Tuple[int,int]:
     """
     Take parsed feed, so insert all the (valid) entries.
     returns (saved_count, skipped_count)
     """
+    stats = Stats.get()
+    def stories_incr(status):
+        stats.incr(STORIES, 1, labels=[['stat', status]])
+
     skipped_count = 0
     for entry in parsed_feed.entries:
         try:
@@ -413,12 +454,14 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                 continue
             if mcmetadata.urls.is_homepage_url(entry.link):  # and skip very common homepage patterns
                 logger.debug(" * skip homepage URL: {}".format(entry.link))
+                stories_incr('home')
                 skipped_count += 1
                 continue
             s = models.Story.from_rss_entry(feed['id'], now, entry)
             # skip urls from high-quantity non-news domains we see a lot in feeds
             if s.domain in mcmetadata.urls.NON_NEWS_DOMAINS:
                 logger.debug(" * skip non_news_domain URL: {}".format(entry.link))
+                stories_incr('nonews')
                 skipped_count += 1
                 continue
             s.sources_id = feed['sources_id']
@@ -430,19 +473,24 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                     with session.begin():
                         session.add(s)
                         session.commit()
+                    stories_incr('ok')
                 else:
                     logger.debug(" * skip duplicate title URL: {} | {} | {}".format(entry.link, s.normalized_title_hash, s.sources_id))
+                    stories_incr('dup_title')
                     skipped_count += 1
             else:
                 logger.debug(" * skip duplicate normalized URL: {} | {}".format(entry.link, s.normalized_url))
+                stories_incr('dup_url')
                 skipped_count += 1
         except (AttributeError, KeyError, ValueError, UnicodeError) as exc:
             # couldn't parse the entry - skip it
             logger.debug("Missing something on rss entry {}".format(str(exc)))
+            stories_incr('bad')
             skipped_count += 1
         except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
             # expected exception - log and ignore
             logger.debug(" * duplicate normalized URL: {}".format(s.normalized_url))
+            stories_incr('dupurl2')
             skipped_count += 1
 
     entries = len(parsed_feed.entries)
@@ -483,13 +531,5 @@ def feed_worker(self, feed_id: int):
         logger.error(f"feed_worker: expected int, got {feed_id!r}")
         return
 
-    session = self.session
-    with session.begin():
-        f = session.get(models.Feed, feed_id)
-        if f is None:
-            logger.info(f"feed_worker: feed {feed_id} not found")
-            return
-        feed = f.as_dict()      # code expects dict PLB: fix?
-
     # for total paranoia, wrap in try, call update_feed on exception??
-    fetch_and_process_feed(session, feed)
+    fetch_and_process_feed(self.session, feed_id)

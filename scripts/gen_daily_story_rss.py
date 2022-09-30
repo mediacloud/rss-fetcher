@@ -8,6 +8,8 @@ import shutil
 
 from fetcher import base_dir, engine, RSS_FILE_PATH
 import fetcher.rss.rsswriter as rsswriter
+from fetcher.stats import Stats
+
 import fetcher.util as util
 
 HISTORY = 14
@@ -19,6 +21,13 @@ else:
     target_dir = os.path.join(base_dir, RSS_FILE_PATH)
 
 logger = logging.getLogger(__name__)
+stats = Stats.init('gen_rss')
+
+def incr_files(status):
+    stats.incr('files', labels=[['status', status]])
+
+def incr_stories(status):
+    stats.incr('stories', labels=[['status', status]])
 
 if __name__ == '__main__':
 
@@ -37,6 +46,7 @@ if __name__ == '__main__':
             compressed_filepath = '{}.gz'.format(filepath)
             if not os.path.exists(compressed_filepath):
                 with open(filepath, 'w') as outfile:
+                    incr_files('created')
                     rsswriter.add_header(outfile, day)
                     # grab the stories fetched on that day
                     # (ignore ones that didn't have URLs - ie. podcast feeds, which have `<enclosure url="...">` instead)
@@ -53,9 +63,11 @@ if __name__ == '__main__':
                             try:
                                 rsswriter.add_item(outfile, story['url'], story['published_at'], story['domain'],
                                                    util.clean_str(story['title']) if 'title' in story else '')
+                                incr_stories('added')
                             except Exception as e:
                                 # probably some kind of XML encoding problem, just log and skip
                                 logger.warning("Skipped story {} - {}".format(story['id'], str(e)))
+                                incr_stories('skipped')
                             story_count += 1
                     rsswriter.add_footer(outfile)
                 logger.info("   Found {} stories".format(story_count))
@@ -68,6 +80,7 @@ if __name__ == '__main__':
                             with gzip.GzipFile(filepath, 'wb', fileobj=f_out1) as f_out2:
                                 shutil.copyfileobj(f_in, f_out2)
             else:
+                incr_files('exists')
                 logger.info("  Skipping - file already exists at {}".format(compressed_filepath))
             # and delete the uncompressed to save space
             try:
@@ -77,4 +90,5 @@ if __name__ == '__main__':
         except Exception as exc:
             logger.exception(exc)
             logger.error("Had an error on day {}, skipping due to: {}".format(d, str(exc)))
+            incr_files('failed')
     logger.info("Done")

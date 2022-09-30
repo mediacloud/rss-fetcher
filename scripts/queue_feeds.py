@@ -10,6 +10,7 @@ from fetcher import MAX_FEEDS
 import fetcher.tasks as tasks
 from fetcher.database import engine, Session
 import fetcher.database.models as models
+from fetcher.stats import Stats
 
 
 if __name__ == '__main__':
@@ -17,6 +18,8 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     logger.info("Starting Feed Queueing")
     now = dt.datetime.now()
+
+    stats = Stats('queue_feeds')
 
     # PLB TEMP: try to show SQL (put on an option?)
     #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
@@ -54,5 +57,7 @@ if __name__ == '__main__':
     # queue work:
     for id in feed_ids:
         tasks.feed_worker.delay(id)
-        
+        # called a lotta times, but above call likely more expensive:
+        stats.incr('queued_feeds')
+
     logger.info("  queued {} feeds".format(len(feed_ids)))
