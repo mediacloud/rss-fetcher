@@ -345,7 +345,7 @@ def fetch_and_process_feed(session, feed_id: int):
         if response.status_code in (403, 404, 429):
             feeds_incr(f"http_{response.status_code}")
         else:
-            feeds_incr(f"http_{response.status_code//100}")
+            feeds_incr(f"http_{response.status_code//100}xx")
         return
 
     # NOTE! 304 response will not have a body (terminated by end of headers)
