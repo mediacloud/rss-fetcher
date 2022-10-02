@@ -68,9 +68,9 @@ prod|staging)
 
     # check if MCREMOTE up to date.
     if git diff --quiet $BRANCH $MCREMOTE/$BRANCH --; then
-	echo $MCREMOTE $BRANCH branch up to date.
+	echo "$MCREMOTE $BRANCH branch up to date."
     else
-	echo "mediacloud account $BRANCH branch not up to date.  push?"
+	echo "$MCREMOTE $BRANCH branch not up to date.  push?"
 	exit 1
     fi
     # XXX sufficient if current commit part of remote branch
