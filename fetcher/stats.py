@@ -24,7 +24,8 @@ import statsd                   # pkg statsd_client
 # to name and organize statistics, the expected values
 # for environment variables etc!!!
 
-DEBUG = True
+DEBUG = False
+TAGS = False                    # get from env?? graphite >= 1.1.0 tags
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +83,22 @@ class Stats:
         if not prefix:
             return
 
-        self.statsd = statsd.StatsdClient(host, prefix=f"{prefix}.{component}")
+        logger.info(f"sending stats to {host} with prefix {prefix}")
 
+        # _connect (below) expects both or neither to be set:
+        self.host = host
+        self.prefix = prefix
+
+
+    def _connect(self):
+        if self.statsd or not self.host:
+            return
+
+        prefix = f"{self.prefix}.{self.component}"
+        try:
+            self.statsd = statsd.StatsdClient(self.host, prefix=prefix)
+        except:
+            pass
 
     def _name(self, name, labels=[]):
         """
@@ -97,9 +112,15 @@ class Stats:
         add a no_sort argument to "inc" and "gauge", to pass here?
         """
         if labels:
-            slabels = '.'.join([f"{name}_{val}" for name, val in
-                                sorted(labels)])
-            name = f"{name}.{slabels}"
+            if TAGS: # graphite 1.1 tags
+                # https://graphite.readthedocs.io/en/latest/tags.html#tags
+                slabels = ';'.join([f"{name}={val}" for name, val in
+                                    sorted(labels)])
+                name = f"{name};{slabels}"
+            else: # pre-1.1 graphite (or netdata?): no support for tags:
+                slabels = '.'.join([f"{name}_{val}" for name, val in
+                                    sorted(labels)])
+                name = f"{name}.{slabels}"
         if DEBUG:
             print("name", name)
         return name
@@ -111,18 +132,29 @@ class Stats:
 
         Please use the convention that counter names end in "s".
         """
+        if not self.statsd:
+            self._connect()
+
         if self.statsd:
-            # XXX handle error & re-create statsd?
-            self.statsd.incr(self._name(name, labels), value)
+            try:
+                self.statsd.incr(self._name(name, labels), value)
+            except:
+                self.statsd = None
 
     def gauge(self, name, value, labels=[]):
         """
         Indicate value of a gauge
         (something that goes up and down, like a thermometer or speedometer)
         """
+        if not self.statsd:
+            self._connect()
+
         if self.statsd:
-            # XXX handle error & re-create statsd?
-            self.statsd.gauge(self._name(name, labels), value)
+            try:
+                self.statsd.gauge(self._name(name, labels), value)
+            except:
+                self.statsd = None
+
 
 if __name__ == '__main__':
     s = Stats.init('foo')
