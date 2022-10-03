@@ -10,6 +10,7 @@ from fetcher import MAX_FEEDS
 import fetcher.tasks as tasks
 from fetcher.database import engine, Session
 import fetcher.database.models as models
+import fetcher.queue as queue
 from fetcher.stats import Stats
 
 
@@ -20,6 +21,9 @@ if __name__ == '__main__':
     now = dt.datetime.now()
 
     stats = Stats('queue_feeds')
+
+    redis = queue.redis_connection()
+    wq = queue.workq(redis)
 
     # PLB TEMP: try to show SQL (put on an option?)
     #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
@@ -55,8 +59,21 @@ if __name__ == '__main__':
             session.add(models.FetchEvent.from_info(feed_id, models.FetchEvent.EVENT_QUEUED))
 
     # queue work:
+
+    # batch queuing??? (implies single pipeline?)
+    # q.enqueue_many([
+    #    Queue.prepare_data(count_words_at_url, 'http://nvie.com', job_id='my_job_id'),
+    #    Queue.prepare_data(count_words_at_url, 'http://nvie.com', job_id='my_other_id'),
+    # ])
     for id in feed_ids:
-        tasks.feed_worker.delay(id)
+        # job_timeout?
+        wq.enqueue(tasks.feed_worker,
+                   args=(id,),
+                   failure_ttl=0, # don't care about failures?
+                   result_ttl=0, # don't care about result
+                   # ttl (lifetime in queue)
+        )
+
         # called a lotta times, but above call likely more expensive:
         stats.incr('queued_feeds')
 

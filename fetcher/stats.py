@@ -72,7 +72,7 @@ class Stats:
 
 
     def __init__(self, component):
-        self.statsd = None
+        self.statsd = self.host = self.prefix = None
         self.component = component
 
         host = _getenv('HOST')

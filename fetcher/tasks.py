@@ -13,30 +13,28 @@
 # create NewType for feeds_id?
 # check type hints with mypy
 
-import os
 import datetime as dt
+import hashlib
 import json
 from numbers import Real
 from typing import Dict, Tuple, Union
 import logging
+import os
 import time
-import hashlib
 
 # PyPI
-import mcmetadata.urls
-import requests
 import feedparser
-from sqlalchemy.exc import IntegrityError, PendingRollbackError
+import mcmetadata.urls
 from psycopg2.errors import UniqueViolation
-from celery import Task
+import requests
+from sqlalchemy.exc import IntegrityError, PendingRollbackError
 
 # feed fetcher:
 from fetcher import path_to_log_dir, DAY_WINDOW, DEFAULT_INTERVAL_MINS, \
     MAX_FAILURES, RSS_FETCH_TIMEOUT_SECS, SAVE_RSS_FILES
-from fetcher.celery import app
-from fetcher.database import Session
 import fetcher.database.models as models
 from fetcher.stats import Stats
+from fetcher.queue import get_session
 import fetcher.util as util
 
 MINIMUM_INTERVAL_MINS = DEFAULT_INTERVAL_MINS # have separate param?
@@ -88,23 +86,6 @@ def _save_rss_file(feed: Dict, response):
         f.write(response.text)
 
 
-# Try to reduce DB session pool churn by using one session per tasks, and returning it to the pool when task is done
-# https://stackoverflow.com/questions/31999269/how-to-setup-sqlalchemy-session-in-celery-tasks-with-no-global-variable
-class DBTask(Task):
-    _session = None
-
-    def after_return(self, *args, **kwargs):
-        if self._session is not None:
-            self._session.commit()  # just in case
-            self._session.close()
-
-    @property
-    def session(self):
-        if self._session is None:
-            self._session = Session()
-        return self._session
-
-
 def normalized_title_exists(session, normalized_title_hash: str,
                             sources_id: int,
                             day_window: int = DAY_WINDOW) -> bool:
@@ -112,24 +93,24 @@ def normalized_title_exists(session, normalized_title_hash: str,
         # err on the side of keeping URLs
         return False
     earliest_date = dt.date.today() - dt.timedelta(days=day_window)
-    # PLB: just query count, or EXISTS(select....),
-    #   and avoid moving/translating data?
-    query = "select id from stories " \
-            "where (published_at >= '{}'::DATE) AND (normalized_title_hash = :hash_title) and (sources_id=:sources_id)"\
-        .format(earliest_date)
     with session.begin():
-        matches = [r for r in session.execute(query, params=dict(hash_title=normalized_title_hash, sources_id=sources_id))]
-    return len(matches) > 0
+        return session.query(
+            models.Story.query.filter(
+                models.Story.published_at >= earliest_date,
+                models.Story.normalized_title_hash == normalized_title_hash,
+                models.Story.sources_id == sources_id
+            ).exists()
+        ).scalar()
 
 def normalized_url_exists(session, normalized_url: str) -> bool:
     if normalized_url is None:
         return False
-    # PLB: just query count, or EXISTS(select....),
-    #   and avoid moving/translating data?
-    query = "select id from stories where (normalized_url = :normalized_url)"
     with session.begin():
-        matches = [r for r in session.execute(query, params=dict(normalized_url=normalized_url))]
-    return len(matches) > 0
+        return session.query(
+            models.Story.query.filter(
+                models.Story.normalized_url == normalized_url
+            ).exists()
+        ).scalar()
 
 
 def update_feed(session, feed_id: int, success: bool, note: str,
@@ -519,17 +500,21 @@ def check_feed_title(feed: Dict, parsed_feed: FeedParserDict,
         # should be fixed!
         logger.exception("check_feed_title")
 
-@app.task(base=DBTask, serializer='json', bind=True)
-def feed_worker(self, feed_id: int):
+################
+
+
+# NOTE! RQ has a job decorator, but not using it to avoid
+# needing to fetch config at include time, so logging can be controlled better.
+# NOTE!!! MUST be run from SimpleWorker to achieve session caching!!!!
+def feed_worker(feed_id: int):
     """
     Fetch a feed, parse out stories, store them
     :param self: this maintains the single session to use for all DB operations
     :param feed_id: integer Feed id
     """
-    if not isinstance(feed_id, int):
-        # !r to display repr
-        logger.error(f"feed_worker: expected int, got {feed_id!r}")
-        return
+    session = get_session()
+
+    # XXX setproctitle(f"worker feed {feed_id}")???
 
     # for total paranoia, wrap in try, call update_feed on exception??
-    fetch_and_process_feed(self.session, feed_id)
+    fetch_and_process_feed(session, feed_id)

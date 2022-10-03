@@ -10,7 +10,7 @@ import logging
 from sqlalchemy import text
 
 from fetcher.database import Session
-from fetcher.celery import app
+from fetcher.queue import clear_work_queue
 from fetcher.database.models import Feed
 
 logger = logging.getLogger(__name__)
@@ -24,8 +24,8 @@ if __name__ == '__main__':
         session.execute(text("LOCK TABLE feeds")) # for duration of transaction.
         logger.info("Locked.")
 
-        logger.info("Purging celery queue.")
-        app.control.purge()
+        logger.info("Purging work queue.")
+        clear_work_queue()
 
         logger.info("Clearing Feed.queued column.")
         session.query(Feed).filter(Feed.queued == True)\

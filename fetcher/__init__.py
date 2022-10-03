@@ -32,6 +32,12 @@ if not BROKER_URL:
     sys.exit(1)
 logger.info("  Queue broker at {}".format(BROKER_URL))
 
+def get_url_host(url):          # TEMP!
+    elts = url.split('/')
+    return elts[2].split(':')[0]
+REDIS_HOST = get_url_host(BROKER_URL)
+logger.info(f"  REDIS_HOST {REDIS_HOST}")
+
 BACKEND_URL = os.environ.get('BACKEND_URL', 'db+sqlite:///celery-backend.db')
 logger.info("  Queue backend at {}".format(BACKEND_URL))
 
