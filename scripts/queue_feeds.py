@@ -59,22 +59,10 @@ if __name__ == '__main__':
             session.add(models.FetchEvent.from_info(feed_id, models.FetchEvent.EVENT_QUEUED))
 
     # queue work:
+    queued = queue.queue_feeds(feed_ids)
+    total = len(feed_ids)
 
-    # batch queuing??? (implies single pipeline?)
-    # q.enqueue_many([
-    #    Queue.prepare_data(count_words_at_url, 'http://nvie.com', job_id='my_job_id'),
-    #    Queue.prepare_data(count_words_at_url, 'http://nvie.com', job_id='my_other_id'),
-    # ])
-    for id in feed_ids:
-        # job_timeout?
-        wq.enqueue(tasks.feed_worker,
-                   args=(id,),
-                   failure_ttl=0, # don't care about failures?
-                   result_ttl=0, # don't care about result
-                   # ttl (lifetime in queue)
-        )
+    # XXX separate tags for stat=ok vs stat=err??
+    stats.incr('queued_feeds', queued)
 
-        # called a lotta times, but above call likely more expensive:
-        stats.incr('queued_feeds')
-
-    logger.info("  queued {} feeds".format(len(feed_ids)))
+    logger.info(f"  queued {queued}/{total} feeds")

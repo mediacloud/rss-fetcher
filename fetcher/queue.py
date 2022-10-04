@@ -1,6 +1,7 @@
 """
 worker queue support
-now using much simpler RQ
+(now using much simpler RQ)
+tries to wrap all aspects of work queuing system in use.
 """
 
 from redis.client import Redis
@@ -9,11 +10,12 @@ from rq.local import LocalStack
 
 from fetcher import REDIS_HOST
 from fetcher.database import Session
+import fetcher.tasks
 
 WORKQ_NAME = 'workq'            # XXX make config?
 
 # only ever contains one item
-# needed?? Worker not multi-threaded
+# needed?? RQ Worker not multi-threaded
 #   with SimpleWorker all in one process??
 _sessions = LocalStack()
 
@@ -35,12 +37,38 @@ def redis_connection():
 
 def workq(rconn):
     """
-    return Queue for enqueuing work, clearing queue
+    Return RQ Queue for enqueuing work, clearing queue.
     """
     if not rconn:
         rconn = redis_connection()
     # takes serializer=JSONSerializer
     return Queue(WORKQ_NAME, connection=rconn)
+
+################
+
+def queue_feeds(feed_ids: List[int]):
+    """
+    Queue feed_ids to work queue
+    """
+    # batch queuing???
+    # q.enqueue_many([
+    #    Queue.prepare_data(count_words_at_url, 'http://nvie.com', job_id='my_job_id'),
+    #    Queue.prepare_data(count_words_at_url, 'http://nvie.com', job_id='my_other_id'),
+    # ])
+    queued = 0
+    for id in feed_ids:
+        try:
+            # job_timeout?
+            wq.enqueue(fetcher.tasks.feed_worker,
+                       args=(id,),
+                       failure_ttl=0, # don't care about failures?
+                       result_ttl=0, # don't care about result
+                       # ttl (lifetime in queue)
+            )
+            queued += 1
+        except:
+            pass
+    return queued
 
 ################
 
