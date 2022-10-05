@@ -190,9 +190,15 @@ done
 
 # need delay?
 # only needed once (non-idempotent)
-if dokku ps:report $APP | grep '^Status worker' >/dev/null; then
-    echo found worker container
-else
-    echo creating worker container
-    dokku ps:scale $APP worker=1
+SCALE=""
+for CONT in worker fetcher; do
+    if dokku ps:report $APP | grep "^Status $CONT" >/dev/null; then
+	echo "found $CONT container"
+    else
+	SCALE="$SCALE $CONT=1"
+    fi
+done
+if [ "x$SCALE" != x ]; then
+    echo scale $APP $SCALE
+    dokku ps:scale $APP $SCALE
 fi

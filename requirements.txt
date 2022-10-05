@@ -14,4 +14,5 @@ mediacloud-metadata>=0.7.6
 fastapi==0.78.*
 uvicorn==0.18.*
 redis==4.3.*
+rq==1.11.*
 statsd_client==1.0.*

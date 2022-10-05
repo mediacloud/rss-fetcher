@@ -266,7 +266,7 @@ echo installing $CRONTAB
 test -d $LOGDIR || mkdir -p $LOGDIR
 cat >$CRONTAB <<EOF
 # runs script specified in Procfile: any args are passed to that script
-*/30 * * * * root /usr/bin/dokku run $APP fetcher >> $LOGDIR/fetcher.log 2>&1
+#*/30 * * * * root /usr/bin/dokku run $APP fetcher >> $LOGDIR/fetcher.log 2>&1
 30 0 * * * root /usr/bin/dokku run $APP generator >> $LOGDIR/generator.log 2>&1
 EOF
 
