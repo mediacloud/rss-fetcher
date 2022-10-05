@@ -18,9 +18,7 @@ if [ "x$MC_WORKER_CONCURRENCY" = x ]; then
     MC_WORKER_CONCURRENCY=16
 fi
 
-echo ==== clear_queue
-python -m scripts.clear_queue
-echo ==== worker
+# XXX celery args!!!
 python -m scripts.worker -A fetcher worker \
        -l $MC_WORKER_LOG_LEVEL \
        --concurrency=$MC_WORKER_CONCURRENCY

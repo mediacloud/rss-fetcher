@@ -34,7 +34,7 @@ from fetcher import path_to_log_dir, DAY_WINDOW, DEFAULT_INTERVAL_MINS, \
     MAX_FAILURES, RSS_FETCH_TIMEOUT_SECS, SAVE_RSS_FILES
 import fetcher.database.models as models
 from fetcher.stats import Stats
-from fetcher.queue import get_session
+import fetcher.queue
 import fetcher.util as util
 
 MINIMUM_INTERVAL_MINS = DEFAULT_INTERVAL_MINS # have separate param?
@@ -512,9 +512,9 @@ def feed_worker(feed_id: int):
     :param self: this maintains the single session to use for all DB operations
     :param feed_id: integer Feed id
     """
-    session = get_session()
+    session = fetcher.queue.get_session()
 
-    # XXX setproctitle(f"worker feed {feed_id}")???
+    # XXX setproctitle(f"{APP} worker feed {feed_id}")???
 
     # for total paranoia, wrap in try, call update_feed on exception??
     fetch_and_process_feed(session, feed_id)

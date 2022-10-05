@@ -92,8 +92,9 @@ def worker():
 # called from scripts/clear_queue.py
 
 def clear_work_queue():
-    q = workq()
-    q.empty()
+    with redis_connection() as r:
+        q = workq(r)
+        q.empty()
 
 ################
 # called from scripts/queue_feeds.py
