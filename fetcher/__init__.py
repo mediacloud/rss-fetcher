@@ -26,12 +26,12 @@ logger.info(f"Starting version {VERSION} GIT_REV {git_rev}")
 
 # read in environment variables
 _BROKER_URL = os.environ.get('BROKER_URL')
-if not BROKER_URL:
-    logger.error("No BROKER_URL env var specified. Pathetically refusing to start!")
-    sys.exit(1)
+#if not BROKER_URL:
+#    logger.error("No BROKER_URL env var specified. Pathetically refusing to start!")
+#    sys.exit(1)
 #logger.info("  Queue broker at {}".format(BROKER_URL))
 
-def get_url_host(url):          # TEMP!
+def get_url_host(url):          # TEMP! use SQLAlchemy URL object?
     elts = url.split('/')
     return elts[2].split(':')[0]
 REDIS_HOST = get_url_host(_BROKER_URL)
