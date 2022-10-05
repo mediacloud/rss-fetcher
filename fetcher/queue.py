@@ -2,7 +2,12 @@
 worker queue support
 (now using much simpler RQ)
 tries to wrap all aspects of work queuing system in use.
+
+Should probably implement a class with methods that wraps the
+queuing system in use (once ops list is settled)
 """
+
+from typing import List
 
 from redis.client import Redis
 from rq import Connection, Queue, SimpleWorker
@@ -46,7 +51,7 @@ def workq(rconn):
 
 ################
 
-def queue_feeds(feed_ids: List[int]):
+def queue_feeds(wq, feed_ids: List[int]):
     """
     Queue feed_ids to work queue
     """
@@ -89,6 +94,12 @@ def worker():
 def clear_work_queue():
     q = workq()
     q.empty()
+
+################
+# called from scripts/queue_feeds.py
+
+def queue_length(q):
+    return len(q)
 
 ################
 # info:
