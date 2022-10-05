@@ -4,7 +4,6 @@ import sys
 
 # PyPI
 from dotenv import load_dotenv
-from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk import init
 from sqlalchemy import create_engine
 
@@ -26,20 +25,20 @@ logger.info(f"Starting version {VERSION} GIT_REV {git_rev}")
 
 
 # read in environment variables
-BROKER_URL = os.environ.get('BROKER_URL')
+_BROKER_URL = os.environ.get('BROKER_URL')
 if not BROKER_URL:
     logger.error("No BROKER_URL env var specified. Pathetically refusing to start!")
     sys.exit(1)
-logger.info("  Queue broker at {}".format(BROKER_URL))
+#logger.info("  Queue broker at {}".format(BROKER_URL))
 
 def get_url_host(url):          # TEMP!
     elts = url.split('/')
     return elts[2].split(':')[0]
-REDIS_HOST = get_url_host(BROKER_URL)
+REDIS_HOST = get_url_host(_BROKER_URL)
 logger.info(f"  REDIS_HOST {REDIS_HOST}")
 
-BACKEND_URL = os.environ.get('BACKEND_URL', 'db+sqlite:///celery-backend.db')
-logger.info("  Queue backend at {}".format(BACKEND_URL))
+#BACKEND_URL = os.environ.get('BACKEND_URL', 'db+sqlite:///celery-backend.db')
+#logger.info("  Queue backend at {}".format(BACKEND_URL))
 
 def _get_env_int(name: str, defval: int) -> int:
     try:
@@ -59,8 +58,7 @@ RSS_FETCH_TIMEOUT_SECS = _get_env_int('RSS_FETCH_TIMEOUT_SECS', 30) # timeout in
 
 SENTRY_DSN = os.environ.get('SENTRY_DSN')  # optional
 if SENTRY_DSN:
-    init(dsn=SENTRY_DSN, release=VERSION,
-         integrations=[CeleryIntegration()])
+    init(dsn=SENTRY_DSN, release=VERSION)
     logger.info("  SENTRY_DSN: {}".format(SENTRY_DSN))
 else:
     logger.info("  Not logging errors to Sentry")
