@@ -6,7 +6,6 @@ import sys
 from dotenv import load_dotenv
 from sentry_sdk import init
 from sqlalchemy import create_engine
-from sqlalchemy.engine.url import make_url
 
 VERSION = "0.11.12"
 
@@ -28,12 +27,7 @@ logger.info(f"Starting version {VERSION} GIT_REV {git_rev}")
 # read in environment variables
 REDIS_URL = os.environ.get('REDIS_URL')
 
-def get_url_host(url):
-    u = make_url(url)           # SQLAlchemy URL object
-    return u.host
-
-REDIS_HOST = get_url_host(REDIS_URL)
-logger.info(f"  REDIS_HOST {REDIS_HOST}")
+logger.info(f"  REDIS_URL {REDIS_URL}")
 
 #BACKEND_URL = os.environ.get('BACKEND_URL', 'db+sqlite:///celery-backend.db')
 #logger.info("  Queue backend at {}".format(BACKEND_URL))

@@ -9,11 +9,12 @@ queuing system in use (once ops list is settled)
 
 from typing import List
 
-from redis.client import Redis
+from redis.client import StrictRedis
 from rq import Connection, Queue, SimpleWorker
 from rq.local import LocalStack
+from sqlalchemy.engine.url import make_url
 
-from fetcher import REDIS_HOST
+from fetcher import REDIS_URL
 from fetcher.database import Session
 import fetcher.tasks
 
@@ -34,9 +35,13 @@ def get_session():
         _sessions.push(s)
     return s
 
+################
 # to allow config fetch, connect after includes complete
+
 def redis_connection():
-    return Redis(REDIS_HOST)
+    u = make_url(REDIS_URL)     # SQLAlchemy URL object
+    # XXX assert u.drivername == 'redis'?
+    return StrictRedis(host=u.host, port=u.port, password=u.password, user=u.user)
 
 ################
 
