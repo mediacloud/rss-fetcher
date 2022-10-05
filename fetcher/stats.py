@@ -10,6 +10,7 @@ import os
 
 # PyPi
 import statsd                   # pkg statsd_client
+from sqlalchemy.engine.url import make_url
 
 # PLB: I selected statsd_client
 # [https://github.com/gaelen/python-statsd-client]
@@ -57,7 +58,7 @@ class Stats:
         """
         if cls._instance:
             raise Exception(f"Stats.init called twice: {component}/{cls._instance.component}")
-        cls._instance = cls(component)
+        cls._instance = cls(component, _init_ok=True)
         return cls._instance
 
 
@@ -71,11 +72,21 @@ class Stats:
         return cls._instance
 
 
-    def __init__(self, component):
-        self.statsd = self.host = self.prefix = None
-        self.component = component
+    def __init__(self, component, _init_ok=False):
+        if not _init_ok:
+            raise Exception("Call Stats.init")
 
-        host = _getenv('HOST')
+        self.statsd = self.host = self.prefix = None
+
+        # prefer STATSD URL set by dokku-graphite plugin
+        if 'STATSD_URL' in os.environ:
+            url = make_url(os.environ.get('STATSD_URL'))
+            # note: SQLAlchemy parser: protocol in url.database
+            host = url.host
+            # handle url.port?
+        else:
+            host = _getenv('HOST')
+
         if not host:
             return
 
@@ -83,22 +94,22 @@ class Stats:
         if not prefix:
             return
 
-        logger.info(f"sending stats to {host} with prefix {prefix}")
-
-        # _connect (below) expects both or neither to be set:
+        self.prefix = f"{prefix}.{component}"
         self.host = host
-        self.prefix = prefix
+
+        logger.info(f"sending stats to {self.host} with prefix {self.prefix}")
 
 
     def _connect(self):
-        if self.statsd or not self.host:
+        # return if have statsd, or insufficient config
+        if self.statsd or not self.host or not self.prefix:
             return
 
-        prefix = f"{self.prefix}.{self.component}"
         try:
-            self.statsd = statsd.StatsdClient(self.host, prefix=prefix)
+            self.statsd = statsd.StatsdClient(self.host, prefix=self.prefix)
+            return True
         except:
-            pass
+            return False
 
     def _name(self, name, labels=[]):
         """
@@ -117,13 +128,15 @@ class Stats:
                 slabels = ';'.join([f"{name}={val}" for name, val in
                                     sorted(labels)])
                 name = f"{name};{slabels}"
-            else: # pre-1.1 graphite (or netdata?): no support for tags:
+            else: # pre-1.1 graphite no tag support
+                # (no arbitrary tags in netdata)
                 slabels = '.'.join([f"{name}_{val}" for name, val in
                                     sorted(labels)])
                 name = f"{name}.{slabels}"
         if DEBUG:
             print("name", name)
         return name
+
 
     def incr(self, name, value=1, labels=[]):
         """
@@ -132,24 +145,25 @@ class Stats:
 
         Please use the convention that counter names end in "s".
         """
-        if not self.statsd:
-            self._connect()
+        for tries in (1, 2):
+            if not self.statsd and not self._connect():
+                return
 
-        if self.statsd:
             try:
                 self.statsd.incr(self._name(name, labels), value)
             except:
                 self.statsd = None
+
 
     def gauge(self, name, value, labels=[]):
         """
         Indicate value of a gauge
         (something that goes up and down, like a thermometer or speedometer)
         """
-        if not self.statsd:
-            self._connect()
+        for tries in (1, 2):
+            if not self.statsd and not self._connect():
+                return
 
-        if self.statsd:
             try:
                 self.statsd.gauge(self._name(name, labels), value)
             except:
