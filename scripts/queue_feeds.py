@@ -104,7 +104,7 @@ def loop(queuer):
 
         if old_qlen is not None and old_time is not None:
             delta_qlen = old_qlen - qlen
-            delta_t = (t0 - old_time) * 60 # minutes
+            delta_t = (t0 - old_time) / 60 # minutes
 
             if delta_t > 0 and delta_qlen > 100:
                 rate = delta_qlen / delta_t
