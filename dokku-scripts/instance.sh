@@ -55,9 +55,8 @@ APP=${PREFIX}rss-fetcher
 
 # Service names: Naming generically (instead of backend/broker)
 # because can use redis for both. Generated docker container names are
-# dokku.{postgres,redis,rabbitmq}.APP
+# dokku.{postgres,redis}.APP
 REDIS_SVC=$APP
-RABBITMQ_SVC=$APP
 DATABASE_SVC=$APP
 
 # storage for generated RSS files:
@@ -84,9 +83,6 @@ if [ "x$OP" = xdestroy ]; then
     # (add --force to suppress??)
 
     dokku apps:destroy $APP
-    if [ "x$TYPE" != user ]; then
-	dokku rabbitmq:destroy $RABBITMQ_SVC
-    fi
     dokku redis:destroy $REDIS_SVC
     dokku postgres:destroy $DATABASE_SVC
 
@@ -162,22 +158,9 @@ dokku redis:link $REDIS_SVC $APP
 REDIS_URL=$(dokku redis:info $REDIS_SVC --dsn)
 VARS="$VARS BACKEND_URL=$REDIS_URL"
 
-# NOTE!! celery backends need periodic cleanups run!
-
 ################
 
-if [ "x$TYPE" = xuser ]; then
-    # use redis based queue for developers
-
-    BROKER_URL="$REDIS_URL/1"
-else
-    dokku rabbitmq:create $RABBITMQ_SVC
-    # XXX check status & call destroy on failure?
-    dokku rabbitmq:link $RABBITMQ_SVC $APP
-
-    BROKER_URL=$(dokku rabbitmq:info $RABBITMQ_SVC --dsn)
-fi
-VARS="$VARS BROKER_URL=$BROKER_URL"
+# using REDIS_URL for rq
 
 VARS="$VARS MAX_FEEDS=15000"
 

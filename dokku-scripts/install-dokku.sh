@@ -102,7 +102,7 @@ fi
 # before installing letsencrypt?
 #dokku domains:set-global $DOMAIN
 
-for PLUGIN in redis rabbitmq postgres letsencrypt graphite; do
+for PLUGIN in redis postgres letsencrypt graphite; do
     if [ -d /var/lib/dokku/plugins/available/$PLUGIN ]; then
 	echo found $PLUGIN plugin
     else
