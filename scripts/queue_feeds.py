@@ -31,6 +31,15 @@ class Queuer:
         self.wq = wq
 
 
+    def _ready_query(self, session):
+        return session.query(models.Feed.id)\
+                      .filter(models.Feed.active.is_(True),
+                              models.Feed.system_enabled.is_(True),
+                              models.Feed.queued.is_(False),
+                              or_(models.Feed.next_fetch_attempt.is_(None),
+                                  models.Feed.next_fetch_attempt <= models.utc()))
+
+
     def find_and_queue_feeds(self, limit: int) -> int:
         """
         Find some active, undisabled, unqueued feeds
@@ -40,13 +49,7 @@ class Queuer:
             limit = MAX_FEEDS
 
         with Session.begin() as session:
-            ready = session.query(models.Feed.id)\
-                           .filter(models.Feed.active.is_(True),
-                                   models.Feed.system_enabled.is_(True),
-                                   models.Feed.queued.is_(False),
-                                   or_(models.Feed.next_fetch_attempt.is_(None),
-                                       models.Feed.next_fetch_attempt <= models.utc()))
-
+            ready = self._ready_query(session)
             rows = ready.order_by(models.Feed.next_fetch_attempt.asc().nulls_first(),
                                   models.Feed.id.desc())\
                         .limit(limit)\
@@ -67,11 +70,6 @@ class Queuer:
                 session.add(
                     models.FetchEvent.from_info(feed_id,
                                                 models.FetchEvent.EVENT_QUEUED))
-
-            all_ready = ready.count()
-            logger.info("all_ready {all_ready}") # XXX report as gauge
-
-        # XXX return all_ready??
         return self.queue_feeds(feed_ids)
 
 
@@ -148,6 +146,15 @@ def loop(queuer):
         if qlen < goal/2:       # less than half full?
             queuer.find_and_queue_feeds(goal-qlen) # top off queue
             qlen = queue.queue_length(queuer.wq) # after find_and_queue_feeds
+
+        with Session.begin() as session:
+            db_queued = session.query(models.Feed)\
+                               .filter(models.Feed.queued.is_(True))\
+                               .count()
+
+            ready = _ready_query)session).count()
+             # XXX gauges:
+            logger.info(f"qlen {qlen} ready {ready} db_queued {db_queued}")
 
         tnext = (t0 - t0%60) + 60  # top of minute after wake time
         old_time = t1 = time.time()

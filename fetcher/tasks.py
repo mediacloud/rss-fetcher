@@ -506,6 +506,7 @@ def check_feed_title(feed: Dict, parsed_feed: FeedParserDict,
 # NOTE! RQ has a job decorator, but not using it to avoid
 # needing to fetch config at include time, so logging can be controlled better.
 # NOTE!!! MUST be run from SimpleWorker to achieve session caching!!!!
+# XXX maybe queue feed_id and date/time used to set last_fetch_attempt when queued?
 def feed_worker(feed_id: int):
     """
     Fetch a feed, parse out stories, store them

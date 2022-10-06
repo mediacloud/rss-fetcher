@@ -65,24 +65,22 @@ def queue_feeds(wq, feed_ids: List[int]):
     """
     Queue feed_ids to work queue
     """
-    # batch queuing???
-    # q.enqueue_many([
-    #    Queue.prepare_data(count_words_at_url, 'http://nvie.com', job_id='my_job_id'),
-    #    Queue.prepare_data(count_words_at_url, 'http://nvie.com', job_id='my_other_id'),
-    # ])
-    queued = 0
-    for id in feed_ids:
-        try:
-            # job_timeout?
-            wq.enqueue(fetcher.tasks.feed_worker,
-                       args=(id,),
-                       failure_ttl=0, # don't care about failures?
-                       result_ttl=0, # don't care about result
-                       # ttl (lifetime in queue)
-            )
-            queued += 1
-        except:
-            pass
+    try:
+        job_datas = [
+            Queue.prepare_data(
+                func=fetcher.tasks.feed_worker,
+                args=(id,), # also pass datetime used to set last_fetch_attempt??
+                result_ttl=0, # don't care about result
+                failure_ttl=0, # don't care about failures
+                # timeout?
+                # retry?
+                ) for id in feed_ids
+        ]
+        jobs = wq.enqueue_many(job_datas)
+        queued = len(jobs)
+    except:
+        # XXX complain?
+        queued = 0
     return queued
 
 ################
