@@ -188,17 +188,21 @@ for REMOTE in $PUSH_TAG_TO; do
     git push $REMOTE $TAG
 done
 
-# need delay?
 # only needed once (non-idempotent)
 SCALE=""
-for CONT in worker fetcher; do
-    if dokku ps:report $APP | grep "^Status $CONT" >/dev/null; then
-	echo "found $CONT container"
+for CC in worker=8 fetcher=1; do
+    set $(echo $CC | sed 's/=/ /')
+    CONTAINER=$1
+    COUNT=$2
+    CURR=$(dokku ps:report $APP | grep "Status $CONTAINER [1-9]" | wc -l)
+    if [ $COUNT != $CURR ]; then
+	SCALE="$SCALE $CONTAINER=$COUNT"
     else
-	SCALE="$SCALE $CONT=1"
+	echo "found $CURR $CONTAINER(s)"
     fi
 done
+
 if [ "x$SCALE" != x ]; then
-    echo scale $APP $SCALE
+    echo ps:scale $APP $SCALE
     dokku ps:scale $APP $SCALE
 fi

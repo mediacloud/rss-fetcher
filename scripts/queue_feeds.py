@@ -106,9 +106,9 @@ def loop(queuer):
             delta_qlen = old_qlen - qlen
             delta_t = (t0 - old_time) / 60 # minutes
 
-            if delta_t > 0 and delta_qlen > 100:
+            if delta_t > 0.5 and delta_qlen > 100:
                 rate = delta_qlen / delta_t
-                queuer.logger.info(f"rate {rate}")
+                queuer.logger.info(f"rate {rate} ({delta_qlen} / {delta_t})")
 
         goal = round(rate * 4)  # minutes to keep queued
         queuer.logger.info(f"qlen {qlen} goal {goal}")
