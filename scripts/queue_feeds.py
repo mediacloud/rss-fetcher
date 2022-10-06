@@ -107,12 +107,15 @@ def loop(queuer):
             delta_t = (t0 - old_time) / 60 # minutes
 
             if delta_t > 0.5 and delta_qlen > 100:
-                rate = delta_qlen / delta_t
-                queuer.logger.info(f"rate {rate} ({delta_qlen} / {delta_t})")
+                r = delta_qlen / delta_t
+                queuer.logger.info(f"r {r} ({delta_qlen} / {delta_t})")
+                if r > 100:     # paranoia
+                    rate = r
+                    queuer.logger.info(f"rate {rate}")
 
-        goal = round(rate * 4)  # minutes to keep queued
+        goal = round(rate * 5)  # minutes to keep queued
         queuer.logger.info(f"qlen {qlen} goal {goal}")
-        if qlen < goal/2:
+        if qlen < goal/2:       # less than half full?
             queuer.find_and_queue_feeds(goal-qlen) # top off queue
             qlen = queue.queue_length(queuer.wq) # after find_and_queue_feeds
 
