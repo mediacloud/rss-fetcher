@@ -91,7 +91,7 @@ class Queuer:
 
 
     def log_reg_counts(self):   # TEMP
-        logger.info(f"  reg_counts {queue.reg_counts(self.wq}")
+        logger.info(f"  reg_counts {queue.reg_counts(self.wq)}")
 
 
 # XXX make a queuer method? should only be used here!
