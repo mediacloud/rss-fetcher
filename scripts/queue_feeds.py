@@ -91,29 +91,39 @@ def loop(queuer):
     Loop monitoring & reporting queue length to stats server
     """
     old_qlen = old_time = None
-    rate = 1000                 # 1K/minute
+    MINQ = 100
+    rates = [MINQ]   # initial estimate (better low than high)
+    MAX_RATES = 5    # number of samples to keep
+    GOAL_MINUTES = 5 # number of minutes of work to try to keep queued
+    LOW_RATE = MINQ/GOAL_MINUTES
+
     while True:
         # NOTE!! rate calculation will hickup if clock changed
         # (use time.monotonic() for rate calculation???)
         # but want wakeups at top of UTC minute
 
         t0 = time.time()
-        queuer.logger.info(f"top {t0}") # XXX => debug
+        queuer.logger.debug(f"top {t0}")
 
         qlen = queue.queue_length(queuer.wq) # queuer method??
 
+        # try to update processing rate
         if old_qlen is not None and old_time is not None:
             delta_qlen = old_qlen - qlen
             delta_t = (t0 - old_time) / 60 # minutes
 
-            if delta_t > 0.5 and delta_qlen > 100:
+            if delta_t > 0.5 and delta_qlen > 0:
                 r = delta_qlen / delta_t
                 queuer.logger.info(f"r {r} ({delta_qlen} / {delta_t})")
-                if r > 100:     # paranoia
-                    rate = r
-                    queuer.logger.info(f"rate {rate}")
+                if r < LOW_RATE:
+                    r = LOW_RATE
+                rates.append(r)
+                if len(rates) > MAX_RATES:
+                    rates.pop(0)
 
-        goal = round(rate * 5)  # minutes to keep queued
+        # keep last N samples and calculate rate over N minutes
+        rate = sum(rates) / len(rates)
+        goal = round(rate * GOAL_MINUTES)
         queuer.logger.info(f"qlen {qlen} goal {goal}")
         if qlen < goal/2:       # less than half full?
             queuer.find_and_queue_feeds(goal-qlen) # top off queue
@@ -125,11 +135,16 @@ def loop(queuer):
 
         s = tnext - t1             # time until then to sleep
         if s > 0:
-            queuer.logger.info(f"t1 {t1} tnext {tnext} sleep {s}") # XXX => debug
+            queuer.logger.debug(f"t1 {t1} tnext {tnext} sleep {s}")
             time.sleep(s)
 
 if __name__ == '__main__':
     logger = logging.getLogger(__name__)
+
+    # XXX parse options for log level?
+    # shows generated SQL:
+    #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
     logger.info("Starting Feed Queueing")
 
     stats = Stats.init('queue_feeds')
@@ -139,8 +154,6 @@ if __name__ == '__main__':
 
     queuer = Queuer(stats, wq, logger)
 
-    # PLB TEMP: try to show SQL (put on an option?)
-    #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
     # support passing in one or more feed ids on the command line
     if len(sys.argv) > 1:
