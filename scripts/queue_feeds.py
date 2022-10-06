@@ -19,16 +19,16 @@ import fetcher.database.models as models
 import fetcher.queue as queue
 from fetcher.stats import Stats
 
+logger = logging.getLogger(__name__)
 
 class Queuer:
     """
     class to encapsulate feed queuing.
     move some place public if needed elsewhere!
     """
-    def __init__(self, stats, wq, logger):
+    def __init__(self, stats, wq):
         self.stats = stats
         self.wq = wq
-        self.logger = logger
 
 
     def find_and_queue_feeds(self, limit: int) -> int:
@@ -36,6 +36,9 @@ class Queuer:
         Find some active, undisabled, unqueued feeds
         that have not been checked, or are past due for a check (oldest first).
         """
+        if limit > MAX_FEEDS:
+            limit = MAX_FEEDS
+
         with Session.begin() as session:
             ready = session.query(models.Feed.id)\
                            .filter(models.Feed.active.is_(True),
@@ -44,20 +47,15 @@ class Queuer:
                                    or_(models.Feed.next_fetch_attempt.is_(None),
                                        models.Feed.next_fetch_attempt <= models.utc()))
 
-            # XXX after queuing (and removed from Feed table)???
-            all_ready = ready.count() # XXX report as gauge
-            self.stats.gauge('ready_feeds', all_ready)
-
             rows = ready.order_by(models.Feed.next_fetch_attempt.asc().nulls_first(),
                                   models.Feed.id.desc())\
                         .limit(limit)\
                         .all()  # all rows
             feed_ids = [row[0] for row in rows]
 
+            # mark as queued first to avoid race with workers
+            now = dt.datetime.utcnow()
 
-        # mark as queued first to avoid race with workers
-        now = dt.datetime.utcnow()
-        with Session.begin() as session:  # this automatically commits and closes
             # mark each row in feed_ids as queued, and mark start time
             session.query(models.Feed)\
                    .filter(models.Feed.id.in_(feed_ids))\
@@ -66,8 +64,13 @@ class Queuer:
 
             # create a fetch_event row for each feed:
             for feed_id in feed_ids:
-                session.add(models.FetchEvent.from_info(feed_id, models.FetchEvent.EVENT_QUEUED))
+                session.add(
+                    models.FetchEvent.from_info(feed_id,
+                                                models.FetchEvent.EVENT_QUEUED))
 
+            all_ready = ready.count() # XXX report as gauge
+
+        # XXX return all_ready??
         return self.queue_feeds(feed_ids)
 
 
@@ -81,11 +84,17 @@ class Queuer:
 
         total = len(feed_ids)
         # XXX complain if queued != total???
-        self.logger.info(f"  queued {queued}/{total} feeds")
+        logger.info(f"  queued {queued}/{total} feeds")
+        self.log_reg_counts()   # TEMP
 
         return queued
 
 
+    def log_reg_counts(self):
+        logger.info(f"  reg_counts {queue.reg_counts(self.wq}")
+
+
+# XXX make a queuer method? should only be used here!
 def loop(queuer):
     """
     Loop monitoring & reporting queue length to stats server
@@ -103,9 +112,10 @@ def loop(queuer):
         # but want wakeups at top of UTC minute
 
         t0 = time.time()
-        queuer.logger.debug(f"top {t0}")
+        logger.debug(f"top {t0}")
 
-        qlen = queue.queue_length(queuer.wq) # queuer method??
+        qlen = queue.queue_length(queuer.wq) # queue(r) method??
+        queuer.log_reg_counts()              # TEMP
 
         # try to update processing rate
         if old_qlen is not None and old_time is not None:
@@ -114,17 +124,18 @@ def loop(queuer):
 
             if delta_t > 0.5 and delta_qlen > 0:
                 r = delta_qlen / delta_t
-                queuer.logger.info(f"r {r} ({delta_qlen} / {delta_t})")
+                logger.info(f"r {r} ({delta_qlen} / {delta_t})")
                 if r < LOW_RATE:
                     r = LOW_RATE
+                # keep last N samples
                 rates.append(r)
                 if len(rates) > MAX_RATES:
                     rates.pop(0)
 
-        # keep last N samples and calculate rate over N minutes
+        # calculate rate over N minutes
         rate = sum(rates) / len(rates)
         goal = round(rate * GOAL_MINUTES)
-        queuer.logger.info(f"qlen {qlen} goal {goal}")
+        logger.info(f"qlen {qlen} goal {goal}")
         if qlen < goal/2:       # less than half full?
             queuer.find_and_queue_feeds(goal-qlen) # top off queue
             qlen = queue.queue_length(queuer.wq) # after find_and_queue_feeds
@@ -135,13 +146,12 @@ def loop(queuer):
 
         s = tnext - t1             # time until then to sleep
         if s > 0:
-            queuer.logger.debug(f"t1 {t1} tnext {tnext} sleep {s}")
+            logger.debug(f"t1 {t1} tnext {tnext} sleep {s}")
             time.sleep(s)
 
 if __name__ == '__main__':
-    logger = logging.getLogger(__name__)
 
-    # XXX parse options for log level?
+    # XXX (call library to) parse options for log level?
     # shows generated SQL:
     #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
@@ -153,7 +163,6 @@ if __name__ == '__main__':
     wq = queue.workq(redis)
 
     queuer = Queuer(stats, wq, logger)
-
 
     # support passing in one or more feed ids on the command line
     if len(sys.argv) > 1:

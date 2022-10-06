@@ -3,7 +3,7 @@ worker queue support
 (now using much simpler RQ)
 tries to wrap all aspects of work queuing system in use.
 
-Should probably implement a class with methods that wraps the
+Should probably implement a (singleton?) class with methods that wraps the
 queuing system in use (once ops list is settled)
 """
 
@@ -37,6 +37,7 @@ def get_session():
 
 ################
 # to allow config fetch, connect after includes complete
+# XXX wrap in a singleton??
 
 def redis_connection():
     u = make_url(REDIS_URL)     # SQLAlchemy URL object
@@ -46,6 +47,7 @@ def redis_connection():
 
 ################
 
+# XXX wrap in a singleton?
 def workq(rconn):
     """
     Return RQ Queue for enqueuing work, clearing queue.
@@ -86,12 +88,11 @@ def queue_feeds(wq, feed_ids: List[int]):
 def worker():
     """
     run as worker, called by scripts/worker.py
-    XXX parse sys.argv for options (log level), like celery.main?
     """
     with Connection(redis_connection()) as conn:
         w = SimpleWorker([WORKQ_NAME], connection=conn)
 
-        # "The return value indicates whether any jobs were processed.":
+        # "The return value indicates whether any jobs were processed."
         w.work()
 
 ################
@@ -106,18 +107,8 @@ def clear_work_queue():
 # called from scripts/queue_feeds.py
 
 def queue_length(q):
-    return len(q)
+    return q.count
 
-################
-# info:
-
-# from rq.worker import Worker
-# worker = Worker.find_by_key('rq:worker:name')
-# worker.successful_job_count  # Number of jobs finished successfully
-# worker.failed_job_count # Number of failed jobs processed by this worker
-# worker.total_working_time  # Amount of time spent executing jobs (in seconds)
-
-def workers(rconn):
-    wq = workq(rconn)
-    return Worker.all(queue=wq)
-
+REGISTRIES = ('deferred', 'scheduled', 'canceled', 'started', 'finished', 'failed')
+def reg_counts(q):
+    return {rname: getattr(q, rname + '_job_registry').count for rname in REGISTRIES}
