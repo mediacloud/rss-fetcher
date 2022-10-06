@@ -99,8 +99,9 @@ if dokku apps:exists $APP >/dev/null 2>&1; then
 fi
 
 ################
-# before taking any actions
+# before taking any actions:
 
+# XXX eventually for staging too?
 if [ "x$TYPE" = xprod ]; then
     if grep ^SENTRY_DSN .prod >/dev/null; then
 	VARS="$VARS $(cat .prod)"
@@ -155,14 +156,17 @@ else
 fi
 dokku redis:link $REDIS_SVC $APP
 
-REDIS_URL=$(dokku redis:info $REDIS_SVC --dsn)
-VARS="$VARS BACKEND_URL=$REDIS_URL"
+# parsing automagic REDIS_URL for rq in fetcher/queue.py
 
 ################
 
-# using REDIS_URL for rq
+if [ "x$TYPE" = xuser ]; then
+    MAX_FEEDS=10
+else
+    MAX_FEEDS=15000
+fi
 
-VARS="$VARS MAX_FEEDS=15000"
+VARS="$VARS MAX_FEEDS=$MAX_FEEDS"
 
 ################
 
@@ -200,12 +204,9 @@ fi
 
 dokku graphite:link $GRAPHITE_STATS_SVC $APP
 
-# should be dokku-graphite-$GRAPHITE_STATS_SVC:
-STATSD_HOST=$(dokku graphite:info stats --dsn | sed -e '@statsd://@@' -e 's@:[0-9]*$@@')
+# using automagic STATSD_URL in fetcher/stats.py
 
-STATSD_PREFIX="mc.$(TYPE_OR_UNAME).rss-fetcher"
-
-VARS="$VARS MC_STATSD_HOST=$STATSD_HOST"
+STATSD_PREFIX="mc.${TYPE_OR_UNAME}.rss-fetcher"
 VARS="$VARS MC_STATSD_PREFIX=$STATSD_PREFIX"
 
 ################
