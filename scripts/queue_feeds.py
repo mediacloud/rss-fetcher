@@ -19,7 +19,7 @@ import fetcher.database.models as models
 import fetcher.queue as queue
 from fetcher.stats import Stats
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('queue_feeds')
 
 class Queuer:
     """
@@ -152,7 +152,7 @@ def loop(queuer):
                                .filter(models.Feed.queued.is_(True))\
                                .count()
 
-            ready = _ready_query)session).count()
+            ready = queuer._ready_query(session).count()
              # XXX gauges:
             logger.info(f"qlen {qlen} ready {ready} db_queued {db_queued}")
 
