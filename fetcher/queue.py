@@ -41,8 +41,10 @@ def get_session():
 
 def redis_connection():
     u = make_url(REDIS_URL)     # SQLAlchemy URL object
+    if not u:
+        raise Exception(f"Bad REDIS_URL {REDIS_URL}")
     # XXX assert u.drivername == 'redis'?
-    return StrictRedis(host=u.host, port=u.port,
+    return StrictRedis(host=u.host, port=u.port or 6379,
                        password=u.password, username=u.username)
 
 ################

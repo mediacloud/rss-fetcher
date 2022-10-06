@@ -91,7 +91,7 @@ class Queuer:
 
 
     def log_reg_counts(self):
-        logger.info(f"  reg_counts {queue.reg_counts(self.wq}")
+        logger.info(f"  reg_counts {queue.reg_counts(self.wq)}")
 
 
 # XXX make a queuer method? should only be used here!
@@ -162,16 +162,15 @@ if __name__ == '__main__':
     redis = queue.redis_connection()
     wq = queue.workq(redis)
 
-    queuer = Queuer(stats, wq, logger)
+    queuer = Queuer(stats, wq)
 
     # support passing in one or more feed ids on the command line
     if len(sys.argv) > 1:
         if sys.argv[1] == '--loop':
             sys.exit(loop(queuer))
 
-        feed_ids = [int(id) for id in sys.argv[1:]]
-        # XXX look up Feed entries by id?
-        # just exists(.....filter(models.Feed.id.in_(feed_ids))) ???
+        feed_ids = [int(id) for id in sys.argv[1:]] # positional args
+        # XXX validate ids?
         queuer.queue_feeds(feed_ids)
     else:
         queuer.find_and_queue_feeds(MAX_FEEDS)
