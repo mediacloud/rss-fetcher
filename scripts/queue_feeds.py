@@ -68,7 +68,8 @@ class Queuer:
                     models.FetchEvent.from_info(feed_id,
                                                 models.FetchEvent.EVENT_QUEUED))
 
-            all_ready = ready.count() # XXX report as gauge
+            all_ready = ready.count()
+            logger.info("all_ready {all_ready}") # XXX report as gauge
 
         # XXX return all_ready??
         return self.queue_feeds(feed_ids)
@@ -83,15 +84,14 @@ class Queuer:
         self.stats.incr('queued_feeds', queued)
 
         total = len(feed_ids)
-        # XXX complain if queued != total???
         logger.info(f"  queued {queued}/{total} feeds")
         self.log_reg_counts()   # TEMP
 
         return queued
 
 
-    def log_reg_counts(self):
-        logger.info(f"  reg_counts {queue.reg_counts(self.wq)}")
+    def log_reg_counts(self):   # TEMP
+        logger.info(f"  reg_counts {queue.reg_counts(self.wq}")
 
 
 # XXX make a queuer method? should only be used here!
@@ -99,12 +99,19 @@ def loop(queuer):
     """
     Loop monitoring & reporting queue length to stats server
     """
+    # `rates` has the last `MAX_RATES` one-minute work queue consumption rates
+    # averaged to get estimated burn rate.
+
+    # "goal" is the average of rates entries times GOAL_MINUTES
+    # when queue length falls below goal/2 (low water mark),
+    # goal-qlen entries are added to refill (to the high water mark).
+
     old_qlen = old_time = None
-    MINQ = 100
-    rates = [MINQ]   # initial estimate (better low than high)
-    MAX_RATES = 5    # number of samples to keep
-    GOAL_MINUTES = 5 # number of minutes of work to try to keep queued
-    LOW_RATE = MINQ/GOAL_MINUTES
+    MINQ = 100       # lower limit for queue length goal
+    rates = [MINQ]
+    MAX_RATES = 5    # number of samples to keep in rates list
+    GOAL_MINUTES = 5 # number of minutes of work to try to keep queued (must be > 1!!)
+    LOW_RATE = MINQ/GOAL_MINUTES # lower bound for acceptable rate
 
     while True:
         # NOTE!! rate calculation will hickup if clock changed
@@ -135,7 +142,9 @@ def loop(queuer):
         # calculate rate over N minutes
         rate = sum(rates) / len(rates)
         goal = round(rate * GOAL_MINUTES)
-        logger.info(f"qlen {qlen} goal {goal}")
+        if goal > MAX_FEEDS:
+            goal = MAX_FEEDS
+        logger.info(f"qlen {qlen} rate {rate} goal {goal}")
         if qlen < goal/2:       # less than half full?
             queuer.find_and_queue_feeds(goal-qlen) # top off queue
             qlen = queue.queue_length(queuer.wq) # after find_and_queue_feeds
