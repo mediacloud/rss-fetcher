@@ -91,6 +91,7 @@ def loop(queuer):
     Loop monitoring & reporting queue length to stats server
     """
     old_qlen = old_time = None
+    rate = 1000 / 60            # estimate: 1K/minute
     while True:
         # NOTE!! rate calculation will hickup if clock changed
         # (use time.monotonic() for rate calculation???)
@@ -101,13 +102,11 @@ def loop(queuer):
 
         qlen = queue.queue_length(queuer.wq) # queuer method??
 
-        rate = 1000 / 60        # estimate: 1K/minute
         if old_qlen is not None and old_time is not None:
-            # XXX calculate total processed over time running?
             delta_qlen = old_qlen - qlen
             delta_t = t0 - old_time
 
-            if delta_t > 0:
+            if delta_t > 0 and delta_qlen > 0:
                 rate = delta_qlen / delta_t
 
         goal = round(rate * 4)  # minutes to keep queued
