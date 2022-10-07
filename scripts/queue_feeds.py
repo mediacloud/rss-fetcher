@@ -48,6 +48,7 @@ class Queuer:
         if limit > MAX_FEEDS:
             limit = MAX_FEEDS
 
+        now = dt.datetime.utcnow()
         with Session.begin() as session:
             ready = self._ready_query(session)
             rows = ready.order_by(models.Feed.next_fetch_attempt.asc().nulls_first(),
@@ -57,9 +58,6 @@ class Queuer:
             feed_ids = [row[0] for row in rows]
 
             # mark as queued first to avoid race with workers
-            now = dt.datetime.utcnow()
-
-            # mark each row in feed_ids as queued, and mark start time
             session.query(models.Feed)\
                    .filter(models.Feed.id.in_(feed_ids))\
                    .update({'last_fetch_attempt': now, 'queued': True},
@@ -70,7 +68,7 @@ class Queuer:
                 session.add(
                     models.FetchEvent.from_info(feed_id,
                                                 models.FetchEvent.EVENT_QUEUED))
-        return self.queue_feeds(feed_ids)
+        return self.queue_feeds(feed_ids, now)
 
 
     def queue_feeds(self, feed_ids: List[int]) -> int:
@@ -83,7 +81,6 @@ class Queuer:
 
         total = len(feed_ids)
         logger.info(f"  queued {queued}/{total} feeds")
-        self.log_reg_counts()   # TEMP
 
         return queued
 

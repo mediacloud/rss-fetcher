@@ -51,10 +51,6 @@ logger.addHandler(fileHandler)
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 
-# stats names, in case need to add prefix to avoid confusion
-FEEDS = 'feeds'
-STORIES = 'stories'
-
 # RDF Site Summary 1.0 Modules: Syndication
 # https://web.resource.org/rss/1.0/modules/syndication/
 _DAY_MINS = 24*60
@@ -280,7 +276,7 @@ def fetch_and_process_feed(session, feed_id: int):
     stats = Stats.get()
     def feeds_incr(status):
         """call exactly ONCE for each feed processed"""
-        stats.incr(FEEDS, 1, labels=[['stat', status]])
+        stats.incr('feeds', 1, labels=[['stat', status]])
 
     with session.begin():
         f = session.get(models.Feed, feed_id)
@@ -288,9 +284,16 @@ def fetch_and_process_feed(session, feed_id: int):
             feeds_incr('missing')
             logger.info(f"feed_worker: feed {feed_id} not found")
             return
+
+        # sanity checks (in case entry modified while in queue)
+        if not f.active or not f.system_enabled or not f.queued:
+            # "you canna fool me, there's no such athing asa sanity clause" --Chico Marx
+            feeds_incr('insane')
+            logger.info(f"insane: active {f.active} system_enabled {f.system_enabled} queued {f.queued}")
+            return
         feed = f.as_dict()      # code expects dict PLB: fix?
 
-    # used in Feed.last_fetch_success, Story.fetched_at, but NOT FetchEvent?
+    # used in Feed.last_fetch_success, Story.fetched_at (but not FetchEntry)
     now = dt.datetime.utcnow()
 
     try:
@@ -316,13 +319,12 @@ def fetch_and_process_feed(session, feed_id: int):
 
     # BAIL: HTTP failed (not full response or "Not Changed")
     if response.status_code != 200 and response.status_code != 304:
-        # NOTE! 429 is "too many requests",
-        # but fetcher doesn't track domains, so no way to honor it!
         logger.info(f"  Feed {feed_id} - skipping, bad response {response.status_code} at {response.url}")
         update_feed(session, feed_id, False,
                     f"HTTP {response.status_code} / {response.url}")
 
         # limiting tag cardinality, only a few, common codes
+        # NOTE! 429 is "too many requests" (ie; slow down)
         if response.status_code in (403, 404, 429):
             feeds_incr(f"http_{response.status_code}")
         else:
@@ -415,7 +417,6 @@ def fetch_and_process_feed(session, feed_id: int):
     update_feed(session, feed_id, True, f"{skipped} skipped / {saved} added",
                feed_col_updates)
 
-STORIES = 'stories'
 def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                            parsed_feed: FeedParserDict) -> Tuple[int,int]:
     """
@@ -424,7 +425,8 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
     """
     stats = Stats.get()
     def stories_incr(status):
-        stats.incr(STORIES, 1, labels=[['stat', status]])
+        """call exactly ONCE for each story processed"""
+        stats.incr('stories', 1, labels=[['stat', status]])
 
     skipped_count = 0
     for entry in parsed_feed.entries:

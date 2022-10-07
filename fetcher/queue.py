@@ -7,6 +7,7 @@ Should probably implement a (singleton?) class with methods that wraps the
 queuing system in use (once ops list is settled)
 """
 
+import datetime
 from typing import List
 
 from redis.client import StrictRedis
@@ -61,7 +62,7 @@ def workq(rconn):
 
 ################
 
-def queue_feeds(wq, feed_ids: List[int]):
+def queue_feeds(wq, feed_ids: List[int], now: datetime.datetime):
     """
     Queue feed_ids to work queue
     """
@@ -69,7 +70,7 @@ def queue_feeds(wq, feed_ids: List[int]):
         job_datas = [
             Queue.prepare_data(
                 func=fetcher.tasks.feed_worker,
-                args=(id,), # also pass datetime used to set last_fetch_attempt??
+                args=(id,), # also pass now (as string?)
                 result_ttl=0, # don't care about result
                 failure_ttl=0, # don't care about failures
                 # timeout?
