@@ -14,7 +14,7 @@ from typing import List
 from sqlalchemy import text, or_
 
 # app
-from fetcher import MAX_FEEDS, DEFAULT_INTERVAL_MINS
+from fetcher import MAX_FEEDS, MINIMUM_INTERVAL_MINS
 import fetcher.tasks as tasks
 from fetcher.database import engine, Session
 import fetcher.database.models as models
@@ -23,9 +23,14 @@ from fetcher.stats import Stats
 
 logger = logging.getLogger('queue_feeds')
 
-# XXX want MINIMUM_INTERVAL_MINS?
-MAX_FETCHES_DAY = (24*60)/DEFAULT_INTERVAL_MINS
+# Maximum times a day a feed can be fetched
+# based on minimum allowed interval between fetches.
+# Used to estimate minimum necessary processing rate.
+MAX_FETCHES_DAY = (24*60)/MINIMUM_INTERVAL_MINS
 
+# Multiplier to estimated (necessary) per minute processing rate to
+# get queue len low water mark.  If available processing rate is
+# greater than the necessary rate, refill will happen more frequently.
 REFILL_PERIOD_MINS = 5
 
 class Queuer:
@@ -123,12 +128,13 @@ def loop(queuer):
             with Session.begin() as session:
                 active = queuer.count_active(session)
 
-            # `goal` is number of feeds to fetch in REFILL_PERIOD_MINS,
-            # try to spread load evenly throughout day, based on number of
-            # feeds times max number of fetches/day.
-            goal = active * MAX_FETCHES_DAY / 24 / 60 * REFILL_PERIOD_MINS
-            if goal < 1000:     # debug w/ small feeds database
-                goal = 1000
+            # `goal` is work queue low water mark (refill below this number);
+            # The number of feeds to fetch in REFILL_PERIOD_MINS.
+            # Estimate maximum number of fetches needed per period
+            # if all feeds fetched at max allowed rate.
+            goal = round(active * MAX_FETCHES_DAY / 24 / 60 * REFILL_PERIOD_MINS)
+            if goal < 100:      # debug w/ small feeds database
+                goal = 100
 
         if qlen < goal:
             # fill up to 2x goal (refill at 1x)

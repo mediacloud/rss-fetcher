@@ -31,13 +31,11 @@ from sqlalchemy.exc import IntegrityError, PendingRollbackError
 
 # feed fetcher:
 from fetcher import path_to_log_dir, DAY_WINDOW, DEFAULT_INTERVAL_MINS, \
-    MAX_FAILURES, RSS_FETCH_TIMEOUT_SECS, SAVE_RSS_FILES
+    MAX_FAILURES, MINIMUM_INTERVAL_MINS, RSS_FETCH_TIMEOUT_SECS, SAVE_RSS_FILES
 import fetcher.database.models as models
 from fetcher.stats import Stats
 import fetcher.queue
 import fetcher.util as util
-
-MINIMUM_INTERVAL_MINS = DEFAULT_INTERVAL_MINS # have separate param?
 
 # shorthands:
 FeedParserDict = feedparser.FeedParserDict
