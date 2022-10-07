@@ -30,7 +30,9 @@ MAX_FETCHES_DAY = (24*60)/MINIMUM_INTERVAL_MINS
 
 # Multiplier to estimated (necessary) per minute processing rate to
 # get queue len low water mark.  If available processing rate is
-# greater than the necessary rate, refill will happen more frequently.
+# greater than the necessary rate (more workers than strictly
+# necessary), refill will happen more frequently.  If grossly
+# overpowered, refills can happen once a minute.
 REFILL_PERIOD_MINS = 5
 
 class Queuer:
@@ -128,10 +130,20 @@ def loop(queuer):
             with Session.begin() as session:
                 active = queuer.count_active(session)
 
-            # `goal` is work queue low water mark (refill below this number);
-            # The number of feeds to fetch in REFILL_PERIOD_MINS.
-            # Estimate maximum number of fetches needed per period
-            # if all feeds fetched at max allowed rate.
+            # The aim of this code is to keep a minimum number of
+            # feeds in the work queue, so that changes (or additions)
+            # to the database can take effect in close to real time.
+            # Originally attempted to calculate effective processing
+            # rate, and to queue enough work to last
+            # REFILL_PERIOD_MINS, but one-minute estimates were noisy
+            # (even with five minute sliding window), and made the
+            # code larger.
+
+            # `goal` is work queue low water mark (refill below this number).
+            # Calculated as the minimum number of feeds to fetch in order
+            # to keep up if all feeds are fetched at the maximum allowed rate.
+            # Unless we're underpowered (too few workers), refill interval will
+            # likely be less than the target REFILL_PERIOD_MINS.
             goal = round(active * MAX_FETCHES_DAY / 24 / 60 * REFILL_PERIOD_MINS)
             if goal < 100:      # debug w/ small feeds database
                 goal = 100
