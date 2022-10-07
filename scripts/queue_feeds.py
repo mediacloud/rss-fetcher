@@ -111,53 +111,77 @@ def loop(queuer):
     while True:
         # NOTE!! rate calculation will hickup if clock changed
         # (use time.monotonic() for rate calculation???)
-        # but want wakeups at top of UTC minute
+        # but want wakeups at top of UTC minute!
 
-        t0 = time.time()
+        t0 = time.time()        # wake time
         logger.debug(f"top {t0}")
 
-        qlen = queue.queue_length(queuer.wq) # queue(r) method??
+        qlen = qlen0 = queue.queue_length(queuer.wq) # queue(r) method??
         queuer.log_reg_counts()              # TEMP
 
         # try to update processing rate
         if old_qlen is not None and old_time is not None:
             delta_qlen = old_qlen - qlen
+            queuer.stats.gauge('completed', delta_qlen)
+
             delta_t = (t0 - old_time) / 60 # minutes
 
+            # try to capture avg FULL processing rate
+            # (maybe ignore samples when curr qlen == 0??)
             if delta_t > 0.5 and delta_qlen > 0:
                 r = delta_qlen / delta_t
                 logger.info(f"r {r} ({delta_qlen} / {delta_t})")
                 if r < LOW_RATE:
                     r = LOW_RATE
-                # keep last N samples
+
+                # keep last MAX_RATES samples
                 rates.append(r)
                 if len(rates) > MAX_RATES:
                     rates.pop(0)
 
-        # calculate rate over N minutes
-        rate = sum(rates) / len(rates)
+        # calculate average rate
+        rate = sum(rates) / len(rates) # should never be < LOW_RATE
+        queuer.stats.gauge('rate', rate)
+
         goal = round(rate * GOAL_MINUTES)
+        # old MAX_FEEDS of 15K is about 10 minutes of work on tarbell
+        # so use that as upper limit.
         if goal > MAX_FEEDS:
             goal = MAX_FEEDS
-        logger.info(f"qlen {qlen} rate {rate} goal {goal}")
+        queuer.stats.gauge('goal', goal)
+
         if qlen < goal/2:       # less than half full?
-            queuer.find_and_queue_feeds(goal-qlen) # top off queue
+            added = queuer.find_and_queue_feeds(goal - qlen)
             qlen = queue.queue_length(queuer.wq) # after find_and_queue_feeds
+        else:
+            added = 0
+
+        active = queue.queue_active(queuer.wq)
+
+        queuer.stats.gauge('waiting', qlen0)
+        queuer.stats.gauge('added', added)
+
+        queuer.stats.gauge('active', active)
 
         with Session.begin() as session:
             db_queued = session.query(models.Feed)\
                                .filter(models.Feed.queued.is_(True))\
                                .count()
 
-            ready = queuer._ready_query(session).count()
-             # XXX gauges:
-            logger.info(f"qlen {qlen} ready {ready} db_queued {db_queued}")
+            db_ready = queuer._ready_query(session).count()
 
+        # should be approx. qlen + active
+        queuer.stats.gauge('db.queued', db_queued)
+
+        # remaining db entries available to be queued:
+        queuer.stats.gauge('db.ready', db_ready)
+
+        # figure out when to wake up next, prepare for bed.
         tnext = (t0 - t0%60) + 60  # top of minute after wake time
         old_time = t1 = time.time()
         old_qlen = qlen
 
-        s = tnext - t1             # time until then to sleep
+        s = tnext - t1          # sleep time
         if s > 0:
             logger.debug(f"t1 {t1} tnext {tnext} sleep {s}")
             time.sleep(s)

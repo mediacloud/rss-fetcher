@@ -110,6 +110,7 @@ def clear_work_queue():
 def queue_length(q):
     return q.count
 
-REGISTRIES = ('deferred', 'scheduled', 'canceled', 'started', 'finished', 'failed')
-def reg_counts(q):
-    return {rname: getattr(q, rname + '_job_registry').count for rname in REGISTRIES}
+def queue_active(q):
+    # XXX cache StartedJobRegistry in our Queue object?
+    # rq "started" jobs are not included in q.count
+    return q.started_job_registry.count
