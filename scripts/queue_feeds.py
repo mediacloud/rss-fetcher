@@ -85,10 +85,6 @@ class Queuer:
         return queued
 
 
-    def log_reg_counts(self):   # TEMP
-        logger.info(f"  reg_counts {queue.reg_counts(self.wq)}")
-
-
 # XXX make a queuer method? should only be used here!
 def loop(queuer):
     """
@@ -117,7 +113,6 @@ def loop(queuer):
         logger.debug(f"top {t0}")
 
         qlen = qlen0 = queue.queue_length(queuer.wq) # queue(r) method??
-        queuer.log_reg_counts()              # TEMP
 
         # try to update processing rate
         if old_qlen is not None and old_time is not None:
