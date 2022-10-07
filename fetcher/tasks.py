@@ -278,6 +278,9 @@ def fetch_and_process_feed(session, feed_id: int):
         """call exactly ONCE for each feed processed"""
         stats.incr('feeds', 1, labels=[['stat', status]])
 
+    # used in Feed.last_fetch_success, Story.fetched_at (but not FetchEntry)
+    now = dt.datetime.utcnow()
+
     with session.begin():
         f = session.get(models.Feed, feed_id)
         if f is None:
@@ -285,16 +288,22 @@ def fetch_and_process_feed(session, feed_id: int):
             logger.info(f"feed_worker: feed {feed_id} not found")
             return
 
-        # sanity checks (in case entry modified while in queue)
-        if not f.active or not f.system_enabled or not f.queued:
-            # "you canna fool me, there's no such athing asa sanity clause" --Chico Marx
+        # sanity checks, in case entry modified while in queue
+        # (including being queued more than once)
+        # Driftwood (Groucho):
+        #   It's all right. That's, that's in every contract.
+        #   That's, that's what they call a sanity clause.
+        # Fiorello (Chico):
+        #   Ha-ha-ha-ha-ha! You can't fool me.
+        #   There ain't no Sanity Clause!
+        # Marx Brothers' "Night at the Opera" (1935)
+        if (not f.active or not f.system_enabled or
+            not f.queued or f.next_fetch_attempt > now):
             feeds_incr('insane')
-            logger.info(f"insane: active {f.active} system_enabled {f.system_enabled} queued {f.queued}")
+
+            logger.info(f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt}")
             return
         feed = f.as_dict()      # code expects dict PLB: fix?
-
-    # used in Feed.last_fetch_success, Story.fetched_at (but not FetchEntry)
-    now = dt.datetime.utcnow()
 
     try:
         # first thing is to fetch the content
@@ -306,9 +315,11 @@ def fetch_and_process_feed(session, feed_id: int):
         logger.warning(f" Feed {feed_id}: fetch failed {exc}")
         update_feed(session, feed_id, False, f"fetch: {exc}")
 
-        # NOTE!! try to limit cardinality (eats stats storage)
+        # NOTE!! try to limit cardinality of status: (eats stats storage)
+        # so not doing detailed breakdown for starters (full info
+        # available in fetch_event rows).
         es = str(exc)
-        if 'ConnectionPool' in es: # XXX on class?
+        if 'ConnectionPool' in es: # use isinstance??
             feeds_incr('conn_err')
         else:
             feeds_incr('fetch_err')
@@ -323,8 +334,9 @@ def fetch_and_process_feed(session, feed_id: int):
         update_feed(session, feed_id, False,
                     f"HTTP {response.status_code} / {response.url}")
 
-        # limiting tag cardinality, only a few, common codes
+        # limiting tag cardinality, only a few, common codes for now.
         # NOTE! 429 is "too many requests" (ie; slow down)
+        # It's possible 403 is also used that way???
         if response.status_code in (403, 404, 429):
             feeds_incr(f"http_{response.status_code}")
         else:
@@ -391,15 +403,16 @@ def fetch_and_process_feed(session, feed_id: int):
         # BAIL: couldn't parse it correctly
         logger.warning(f"Couldn't parse feed {feed_id}: {e}")
         update_feed(session, feed_id, False, f"parse: {e}")
+        # split up into different counters if needed/desired
+        # (beware label cardinality)
         feeds_incr('parse_err')
         return
 
     feeds_incr('ok')
 
-    # XXX PLB: take stats dict, update with details on skip reasons?
     saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
 
-    # may update feed_col_updates:
+    # may update feed_col_updates dict:
     check_feed_title(feed, parsed_feed, feed_col_updates)
 
     # see if feed indicates update period
