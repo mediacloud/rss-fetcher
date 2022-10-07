@@ -446,6 +446,7 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
         try:
             if not util.is_absolute_url(entry.link):  # skip relative URLs
                 logger.debug(" * skip relative URL: {}".format(entry.link))
+                stories_incr('relurl')
                 skipped_count += 1
                 continue
             if mcmetadata.urls.is_homepage_url(entry.link):  # and skip very common homepage patterns
