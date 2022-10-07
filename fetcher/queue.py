@@ -62,7 +62,7 @@ def workq(rconn):
 
 ################
 
-def queue_feeds(wq, feed_ids: List[int], now: datetime.datetime):
+def queue_feeds(wq, feed_ids: List[int], ts: datetime.datetime):
     """
     Queue feed_ids to work queue
     """
@@ -70,7 +70,7 @@ def queue_feeds(wq, feed_ids: List[int], now: datetime.datetime):
         job_datas = [
             Queue.prepare_data(
                 func=fetcher.tasks.feed_worker,
-                args=(id,), # also pass now (as string?)
+                args=(id, ts),  # rq uses pickle, so datetime ok
                 result_ttl=0, # don't care about result
                 failure_ttl=0, # don't care about failures
                 # timeout?
@@ -114,3 +114,7 @@ def queue_active(q):
     # XXX cache StartedJobRegistry in our Queue object?
     # rq "started" jobs are not included in q.count
     return q.started_job_registry.count
+
+def queue_workers(q):
+    """return number of workers for queue"""
+    return len(SimpleWorker.all(queue=q))

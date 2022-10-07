@@ -2,6 +2,8 @@
 script invoked by run-fetch-rss-feeds.sh
 """
 
+# XXX move all queries to models???
+
 import datetime as dt
 import logging
 import sys
@@ -12,7 +14,7 @@ from typing import List
 from sqlalchemy import text, or_
 
 # app
-from fetcher import MAX_FEEDS
+from fetcher import MAX_FEEDS, DEFAULT_INTERVAL_MINS
 import fetcher.tasks as tasks
 from fetcher.database import engine, Session
 import fetcher.database.models as models
@@ -20,6 +22,11 @@ import fetcher.queue as queue
 from fetcher.stats import Stats
 
 logger = logging.getLogger('queue_feeds')
+
+# XXX want MINIMUM_INTERVAL_MINS?
+MAX_FETCHES_DAY = (24*60)/DEFAULT_INTERVAL_MINS
+
+REFILL_PERIOD_MINS = 5
 
 class Queuer:
     """
@@ -31,13 +38,26 @@ class Queuer:
         self.wq = wq
 
 
-    def _ready_query(self, session):
+    def _active_feeds(self, session):
+        """
+        base query to return active feed id's
+        """
         return session.query(models.Feed.id)\
                       .filter(models.Feed.active.is_(True),
-                              models.Feed.system_enabled.is_(True),
-                              models.Feed.queued.is_(False),
-                              or_(models.Feed.next_fetch_attempt.is_(None),
-                                  models.Feed.next_fetch_attempt <= models.utc()))
+                              models.Feed.system_enabled.is_(True))
+
+    def count_active(self, session):
+        return self._active_feeds(session).count()
+
+
+    def _ready_query(self, session):
+        """
+        return base query for feed id's ready to be fetched
+        """
+        return self._active_feeds(session)\
+                   .filter(models.Feed.queued.is_(False),
+                           or_(models.Feed.next_fetch_attempt.is_(None),
+                               models.Feed.next_fetch_attempt <= models.utc()))
 
 
     def find_and_queue_feeds(self, limit: int) -> int:
@@ -50,12 +70,14 @@ class Queuer:
 
         now = dt.datetime.utcnow()
         with Session.begin() as session:
-            ready = self._ready_query(session)
-            rows = ready.order_by(models.Feed.next_fetch_attempt.asc().nulls_first(),
-                                  models.Feed.id.desc())\
-                        .limit(limit)\
-                        .all()  # all rows
+            rows = self._ready_query(session)\
+                       .order_by(models.Feed.next_fetch_attempt.asc().nulls_first(),
+                                 models.Feed.id.desc())\
+                       .limit(limit)\
+                       .all()  # all rows
             feed_ids = [row[0] for row in rows]
+            if not feed_ids:
+                return 0
 
             # mark as queued first to avoid race with workers
             session.query(models.Feed)\
@@ -68,21 +90,15 @@ class Queuer:
                 session.add(
                     models.FetchEvent.from_info(feed_id,
                                                 models.FetchEvent.EVENT_QUEUED))
-        if not feed_ids:
-            return 0            # avoid logging
         return self.queue_feeds(feed_ids, now)
 
     def queue_feeds(self, feed_ids: List[int], ts: dt.datetime) -> int:
         queued = queue.queue_feeds(self.wq, feed_ids, ts)
-
-        # XXX compare queued w/ len(feed_ids) and complain if not equal??
-        # XXX report unqueued as separate (labled) counter?
-
+        total = len(feed_ids)
+        # XXX report total-queued as separate (labled) counter?
         self.stats.incr('queued_feeds', queued)
 
-        total = len(feed_ids)
-        logger.info(f"  queued {queued}/{total} feeds")
-
+        logger.info(f"Queued {queued}/{total} feeds")
         return queued
 
 
@@ -91,75 +107,48 @@ def loop(queuer):
     """
     Loop monitoring & reporting queue length to stats server
     """
-    # `rates` has the last `MAX_RATES` one-minute work queue consumption rates
-    # averaged to get estimated burn rate.
 
-    # "goal" is the average of rates entries times GOAL_MINUTES
-    # when queue length falls below goal/2 (low water mark),
-    # goal-qlen entries are added to refill (to the high water mark).
-
-    old_qlen = old_time = None
-    MINQ = 100       # lower limit for queue length goal
-    rates = [MINQ]
-    MAX_RATES = 5    # number of samples to keep in rates list
-    GOAL_MINUTES = 5 # number of minutes of work to try to keep queued (must be > 1!!)
-    LOW_RATE = MINQ/GOAL_MINUTES # lower bound for acceptable rate
-
+    goal = None
     while True:
         # NOTE!! rate calculation will hickup if clock changed
         # (use time.monotonic() for rate calculation???)
         # but want wakeups at top of UTC minute!
 
         t0 = time.time()        # wake time
-        logger.debug(f"top {t0}")
+        #logger.debug(f"top {t0}")
 
         qlen = qlen0 = queue.queue_length(queuer.wq) # queue(r) method??
 
-        # try to update processing rate
-        if old_qlen is not None and old_time is not None:
-            delta_qlen = old_qlen - qlen
-            if delta_qlen < 0:
-                delta_qlen = 0
-            queuer.stats.gauge('completed', delta_qlen)
+        if goal is None or qlen < goal:
+            with Session.begin() as session:
+                active = queuer.count_active(session)
 
-            delta_t = (t0 - old_time) / 60 # minutes
+            # `goal` is number of feeds to fetch in REFILL_PERIOD_MINS,
+            # try to spread load evenly throughout day, based on number of
+            # feeds times max number of fetches/day.
+            goal = active * MAX_FETCHES_DAY / 24 / 60 * REFILL_PERIOD_MINS
+            if goal < 1000:     # debug w/ small feeds database
+                goal = 1000
 
-            # try to capture avg FULL processing rate
-            # (maybe ignore samples when curr qlen == 0??)
-            if delta_t > 0.5 and delta_qlen > 0:
-                r = delta_qlen / delta_t
-                if r < LOW_RATE:
-                    r = LOW_RATE
-
-                # keep last MAX_RATES samples
-                rates.append(r)
-                if len(rates) > MAX_RATES:
-                    rates.pop(0)
-
-        # calculate average rate
-        rate = sum(rates) / len(rates) # should never be < LOW_RATE
-        queuer.stats.gauge('rate', rate)
-
-        goal = round(rate * GOAL_MINUTES)
-        # old MAX_FEEDS of 15K is about 10 minutes of work on tarbell
-        # so use that as upper limit.
-        if goal > MAX_FEEDS:
-            goal = MAX_FEEDS
-        queuer.stats.gauge('goal', goal)
-
-        if qlen < goal/2:       # less than half full?
-            added = queuer.find_and_queue_feeds(goal - qlen)
+        if qlen < goal:
+            # fill up to 2x goal (refill at 1x)
+            added = queuer.find_and_queue_feeds(goal*2 - qlen)
             qlen = queue.queue_length(queuer.wq) # after find_and_queue_feeds
         else:
             added = 0
 
-        active = queue.queue_active(queuer.wq)
-
-        queuer.stats.gauge('waiting', qlen0)
+        queuer.stats.gauge('waiting', qlen0) # waiting in queue
+        queuer.stats.gauge('goal', goal)
         queuer.stats.gauge('added', added)
 
+        # jobs currently in process:
+        active = queue.queue_active(queuer.wq)
         queuer.stats.gauge('active', active)
 
+        #logger.debug(f"wait {qlen0} goal {goal} added {added} active {active}")
+
+        # queries done once a minute for graphs only!
+        # (elininate, or do less frequently if a problem)
         with Session.begin() as session:
             db_queued = session.query(models.Feed)\
                                .filter(models.Feed.queued.is_(True))\
@@ -167,7 +156,7 @@ def loop(queuer):
 
             db_ready = queuer._ready_query(session).count()
 
-        # should be approx. qlen + active
+        # should be approx (updated) qlen + active
         queuer.stats.gauge('db.queued', db_queued)
 
         # remaining db entries available to be queued:
@@ -175,12 +164,10 @@ def loop(queuer):
 
         # figure out when to wake up next, prepare for bed.
         tnext = (t0 - t0%60) + 60  # top of minute after wake time
-        old_time = t1 = time.time()
-        old_qlen = qlen
-
-        s = tnext - t1          # sleep time
+        t1 = time.time()
+        s = tnext - t1             # sleep time
         if s > 0:
-            logger.debug(f"t1 {t1} tnext {tnext} sleep {s}")
+            #logger.debug(f"t1 {t1} tnext {tnext} sleep {s}")
             time.sleep(s)
 
 if __name__ == '__main__':

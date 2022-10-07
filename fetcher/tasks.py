@@ -89,6 +89,7 @@ def normalized_title_exists(session, normalized_title_hash: str,
         # err on the side of keeping URLs
         return False
     earliest_date = dt.date.today() - dt.timedelta(days=day_window)
+    # only care if matching rows exist:
     with session.begin():
         return session.query(
             models.Story.query.filter(
@@ -101,6 +102,7 @@ def normalized_title_exists(session, normalized_title_hash: str,
 def normalized_url_exists(session, normalized_url: str) -> bool:
     if normalized_url is None:
         return False
+    # only care if matching rows exist:
     with session.begin():
         return session.query(
             models.Story.query.filter(
@@ -261,7 +263,7 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     return response
 
 
-def fetch_and_process_feed(session, feed_id: int):
+def fetch_and_process_feed(session, feed_id: int, ts: dt.datetime):
     """
     Was fetch_feed_content: this is THE routine called in a worker.
     Made a single routine for clarity/communication
@@ -523,7 +525,7 @@ def check_feed_title(feed: Dict, parsed_feed: FeedParserDict,
 # needing to fetch config at include time, so logging can be controlled better.
 # NOTE!!! MUST be run from SimpleWorker to achieve session caching!!!!
 # XXX maybe queue feed_id and date/time used to set last_fetch_attempt when queued?
-def feed_worker(feed_id: int):
+def feed_worker(feed_id: int, ts: dt.datetime):
     """
     Fetch a feed, parse out stories, store them
     :param self: this maintains the single session to use for all DB operations
@@ -534,4 +536,4 @@ def feed_worker(feed_id: int):
     # XXX setproctitle(f"{APP} worker feed {feed_id}")???
 
     # for total paranoia, wrap in try, call update_feed on exception??
-    fetch_and_process_feed(session, feed_id)
+    fetch_and_process_feed(session, feed_id, ts)
