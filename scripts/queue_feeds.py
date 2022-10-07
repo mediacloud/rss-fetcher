@@ -71,8 +71,8 @@ class Queuer:
         return self.queue_feeds(feed_ids, now)
 
 
-    def queue_feeds(self, feed_ids: List[int]) -> int:
-        queued = queue.queue_feeds(self.wq, feed_ids)
+    def queue_feeds(self, feed_ids: List[int], ts: dt.datetime) -> int:
+        queued = queue.queue_feeds(self.wq, feed_ids, ts)
 
         # XXX compare queued w/ len(feed_ids) and complain if not equal??
         # XXX report unqueued as separate (labled) counter?
@@ -201,8 +201,9 @@ if __name__ == '__main__':
         if sys.argv[1] == '--loop':
             sys.exit(loop(queuer))
 
+        # XXX validate ids; ignore if bad, not active, not enabled, or queued!!!
         feed_ids = [int(id) for id in sys.argv[1:]] # positional args
-        # XXX validate ids?
-        queuer.queue_feeds(feed_ids)
+        now = dt.datetime.utcnow()
+        queuer.queue_feeds(feed_ids, now)
     else:
         queuer.find_and_queue_feeds(MAX_FEEDS)
