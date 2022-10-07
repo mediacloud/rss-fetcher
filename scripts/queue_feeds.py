@@ -118,6 +118,8 @@ def loop(queuer):
         # try to update processing rate
         if old_qlen is not None and old_time is not None:
             delta_qlen = old_qlen - qlen
+            if delta_qlen < 0:
+                delta_qlen = 0
             queuer.stats.gauge('completed', delta_qlen)
 
             delta_t = (t0 - old_time) / 60 # minutes
@@ -126,7 +128,6 @@ def loop(queuer):
             # (maybe ignore samples when curr qlen == 0??)
             if delta_t > 0.5 and delta_qlen > 0:
                 r = delta_qlen / delta_t
-                logger.info(f"r {r} ({delta_qlen} / {delta_t})")
                 if r < LOW_RATE:
                     r = LOW_RATE
 
