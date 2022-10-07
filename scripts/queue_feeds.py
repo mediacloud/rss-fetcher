@@ -68,8 +68,9 @@ class Queuer:
                 session.add(
                     models.FetchEvent.from_info(feed_id,
                                                 models.FetchEvent.EVENT_QUEUED))
+        if not feed_ids:
+            return 0            # avoid logging
         return self.queue_feeds(feed_ids, now)
-
 
     def queue_feeds(self, feed_ids: List[int], ts: dt.datetime) -> int:
         queued = queue.queue_feeds(self.wq, feed_ids, ts)
