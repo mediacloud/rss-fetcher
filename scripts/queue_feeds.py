@@ -207,9 +207,10 @@ if __name__ == '__main__':
         feed_ids = [int(id) for id in sys.argv[1:]] # positional args
         with Session.begin() as session:
             # validate ids
-            valid_ids = queuer._ready_query(queuer)\
-                              .filter(models.Feed.id.in_(feed_ids))\
-                              .all()
+            rows = queuer._ready_query(session)\
+                         .filter(models.Feed.id.in_(feed_ids))\
+                         .all()
+            valid_ids = [row[0] for row in rows]
         now = dt.datetime.utcnow()
         queuer.queue_feeds(valid_ids, now)
     else:
