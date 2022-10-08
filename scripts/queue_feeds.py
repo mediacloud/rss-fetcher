@@ -25,15 +25,17 @@ logger = logging.getLogger('queue_feeds')
 
 # Maximum times a day a feed can be fetched
 # based on minimum allowed interval between fetches.
-# Used to estimate minimum necessary processing rate.
 MAX_FETCHES_DAY = (24*60)/MINIMUM_INTERVAL_MINS
 
 # Multiplier to estimated (necessary) per minute processing rate to
-# get queue len low water mark.  If available processing rate is
-# greater than the necessary rate (more workers than strictly
-# necessary), refill will happen more frequently.  If grossly
-# overpowered, refills can happen once a minute.
+# get queue len low water mark (point at which refill occurs).
+# Unless underpowered (too few workers), refills will likely occur
+# more often.
 REFILL_PERIOD_MINS = 5
+
+# Multipler to low_water to for queue high water mark
+# (the level to which the queue will be refilled).
+HI_WATER_MULTIPLIER = 2
 
 class Queuer:
     """
@@ -115,7 +117,7 @@ def loop(queuer):
     Loop monitoring & reporting queue length to stats server
     """
 
-    goal = None
+    low_water = None
     while True:
         # NOTE!! rate calculation will hickup if clock changed
         # (use time.monotonic() for rate calculation???)
@@ -126,44 +128,38 @@ def loop(queuer):
 
         qlen = qlen0 = queue.queue_length(queuer.wq) # queue(r) method??
 
-        if goal is None or qlen < goal:
+        if low_water is None or qlen < low_water:
             with Session.begin() as session:
                 active = queuer.count_active(session)
 
             # The aim of this code is to keep a minimum number of
             # feeds in the work queue, so that changes (or additions)
             # to the database can take effect in close to real time.
-            # Originally attempted to calculate effective processing
-            # rate, and to queue enough work to last
-            # REFILL_PERIOD_MINS, but one-minute estimates were noisy
-            # (even with five minute sliding window), and made the
-            # code larger.
-
-            # `goal` is work queue low water mark (refill below this number).
+            # `low_water` is work queue low water mark (refill below this number).
             # Calculated as the minimum number of feeds to fetch in order
             # to keep up if all feeds are fetched at the maximum allowed rate.
             # Unless we're underpowered (too few workers), refill interval will
             # likely be less than the target REFILL_PERIOD_MINS.
-            goal = round(active * MAX_FETCHES_DAY / 24 / 60 * REFILL_PERIOD_MINS)
-            if goal < 100:      # debug w/ small feeds database
-                goal = 100
+            low_water = round(active * MAX_FETCHES_DAY / 24 / 60 * REFILL_PERIOD_MINS)
+            if low_water < 100:      # debug w/ small feeds database
+                low_water = 100
 
-        if qlen < goal:
-            # fill up to 2x goal (refill at 1x)
-            added = queuer.find_and_queue_feeds(goal*2 - qlen)
+        if qlen < low_water:
+            # fill up to HI_WATER_MULTIPLIER*low_water
+            added = queuer.find_and_queue_feeds(low_water*HI_WATER_MULTIPLIER - qlen)
             qlen = queue.queue_length(queuer.wq) # after find_and_queue_feeds
         else:
             added = 0
 
         queuer.stats.gauge('waiting', qlen0) # waiting in queue
-        queuer.stats.gauge('goal', goal)
+        queuer.stats.gauge('low_water', low_water)
         queuer.stats.gauge('added', added)
 
         # jobs currently in process:
         active = queue.queue_active(queuer.wq)
         queuer.stats.gauge('active', active)
 
-        #logger.debug(f"wait {qlen0} goal {goal} added {added} active {active}")
+        #logger.debug(f"wait {qlen0} goal {low_water} added {added} active {active}")
 
         # queries done once a minute for graphs only!
         # (elininate, or do less frequently if a problem)
@@ -208,9 +204,13 @@ if __name__ == '__main__':
         if sys.argv[1] == '--loop':
             sys.exit(loop(queuer))
 
-        # XXX validate ids; ignore if bad, not active, not enabled, or queued!!!
         feed_ids = [int(id) for id in sys.argv[1:]] # positional args
+        with Session.begin() as session:
+            # validate ids
+            valid_ids = queuer._ready_query(queuer)\
+                              .filter(models.Feed.id.in_(feed_ids))\
+                              .all()
         now = dt.datetime.utcnow()
-        queuer.queue_feeds(feed_ids, now)
+        queuer.queue_feeds(valid_ids, now)
     else:
         queuer.find_and_queue_feeds(MAX_FEEDS)
