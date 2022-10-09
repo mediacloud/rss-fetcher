@@ -42,7 +42,7 @@ FeedParserDict = feedparser.FeedParserDict
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 logFormatter = logging.Formatter("[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
 # rotate file after midnight (UTC), keep 7 old files, Dokku supplies worker.N as DYNO, else use pid
-fileHandler = logging.handlersTimedRotatingFileHandler(
+fileHandler = logging.handlers.TimedRotatingFileHandler(
     os.path.join(path_to_log_dir, f"tasks-{os.environ.get('DYNO', str(os.getpid()))}.log"),
     when='midnight', utc=True, backupcount=7)
 fileHandler.setFormatter(logFormatter)
