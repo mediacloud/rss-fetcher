@@ -7,7 +7,6 @@
 
 # PLB: cleanup WISHES
 # convert all "".format calls to f""
-# convert all feed['x'] to feed.x
 # type hints for session objects
 # type hints for void (-> None) functions
 # create NewType for feeds_id?
@@ -42,9 +41,23 @@ FeedParserDict = feedparser.FeedParserDict
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 logFormatter = logging.Formatter("[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
-fileHandler = logging.FileHandler(os.path.join(path_to_log_dir, "tasks-{}.log".format(time.strftime("%Y%m%d-%H%M%S"))))
+# rotate file after midnight (UTC), keep 7 old files, Dokku supplies worker.N as DYNO, else use pid
+fileHandler = logging.TimedRotatingFileHandler(os.path.join(path_to_log_dir,
+                                                            f"tasks-{os.environ.get('DYNO', str(os.getpid()))}.log"),
+                                               when='midnight', utc=True, backupcount=7)
 fileHandler.setFormatter(logFormatter)
 logger.addHandler(fileHandler)
+
+# disabled because not sure how to handle:
+# (call update_feed? as failure? will reschedule!)
+#     Driftwood (Groucho):
+#       It's all right. That's, that's in every contract.
+#       That's, that's what they call a sanity clause.
+#     Fiorello (Chico):
+#       Ha-ha-ha-ha-ha! You can't fool me.
+#       There ain't no Sanity Clause!
+#     Marx Brothers' "Night at the Opera" (1935)
+SANITY_CLAUSE = False
 
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
@@ -261,7 +274,7 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     return response
 
 
-def fetch_and_process_feed(session, feed_id: int, ts: dt.datetime):
+def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     """
     Was fetch_feed_content: this is THE routine called in a worker.
     Made a single routine for clarity/communication
@@ -290,20 +303,16 @@ def fetch_and_process_feed(session, feed_id: int, ts: dt.datetime):
 
         # sanity checks, in case entry modified while in queue
         # (including being queued more than once)
-        # Driftwood (Groucho):
-        #   It's all right. That's, that's in every contract.
-        #   That's, that's what they call a sanity clause.
-        # Fiorello (Chico):
-        #   Ha-ha-ha-ha-ha! You can't fool me.
-        #   There ain't no Sanity Clause!
-        # Marx Brothers' "Night at the Opera" (1935)
         if (not f.active or not f.system_enabled or
-            not f.queued or f.next_fetch_attempt > now):
+            not f.queued or
+            (f.next_fetch_attempt is not None and
+             f.next_fetch_attempt > now)):
             feeds_incr('insane')
-
+            # XXX update_feed? success or failure??
             logger.info(f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt}")
-            return
-        feed = f.as_dict()      # code expects dict PLB: fix?
+            if SANITY_CLAUSE:
+                return
+        feed = f.as_dict()
 
     try:
         # first thing is to fetch the content
@@ -316,8 +325,8 @@ def fetch_and_process_feed(session, feed_id: int, ts: dt.datetime):
         update_feed(session, feed_id, False, f"fetch: {exc}")
 
         # NOTE!! try to limit cardinality of status: (eats stats storage)
-        # so not doing detailed breakdown for starters (full info
-        # available in fetch_event rows).
+        # so not doing detailed breakdown for starters
+        # (full info available in fetch_event rows).
         es = str(exc)
         if 'ConnectionPool' in es: # use isinstance??
             feeds_incr('conn_err')
@@ -482,6 +491,7 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
         except (AttributeError, KeyError, ValueError, UnicodeError) as exc:
             # couldn't parse the entry - skip it
             logger.debug("Missing something on rss entry {}".format(str(exc)))
+            logger.exception()  # XXX TEMP DEBUG
             stories_incr('bad')
             skipped_count += 1
         except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
@@ -523,7 +533,7 @@ def check_feed_title(feed: Dict, parsed_feed: FeedParserDict,
 # needing to fetch config at include time, so logging can be controlled better.
 # NOTE!!! MUST be run from SimpleWorker to achieve session caching!!!!
 # XXX maybe queue feed_id and date/time used to set last_fetch_attempt when queued?
-def feed_worker(feed_id: int, ts: dt.datetime):
+def feed_worker(feed_id: int, ts_iso: str):
     """
     Fetch a feed, parse out stories, store them
     :param self: this maintains the single session to use for all DB operations

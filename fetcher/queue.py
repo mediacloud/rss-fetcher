@@ -66,16 +66,18 @@ def queue_feeds(wq, feed_ids: List[int], ts: datetime.datetime):
     """
     Queue feed_ids to work queue
     """
+    # rq uses pickle, so datetime ok, but log output is ugly
+    ts_iso = ts.isoformat()
     try:
         job_datas = [
             Queue.prepare_data(
                 func=fetcher.tasks.feed_worker,
-                args=(id, ts),  # rq uses pickle, so datetime ok
+                args=(id, ts_iso),
                 result_ttl=0, # don't care about result
                 failure_ttl=0, # don't care about failures
                 # timeout?
                 # retry?
-                ) for id in feed_ids
+            ) for id in feed_ids
         ]
         jobs = wq.enqueue_many(job_datas)
         queued = len(jobs)
