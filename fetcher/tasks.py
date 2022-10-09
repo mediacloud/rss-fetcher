@@ -45,7 +45,7 @@ logFormatter = logging.Formatter("[%(levelname)s %(threadName)s] - %(asctime)s -
 # rotate file after midnight (UTC), keep 7 old files, Dokku supplies worker.N as DYNO, else use pid
 fileHandler = logging.handlers.TimedRotatingFileHandler(
     os.path.join(path_to_log_dir, f"tasks-{os.environ.get('DYNO', str(os.getpid()))}.log"),
-    when='midnight', utc=True, backupcount=7)
+    when='midnight', utc=True, backupCount=7)
 fileHandler.setFormatter(logFormatter)
 logger.addHandler(fileHandler)
 
