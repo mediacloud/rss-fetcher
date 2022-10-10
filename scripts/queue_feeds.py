@@ -102,8 +102,8 @@ class Queuer:
                                                 models.FetchEvent.EVENT_QUEUED))
         return self.queue_feeds(feed_ids, now)
 
-    def queue_feeds(self, feed_ids: List[int], ts: dt.datetime) -> int:
-        queued = queue.queue_feeds(self.wq, feed_ids, ts)
+    def queue_feeds(self, feed_ids: List[int], ts_iso: str) -> int:
+        queued = queue.queue_feeds(self.wq, feed_ids, ts_iso)
         total = len(feed_ids)
         # XXX report total-queued as separate (labled) counter?
         self.stats.incr('queued_feeds', queued)
