@@ -142,6 +142,7 @@ def loop(queuer):
         #       active entries NOT included in qlen
         queuer.stats.gauge('waiting', qlen)
         queuer.stats.gauge('active', active)
+        queuer.stats.gauge('hi_water', hi_water)
         logger.info(f"qlen {qlen} active {active}")
 
         added = 0
