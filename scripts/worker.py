@@ -9,7 +9,7 @@ from fetcher.stats import Stats
 import fetcher.tasks
 
 if __name__ == '__main__':
-    p = LogArgParser('worker', 'queue worker')
+    p = LogArgumentParser('worker', 'queue worker')
     p.parse_args()              # parse logging args
 
     Stats.init('worker')
