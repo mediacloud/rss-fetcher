@@ -48,13 +48,18 @@ class Queuer:
         self.wq = wq
 
 
-    def _active_feeds(self, session):
+    def _active_feeds(self, session, full=False):
         """
-        base query to return active feed id's
+        base query to return active feeds
         """
-        return session.query(models.Feed.id)\
+        if full:
+            q = models.Feed
+        else:
+            q = models.Feed.id
+        return session.query(q)\
                       .filter(models.Feed.active.is_(True),
                               models.Feed.system_enabled.is_(True))
+
 
     def count_active(self, session):
         return self._active_feeds(session).count()
@@ -118,6 +123,7 @@ def loop(queuer):
     Loop monitoring & reporting queue length to stats server
     """
 
+    queue.clear_queue()
     low_water = None
     while True:
         # NOTE!! rate calculation will hickup if clock changed
@@ -212,7 +218,6 @@ if __name__ == '__main__':
     # support passing in one or more feed ids on the command line
     if args.feeds:
         feed_ids = args.feeds
-        # XXX clear queue
         with Session.begin() as session:
             # validate ids
             rows = queuer._ready_query(session)\
