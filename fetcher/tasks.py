@@ -545,4 +545,4 @@ def feed_worker(feed_id: int, ts_iso: str):
     # XXX setproctitle(f"{APP} worker feed {feed_id}")???
 
     # for total paranoia, wrap in try, call update_feed on exception??
-    fetch_and_process_feed(session, feed_id, ts)
+    fetch_and_process_feed(session, feed_id, ts_iso)
