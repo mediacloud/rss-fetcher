@@ -1,7 +1,6 @@
 #!/bin/sh
 
 # now invoked from Procfile
-
 if [ "x$MC_WORKER_LOG_LEVEL" = x ]; then
     if [ "x$GIT_REV" = x ]; then
 	# invoked outside Dokku; use old run-rss-workers.sh default
@@ -12,6 +11,5 @@ if [ "x$MC_WORKER_LOG_LEVEL" = x ]; then
     fi
 fi
 
-python -m scripts.worker -A fetcher worker \
-       -l $MC_WORKER_LOG_LEVEL \
-       --concurrency=$MC_WORKER_CONCURRENCY
+python -m scripts.worker -l $MC_WORKER_LOG_LEVEL "$@"
+
