@@ -27,6 +27,7 @@ import feedparser
 import mcmetadata.urls
 from psycopg2.errors import UniqueViolation
 import requests
+from sqlalchemy import literal
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
 
 # feed fetcher:
@@ -103,25 +104,24 @@ def normalized_title_exists(session, normalized_title_hash: str,
     earliest_date = dt.date.today() - dt.timedelta(days=day_window)
     # only care if matching rows exist:
     with session.begin():
-        return session.query(
-            models.Story.query.filter(
-                models.Story.published_at >= earliest_date,
-                models.Story.normalized_title_hash == normalized_title_hash,
-                models.Story.sources_id == sources_id
-            ).exists()
-        ).scalar()
+        return session.query(literal(True))\
+                      .filter(session.query(models.Story)\
+                              .filter(models.Story.published_at >= earliest_date,
+                                      models.Story.normalized_title_hash == normalized_title_hash,
+                                      models.Story.sources_id == sources_id)\
+                              .exists())\
+                      .scalar()
 
 def normalized_url_exists(session, normalized_url: str) -> bool:
     if normalized_url is None:
         return False
     # only care if matching rows exist:
     with session.begin():
-        return session.query(
-            models.Story.query.filter(
-                models.Story.normalized_url == normalized_url
-            ).exists()
-        ).scalar()
-
+        return session.query(literal(True))\
+                      .filter(session.query(models.Story)\
+                              .filter(models.Story.normalized_url == normalized_url)\
+                              .exists())\
+                      .scalar()
 
 def update_feed(session, feed_id: int, success: bool, note: str,
                 feed_col_updates: Union[Dict,None] = None):
