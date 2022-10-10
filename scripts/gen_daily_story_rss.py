@@ -7,6 +7,7 @@ import gzip
 import shutil
 
 from fetcher import base_dir, engine, RSS_FILE_PATH
+from fetcher.logargparse import LogArgumentParser
 import fetcher.rss.rsswriter as rsswriter
 from fetcher.stats import Stats
 
@@ -30,6 +31,8 @@ def incr_stories(status):
     stats.incr('stories', labels=[['status', status]])
 
 if __name__ == '__main__':
+    p = LogArgumentParser('gen_rss', 'RSS file generator')
+    p.parse_args()              # parse logging args
 
     today = dt.date.today()
     logger.info("Writing daily RSS files since {}".format(today))

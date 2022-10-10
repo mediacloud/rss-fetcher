@@ -8,6 +8,7 @@ import csv
 
 from fetcher.database import engine, Session
 import fetcher.database.models as models
+from fetcher.logargparse import LogArgumentParser
 
 
 def _run_psql_command(cmd: str):
@@ -16,23 +17,25 @@ def _run_psql_command(cmd: str):
 
 
 if __name__ == '__main__':
-
     # prep file
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger('import_feeds')
+    p = LogArgumentParser('import_feeds', 'import feeds.csv file')
+    p.add_argument('input_file', metavar='INPUT_FILE')
+    args = p.parse_args()
+
     logger.info("Feed Importer starting!")
     if len(sys.argv) != 2:
         logger.error("  You must supply a file to import from")
         sys.exit(1)
-    filename = sys.argv[1]
-    if filename.endswith(".gz"):
-        logger.info("Importing from {}".format(filename))
-        call(['gunzip', filename])
-        filename = filename.replace(".gz", "")
-        logger.info("  Unzipped to {}".format(filename))
-
-    # import data
+    filename = args.input_file
     logger.info("Importing from {}".format(filename))
-    input_file = csv.DictReader(open(filename))
+    if filename.endswith(".gz"):
+        import gzip
+        f = gzip.open(filename)
+    else:
+        f = open(filename)
+    # import data
+    input_file = csv.DictReader(f)
     with engine.begin() as conn:  # will automatically close
         conn.execute(text("DELETE FROM feeds;"))
         conn.execute(text("DELETE FROM fetch_events;"))
