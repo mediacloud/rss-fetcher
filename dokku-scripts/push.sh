@@ -178,6 +178,7 @@ echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 # so add script option to do force push here???
 git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH
 
+# XXX can push tag after first time (used to establish base branch)
 echo ''
 # XXX just redirect everything to /dev/null, & check exit code?
 echo "pushing tag $TAG (ignore WARNING)"

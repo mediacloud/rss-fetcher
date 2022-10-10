@@ -32,7 +32,8 @@ def incr_stories(status):
 
 if __name__ == '__main__':
     p = LogArgumentParser('gen_rss', 'RSS file generator')
-    p.parse_args()              # parse logging args
+    # info logging before this call unlikely to be seen:
+    args = p.parse_args()       # parse logging args, output start message
 
     today = dt.date.today()
     logger.info("Writing daily RSS files since {}".format(today))

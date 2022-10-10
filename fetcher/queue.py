@@ -14,10 +14,12 @@ from typing import List
 from redis.client import StrictRedis
 from rq import Connection, Queue, SimpleWorker
 from rq.local import LocalStack
+from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
 from fetcher import REDIS_URL
 from fetcher.database import Session
+from fetcher.database.models import Feed
 import fetcher.tasks
 
 WORKQ_NAME = 'workq'            # XXX make config?

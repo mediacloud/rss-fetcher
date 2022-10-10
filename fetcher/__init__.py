@@ -17,7 +17,10 @@ path_to_log_dir = os.path.join(base_dir, 'logs')
 # set up logging
 logger = logging.getLogger(__name__)
 
-# output for every script, AND invocations of "alembic {up,down}grade"
+# PLB: used to have logging.basicConfig here, but call moved to fetcher.logargparse
+# to give command line control of what gets logged.  This means the config logging
+# below will not be seen, but I have plans to fix that. 10/10/22
+
 logger.info("------------------------------------------------------------------------")
 git_rev = os.environ.get('GIT_REV', '(not set)') # set by Dokku
 logger.info(f"Starting version {VERSION} GIT_REV {git_rev}")

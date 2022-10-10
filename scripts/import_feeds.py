@@ -23,13 +23,10 @@ if __name__ == '__main__':
     # prep file
     logger = logging.getLogger('import_feeds')
     p = LogArgumentParser('import_feeds', 'import feeds.csv file')
-    p.add_argument('input_file', metavar='INPUT_FILE')
-    args = p.parse_args()
+    p.add_argument('input_file', metavar='INPUT_FILE') # mandatory positional argument
+    # info logging before this call unlikely to be seen:
+    args = p.parse_args()       # parse logging args, output start message
 
-    logger.info("Feed Importer starting!")
-    if len(sys.argv) != 2:
-        logger.error("  You must supply a file to import from")
-        sys.exit(1)
     filename = args.input_file
     logger.info("Importing from {}".format(filename))
     if filename.endswith(".gz"):
@@ -46,9 +43,9 @@ if __name__ == '__main__':
     with Session() as session:
         for row in input_file:
             now = dt.datetime.utcnow()
-            # Pick random time within default fetch interval to
-            # spreads out load, keeping queue short, and avoiding
-            # hammering any site such that they give HTTP 429 
+            # Pick random time within default fetch interval:
+            # spreads out load, keeping queue short, and (hopefully)
+            # avoiding hammering any site such that they give HTTP 429 
             # (Too Many Requests) responses.
             next_fetch = now + timedelta(seconds=random()*DEFAULT_INTERVAL_MINS*60)
             f = models.Feed(

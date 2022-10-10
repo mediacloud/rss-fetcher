@@ -31,7 +31,6 @@ class LogArgumentParser(argparse.ArgumentParser):
                           help="set default logging level to LEVEL")
 
         # set specific logger verbosity:
-        # XXX note: action='extend' allows more than one arg, but needs termination (with '--'?)
         self.add_argument('--logger-level', '-L', action='append', dest='logger_level',
                           help='set LOGGER (see --list-loggers) verbosity to LEVEL (see --level)',
                           metavar=f"LOGGER{LOGGER_LEVEL_SEP}LEVEL")
@@ -64,6 +63,7 @@ class LogArgumentParser(argparse.ArgumentParser):
                 # XXX check level in LEVELS?
                 logging.getLogger(logger_name).handlers[0].setLevel(level)
 
+        logging.getLogger(self.prog).info(f"Starting {self.description}")
         return args
 
 if __name__ == '__main__':
