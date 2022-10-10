@@ -118,6 +118,7 @@ if git diff --quiet $BRANCH $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH --; then
     exit
 fi
 
+# XXX log all commits not in Dokku repo??
 echo "Last commit:"
 git log -n1
 
