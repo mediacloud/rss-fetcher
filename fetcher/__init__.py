@@ -15,7 +15,6 @@ base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 path_to_log_dir = os.path.join(base_dir, 'logs')
 
 # set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(name)s | %(message)s')
 logger = logging.getLogger(__name__)
 
 # output for every script, AND invocations of "alembic {up,down}grade"
