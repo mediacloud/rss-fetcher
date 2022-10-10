@@ -20,6 +20,7 @@ from typing import Dict, Tuple, Union
 import logging
 import logging.handlers
 import os
+import random
 import time
 
 # PyPI
@@ -50,6 +51,7 @@ fileHandler = logging.handlers.TimedRotatingFileHandler(
 fileHandler.setFormatter(logFormatter)
 logger.addHandler(fileHandler)
 
+# control handling of queue entries that seem spurrious
 # disabled because not sure how to handle:
 # (call update_feed? as failure? will reschedule!)
 #     Driftwood (Groucho):
@@ -102,7 +104,7 @@ def normalized_title_exists(session, normalized_title_hash: str,
         # err on the side of keeping URLs
         return False
     earliest_date = dt.date.today() - dt.timedelta(days=day_window)
-    # only care if matching rows exist:
+    # only care if matching rows exist, so doing nested EXISTS query
     with session.begin():
         return session.query(literal(True))\
                       .filter(session.query(models.Story)\
@@ -115,7 +117,7 @@ def normalized_title_exists(session, normalized_title_hash: str,
 def normalized_url_exists(session, normalized_url: str) -> bool:
     if normalized_url is None:
         return False
-    # only care if matching rows exist:
+    # only care if matching rows exist, so doing nested EXISTS query
     with session.begin():
         return session.query(literal(True))\
                       .filter(session.query(models.Story)\
@@ -185,6 +187,9 @@ def update_feed(session, feed_id: int, success: bool, note: str,
                 # kinder, but excessive delays with long initial period.
                 # (ie; 12h, 1d, 2d, 4d)
                 #next_minutes *= 2 ** (failures - 1)
+
+                # add random minute offset to break up clumps of 429 (Too Many Requests) errors
+                next_minutes += random.random() * 60*60
 
             # PLB: save note as f.system_status??
             # (split w/ " / " and/or ":" and save front part)???
@@ -317,7 +322,8 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
 
     try:
         # first thing is to fetch the content
-        logger.debug(f"Working on feed {feed_id}")
+        logger.info(f"Working on feed {feed_id}")
+        # XXX setproctitle(f"{APP} {DYNO} feed {feed_id}")???
         response = _fetch_rss_feed(feed)
     except Exception as exc:
         # ignore fetch failure exceptions as a "normal operation" error
@@ -328,8 +334,9 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         # NOTE!! try to limit cardinality of status: (eats stats storage)
         # so not doing detailed breakdown for starters
         # (full info available in fetch_event rows).
+        # Do this earlier to include more human readable fetch attempt note??
         es = str(exc)
-        if 'ConnectionPool' in es: # use isinstance??
+        if 'ConnectionPool' in es: # use isinstance on exc?!
             feeds_incr('conn_err')
         else:
             feeds_incr('fetch_err')
@@ -454,20 +461,26 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
     skipped_count = 0
     for entry in parsed_feed.entries:
         try:
-            if not util.is_absolute_url(entry.link):  # skip relative URLs
-                logger.debug(" * skip relative URL: {}".format(entry.link))
+            link = getattr(entry, 'link', None)
+            if link is None:
+                logger.debug(" * skip missing URL")
+                stories_incr('nourl')
+                skipped_count += 1
+                continue
+            if not util.is_absolute_url(link):  # skip relative URLs
+                logger.debug(f" * skip relative URL: {link}")
                 stories_incr('relurl')
                 skipped_count += 1
                 continue
-            if mcmetadata.urls.is_homepage_url(entry.link):  # and skip very common homepage patterns
-                logger.debug(" * skip homepage URL: {}".format(entry.link))
+            if mcmetadata.urls.is_homepage_url(link):  # and skip very common homepage patterns
+                logger.debug(f" * skip homepage URL: {link}")
                 stories_incr('home')
                 skipped_count += 1
                 continue
             s = models.Story.from_rss_entry(feed['id'], now, entry)
             # skip urls from high-quantity non-news domains we see a lot in feeds
             if s.domain in mcmetadata.urls.NON_NEWS_DOMAINS:
-                logger.debug(" * skip non_news_domain URL: {}".format(entry.link))
+                logger.debug(f" * skip non_news_domain URL: {link}")
                 stories_incr('nonews')
                 skipped_count += 1
                 continue
@@ -482,17 +495,18 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                         session.commit()
                     stories_incr('ok')
                 else:
-                    logger.debug(" * skip duplicate title URL: {} | {} | {}".format(entry.link, s.normalized_title_hash, s.sources_id))
+                    logger.debug(f" * skip duplicate title URL: {link} | {s.normalized_title_hash} | {s.sources_id}")
                     stories_incr('dup_title')
                     skipped_count += 1
             else:
-                logger.debug(" * skip duplicate normalized URL: {} | {}".format(entry.link, s.normalized_url))
+                logger.debug(f" * skip duplicate normalized URL: {link} | {s.normalized_url}")
                 stories_incr('dup_url')
                 skipped_count += 1
         except (AttributeError, KeyError, ValueError, UnicodeError) as exc:
             # couldn't parse the entry - skip it
-            logger.debug("Missing something on rss entry {}".format(str(exc)))
-            logger.exception('bad feed') # TEMP DEBUG
+            # NOTE!! Really easy for some coding error to end up here!!!
+            logger.debug(f"Missing something on rss entry {link}: {str(exc)}")
+            logger.exception(f"bad rss entry {link}") # TEMP? control via environment var???
             stories_incr('bad')
             skipped_count += 1
         except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
@@ -541,8 +555,6 @@ def feed_worker(feed_id: int, ts_iso: str):
     :param feed_id: integer Feed id
     """
     session = fetcher.queue.get_session()
-
-    # XXX setproctitle(f"{APP} worker feed {feed_id}")???
 
     # for total paranoia, wrap in try, call update_feed on exception??
     fetch_and_process_feed(session, feed_id, ts_iso)
