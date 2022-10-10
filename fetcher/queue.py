@@ -99,14 +99,6 @@ def worker():
         w.work()
 
 ################
-# called from scripts/clear_queue.py
-
-def clear_work_queue():
-    with redis_connection() as r:
-        q = workq(r)
-        q.empty()
-
-################
 # called from scripts/queue_feeds.py
 
 def queue_length(q):
@@ -120,3 +112,23 @@ def queue_active(q):
 def queue_workers(q):
     """return number of workers for queue"""
     return len(SimpleWorker.all(queue=q))
+
+################
+
+def clear_queue():
+    with Session() as session:
+        logger.info("Getting feeds table lock.")
+        session.execute(text("LOCK TABLE feeds")) # for duration of transaction.
+        logger.info("Locked.")
+
+        logger.info("Purging work queue.")
+        with redis_connection() as r:
+            q = workq(r)
+            q.empty()
+
+        logger.info("Clearing Feed.queued column.")
+        session.query(Feed).filter(Feed.queued == True)\
+                           .update({'queued': False})
+
+        logger.info("Committing.")
+        session.commit() # releases lock

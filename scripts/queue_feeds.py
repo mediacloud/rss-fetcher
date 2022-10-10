@@ -17,6 +17,7 @@ from sqlalchemy import text, or_
 from fetcher import MAX_FEEDS, MINIMUM_INTERVAL_MINS
 import fetcher.tasks as tasks
 from fetcher.database import engine, Session
+from fetcher.logargparse import LogArgumentParser
 import fetcher.database.models as models
 import fetcher.queue as queue
 from fetcher.stats import Stats
@@ -185,10 +186,13 @@ def loop(queuer):
             time.sleep(s)
 
 if __name__ == '__main__':
+    p = LogArgumentParser('queue_feeds', 'Queue feeds to be fetched')
+    p.add_argument('--loop', action='store_true',
+                   help='Run as daemon, sending stats')
+    p.add_argument('feeds', metavar='FEED_ID', nargs='*', type=int,
+                   help='Fetch specific feeds')
 
-    # XXX (call library to) parse options for log level?
-    # shows generated SQL:
-    #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+    args = p.parse_args()       # parse logging args
 
     logger.info("Starting Feed Queueing")
 
@@ -199,12 +203,16 @@ if __name__ == '__main__':
 
     queuer = Queuer(stats, wq)
 
-    # support passing in one or more feed ids on the command line
-    if len(sys.argv) > 1:
-        if sys.argv[1] == '--loop':
-            sys.exit(loop(queuer))
+    if args.loop:
+        if args.feeds:
+            logger.error('cannot give both --loop and feed ids')
+            sys.exit(1)
+        sys.exit(loop(queuer))
 
-        feed_ids = [int(id) for id in sys.argv[1:]] # positional args
+    # support passing in one or more feed ids on the command line
+    if args.feeds:
+        feed_ids = args.feeds
+        # XXX clear queue
         with Session.begin() as session:
             # validate ids
             rows = queuer._ready_query(session)\
