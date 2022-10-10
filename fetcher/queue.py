@@ -122,6 +122,7 @@ def clear_queue():
         logger.info("Locked.")
 
         logger.info("Purging work queue.")
+        # Only this bit is queuing system specific:
         with redis_connection() as r:
             q = workq(r)
             q.empty()
