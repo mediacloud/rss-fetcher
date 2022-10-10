@@ -122,10 +122,12 @@ def loop(queuer):
     # Estimate of how long MAX_FEEDS cleared from queue:
     max_feeds_minutes = 15
 
-    # how often to refill queue:
+    # how often to refill queue (take as argument to --loop?)
     refill_period_mins = 5
 
-    # how high to refill queue to:
+    # how high to refill queue to
+    # (once had lo_water, set to a fraction of hi_water,
+    #  but it gave less direct control on queuing interval):
     hi_water = round(MAX_FEEDS/max_feeds_minutes * refill_period_mins)
     if hi_water < 10:
         hi_water = 10
@@ -135,14 +137,15 @@ def loop(queuer):
         t0 = time.time()        # wake time
         #logger.debug(f"top {t0}")
 
+        queuer.stats.gauge('hi_water', hi_water) # never changes
+
         qlen = queue.queue_length(queuer.wq) # queue(r) method??
         active = queue.queue_active(queuer.wq) # jobs in progress
 
         # NOTE: initial qlen (not including added)
         #       active entries NOT included in qlen
-        queuer.stats.gauge('waiting', qlen)
+        queuer.stats.gauge('qlen', qlen)
         queuer.stats.gauge('active', active)
-        queuer.stats.gauge('hi_water', hi_water)
         logger.info(f"qlen {qlen} active {active}")
 
         added = 0
@@ -150,25 +153,31 @@ def loop(queuer):
             if qlen < hi_water:
                 added = queuer.find_and_queue_feeds(hi_water - qlen)
 
+        queuer.stats.gauge('added', added)
         ################ begin maybe move
-        # queries done once a minute for graphs only!
+        # queries done once a minute for monitoring only!
         # if this is a problem move this section up
         # (under ... % refill_period_mins == 0
         #  or into queuer.find_and_queue_feeds!!!)
         with Session.begin() as session:
+            # all entries marked active and enabled.
+            # there is probably a problem if more than a small
+            #  fraction of active entries are ready!
+            db_active = queuer.count_active(session)
+
+            # should be approx (updated) qlen + active
             db_queued = session.query(models.Feed)\
                                .filter(models.Feed.queued.is_(True))\
                                .count()
 
+            # after find_and_queue_feeds, so does not include "added" entries
             db_ready = queuer._ready_query(session).count()
 
-        # should be approx (updated) qlen + active
+        queuer.stats.gauge('db.active', db_active)
         queuer.stats.gauge('db.queued', db_queued)
-
-        # remaining db entries available to be queued:
         queuer.stats.gauge('db.ready', db_ready)
 
-        logger.info(f" db_queued {db_queued} db_ready {db_ready}")
+        logger.info(f" db_active {db_active} db_queued {db_queued} db_ready {db_ready}")
         ################ end maybe move
 
         # figure out when to wake up next, prepare for bed.
