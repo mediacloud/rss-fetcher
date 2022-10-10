@@ -8,6 +8,7 @@ queuing system in use (once ops list is settled)
 """
 
 import datetime
+import logging
 from typing import List
 
 from redis.client import StrictRedis
@@ -20,6 +21,8 @@ from fetcher.database import Session
 import fetcher.tasks
 
 WORKQ_NAME = 'workq'            # XXX make config?
+
+logger = logging.getLogger(__name__)
 
 # only ever contains one item
 # needed?? RQ Worker not multi-threaded
