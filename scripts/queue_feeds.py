@@ -149,7 +149,7 @@ def loop(queuer):
         logger.info(f"qlen {qlen} active {active}")
 
         added = 0
-        if int(t0) % refill_period_mins == 0:
+        if (int(t0/60) % refill_period_mins) == 0:
             if qlen < hi_water:
                 added = queuer.find_and_queue_feeds(hi_water - qlen)
 
