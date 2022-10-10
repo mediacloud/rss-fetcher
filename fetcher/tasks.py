@@ -492,7 +492,7 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
         except (AttributeError, KeyError, ValueError, UnicodeError) as exc:
             # couldn't parse the entry - skip it
             logger.debug("Missing something on rss entry {}".format(str(exc)))
-            logger.exception()  # XXX TEMP DEBUG
+            logger.exception('bad feed') # TEMP DEBUG
             stories_incr('bad')
             skipped_count += 1
         except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
