@@ -53,9 +53,8 @@ class LogArgumentParser(argparse.ArgumentParser):
         else:
             level = level.upper()
 
-        # fetcher/__init__.py had:
-        # format='%(asctime)s | %(levelname)s | %(name)s | %(message)s'
-        logging.basicConfig(level=level)
+        logging.basicConfig(format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
+                            level=level)
 
         if args.logger_level:
             # sqlalchemy.engine:INFO should log SQL
