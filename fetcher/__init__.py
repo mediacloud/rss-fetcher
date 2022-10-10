@@ -65,6 +65,11 @@ if not SQLALCHEMY_DATABASE_URI:
     sys.exit(1)
 engine = create_engine(SQLALCHEMY_DATABASE_URI, pool_size=DB_POOL_SIZE)
 
+# PLB: I with Dokku supplied an environment variable with the app name!
+# Steal from db url (expects staging-rss-fetcher or rss-fetcher):
+APP = SQLALCHEMY_DATABASE_URI.split('/')[-1].replace('_','-')
+DYNO = os.environ.get('DYNO', '') # dokku dyno name (proc.N)
+
 RSS_FILE_PATH = os.environ.get('RSS_FILE_PATH')
 if not RSS_FILE_PATH:
     logger.error("  You must set RSS_FILE_PATH env var to tell us where to store generated RSS files")
