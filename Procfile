@@ -1,4 +1,4 @@
 web: ./run-server.sh
-worker: ./run-rss-workers.sh
 fetcher: ./run-fetch-rss-feeds.sh --loop
+worker: ./run-rss-workers.sh
 generator: ./run-gen-daily-story-rss.sh
