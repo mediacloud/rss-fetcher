@@ -34,8 +34,9 @@ The [docker-grafana-graphite container](https://github.com/jlachowski/docker-gra
 currently in use by dokku-graphite is dated 12/2015(!!) and is based on a Python2(!)
 version of graphite, and is hosted on Ubuntu 14.02(!!) BUT the repo
 [it's a fork of](https://github.com/kamon-io/docker-grafana-graphite)
-of seems to have advanced to using alphine linux and a Python3 based version of graphite
-(so there's a way forward into maintained software).
+of seems to have advanced to using alphine linux and a Python3 enabled version of graphite
+(so there's a way forward into maintained software). A
+[fork of that](https://github.com/lachesis/docker-grafana-graphite) has been updated to use Python3.
 
 I've made a fetcher.stats module that abstracts data collection to be
 independent of protocol/software.  As the older version (0.9) of
