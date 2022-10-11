@@ -89,16 +89,7 @@ of whether the underlying version of statsd includes support by
 suffixing labeled statistic with alphabetically sorted LABEL_VALUE
 elements.
 
-### Note on Labels
-
-Labels/tags on a statistic means that every unique set of labels will
-be stored as a new/different time series, so it's important to be
-mindful of how many different values (cardinality) that given label
-might have.  Two different labels, each with ten possible values
-will result in 100 different time series.  That's a lot of colors
-to display!
-
-### Schema
+## Schema
 
 I'm trying to follow the following rules in naming statistics (using
 '.' as a separator in examples, since that's what statsd uses).
@@ -118,4 +109,11 @@ Statsd counters are suffixed with "count" (per 10s sampling period?) and "rate" 
 An example of a grafana path to graph all rss-fetcher per-feed counters is:
 `stats.counters.mc.staging.rss-fetcher.worker.feeds.*.count`
 
+### Note on Labels
 
+Labels/tags on a statistic means that every unique set of labels will
+be stored as a new/different time series, so it's important to be
+mindful of how many different values (cardinality) that given label
+might have.  Two different labels, each with ten possible values
+will result in 100 different time series.  That's a lot of colors
+to display!
