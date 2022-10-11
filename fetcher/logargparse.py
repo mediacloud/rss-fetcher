@@ -7,6 +7,7 @@ argparser class with logging arguments
 
 import argparse
 import logging
+import os
 import sys
 
 # local:
@@ -27,7 +28,8 @@ class LogArgumentParser(argparse.ArgumentParser):
                           help="set default logging level to 'WARNING'")
         self.add_argument('--list-loggers', action='store_true', dest='list_loggers',
                           help="list all logger names")
-        self.add_argument('--level', '-l', action='store', choices=LEVELS, default='INFO',
+        self.add_argument('--level', '-l', action='store', choices=LEVELS,
+                          default=os.environ.get('LOG_LEVEL', 'INFO'),
                           help="set default logging level to LEVEL")
 
         # set specific logger verbosity:
