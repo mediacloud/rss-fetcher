@@ -30,13 +30,21 @@ statistics (only a few related to statsd and carbon/graphite) that
 means no clutter, and grafana offers great flexibility (can pull from
 lots of data sources, and many dashboards are available).
 
-The [docker-grafana-graphite container](https://github.com/jlachowski/docker-grafana-graphite)
-currently in use by dokku-graphite is dated 12/2015(!!) and is based on a Python2(!)
-version of graphite, and is hosted on Ubuntu 14.02(!!) BUT the repo
-[it's a fork of](https://github.com/kamon-io/docker-grafana-graphite)
-of seems to have advanced to using alphine linux and a Python3 enabled version of graphite
-(so there's a way forward into maintained software). A
-[fork of that](https://github.com/lachesis/docker-grafana-graphite) has been updated to use Python3.
+The [docker-grafana-graphite v6.4.4 container](https://github.com/dokku/docker-grafana-graphite/tree/6.4.4)
+currently in use by dokku-graphite is dated Nov 2019, and is based on a Python2(!)
+version 0.9.x of graphite, and is hosted on Ubuntu 14.04(!!!), but more recent versions
+of the container exist
+
+### Tree of docker-grafana-graphite images
+
+* [kamon-io](https://github.com/kamon-io/docker-grafana-graphite) Aug 2019 / graphite master (py3 enabled??), Grafana 5.2.2, alpine Linux
+  + [jlachowski](https://github.com/jlachowski/docker-grafana-graphite) December 2015
+    * [dokku](https://github.com/dokku/docker-grafana-graphite)
+      - tag 6.4.4 *(YOU ARE HERE)* (November 2019) graphite 0.9.x, grafana 2.1.3, Ubuntu 14.04
+       + master branch: (Aug 2022) graphite master (py3 enabled?), grafana 8.1.3, Ubuntu 20.04
+  + [lachesis](https://github.com/lachesis/docker-grafana-graphite) February 2022: *USES PYTHON3* graphite master, grafana 8.4.2, alpine Linux
+
+### fetcher.stats interface module
 
 I've made a fetcher.stats module that abstracts data collection to be
 independent of protocol/software.  As the older version (0.9) of
@@ -61,13 +69,13 @@ aggregated data (cannot deal with multiple sources for a single
 datum), so statsd is a popular front end for it.
 
 Grafana is a stand-alone statistics rendering system that can pull stats
-from any number of sources.
+from any number of sources that is used here as a front end to graphite.
 
 ## Statsd
 
 [Statsd](https://www.etsy.com/codeascraft/measure-anything-measure-everything/)
 was invented at Etsy for monitoring, and uses a push model, which is advantageous
-in our situation (easy to aggregate stats from multiple worker processes).
+in our situation (easy to aggregate counters from multiple worker processes).
 
 ### Statsd metric types
 
@@ -105,8 +113,7 @@ I'm trying to follow the following rules in naming statistics (using
 All grafana visible stats paths begin with "stats", and then one of
 "counters" or "gauges".
 
-Statsd counters are suffixed with "count" (per minute) and "rate"
-(per second?).
+Statsd counters are suffixed with "count" (per 10s sampling period?) and "rate" (per second?).
 
 An example of a grafana path to graph all rss-fetcher per-feed counters is:
 `stats.counters.mc.staging.rss-fetcher.worker.feeds.*.count`
