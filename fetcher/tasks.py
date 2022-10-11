@@ -28,11 +28,12 @@ import feedparser
 import mcmetadata.urls
 from psycopg2.errors import UniqueViolation
 import requests
+from setproctitle import setproctitle
 from sqlalchemy import literal
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
 
 # feed fetcher:
-from fetcher import path_to_log_dir, DAY_WINDOW, DEFAULT_INTERVAL_MINS, \
+from fetcher import path_to_log_dir, APP, DYNO, DAY_WINDOW, DEFAULT_INTERVAL_MINS, \
     MAX_FAILURES, MINIMUM_INTERVAL_MINS, RSS_FETCH_TIMEOUT_SECS, SAVE_RSS_FILES
 import fetcher.database.models as models
 from fetcher.stats import Stats
@@ -323,7 +324,6 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     try:
         # first thing is to fetch the content
         logger.info(f"Working on feed {feed_id}")
-        # XXX setproctitle(f"{APP} {DYNO} feed {feed_id}")???
         response = _fetch_rss_feed(feed)
     except Exception as exc:
         # ignore fetch failure exceptions as a "normal operation" error
@@ -556,5 +556,9 @@ def feed_worker(feed_id: int, ts_iso: str):
     """
     session = fetcher.queue.get_session()
 
+    setproctitle(f"{APP} {DYNO} feed {feed_id}")
+
     # for total paranoia, wrap in try, call update_feed on exception??
     fetch_and_process_feed(session, feed_id, ts_iso)
+
+    setproctitle(f"{APP} {DYNO} idle")
