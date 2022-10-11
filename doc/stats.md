@@ -54,7 +54,7 @@ can explicitly structure the data to include labeling.
 
 ### layers of Graphite
 
-Grahite is a popular (if dated) statistics collection, storage and visualization app,
+Graphite is a popular (if dated) statistics collection, storage and visualization app,
 which contains multiple components:
 
 1. Ingest of stats: carbon
