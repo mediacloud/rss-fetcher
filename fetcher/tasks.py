@@ -543,11 +543,8 @@ def check_feed_title(feed: Dict, parsed_feed: FeedParserDict,
 
 ################
 
-
-# NOTE! RQ has a job decorator, but not using it to avoid
-# needing to fetch config at include time, so logging can be controlled better.
-# NOTE!!! MUST be run from SimpleWorker to achieve session caching!!!!
-# XXX maybe queue feed_id and date/time used to set last_fetch_attempt when queued?
+# called via rq:
+# MUST be run from rq SimpleWorker to achieve session caching!!!!
 def feed_worker(feed_id: int, ts_iso: str):
     """
     Fetch a feed, parse out stories, store them
@@ -558,7 +555,7 @@ def feed_worker(feed_id: int, ts_iso: str):
 
     setproctitle(f"{APP} {DYNO} feed {feed_id}")
 
-    # for total paranoia, wrap in try, call update_feed on exception??
+    # for total paranoia, wrap in try? call update_feed on exception??
     fetch_and_process_feed(session, feed_id, ts_iso)
 
     setproctitle(f"{APP} {DYNO} idle")
