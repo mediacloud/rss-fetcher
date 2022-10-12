@@ -515,10 +515,10 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                 stories_incr('dup_url')
                 skipped_count += 1
         except (AttributeError, KeyError, ValueError, UnicodeError) as exc:
+            # NOTE!! **REALLY** easy for coding errors to end up here!!!
             # couldn't parse the entry - skip it
-            # NOTE!! Really easy for some coding error to end up here!!!
-            logger.debug(f"Missing something on rss entry {link}: {str(exc)}")
-            logger.exception(f"bad rss entry {link}") # TEMP? control via environment var???
+            logger.debug(f"Bad rss entry {link}: {str(exc)}")
+            #logger.exception(f"bad rss entry {link}") # control via environment var???
             stories_incr('bad')
             skipped_count += 1
         except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
