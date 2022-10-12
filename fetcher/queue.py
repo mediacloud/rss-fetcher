@@ -17,7 +17,7 @@ from rq.local import LocalStack
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
-from fetcher import REDIS_URL
+from fetcher.config import conf
 from fetcher.database import Session
 from fetcher.database.models import Feed
 import fetcher.tasks
@@ -26,9 +26,9 @@ WORKQ_NAME = 'workq'            # XXX make config?
 
 logger = logging.getLogger(__name__)
 
-# only ever contains one item
-# needed?? RQ Worker not multi-threaded
+# NEEDED?? RQ Worker not multi-threaded
 #   with SimpleWorker all in one process??
+# only ever contains one item:
 _sessions = LocalStack()
 
 def get_session():
@@ -46,9 +46,9 @@ def get_session():
 # XXX wrap in a singleton??
 
 def redis_connection():
-    u = make_url(REDIS_URL)     # SQLAlchemy URL object
+    u = make_url(conf.REDIS_URL)     # SQLAlchemy URL object
     if not u:
-        raise Exception(f"Bad REDIS_URL {REDIS_URL}")
+        raise Exception(f"Bad REDIS_URL {conf.REDIS_URL}")
     # XXX assert u.drivername == 'redis'?
     return StrictRedis(host=u.host, port=u.port or 6379,
                        password=u.password, username=u.username)

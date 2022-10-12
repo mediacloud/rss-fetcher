@@ -1,28 +1,32 @@
-import logging
-import datetime as dt
-from random import random       # low-fi random ok
-import sys
-from subprocess import call
-import os
 import csv
+import datetime as dt
+import logging
+import os
+from random import random       # low-fi random ok
+from subprocess import call
+import sys
 
 from sqlalchemy import text
 
-from fetcher import DEFAULT_INTERVAL_MINS
+from fetcher.config import conf
 from fetcher.database import engine, Session
 import fetcher.database.models as models
 from fetcher.logargparse import LogArgumentParser
 
 
+DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
+SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI
+
+SCRIPT = 'import_feeds'
+
 def _run_psql_command(cmd: str):
-    db_uri = os.getenv('DATABASE_URI')
-    call(['psql', '-Atx', db_uri, '-c', cmd])
+    call(['psql', '-Atx', SQLALCHEMY_DATABASE_URI, '-c', cmd])
 
 
 if __name__ == '__main__':
     # prep file
-    logger = logging.getLogger('import_feeds')
-    p = LogArgumentParser('import_feeds', 'import feeds.csv file')
+    logger = logging.getLogger(SCRIPT)
+    p = LogArgumentParser(SCRIPT, 'import feeds.csv file')
     p.add_argument('input_file', metavar='INPUT_FILE') # mandatory positional argument
     # info logging before this call unlikely to be seen:
     args = p.parse_args()       # parse logging args, output start message

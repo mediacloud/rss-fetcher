@@ -12,6 +12,7 @@ import sys
 
 # local:
 from fetcher import VERSION
+from fetcher.config import conf
 
 LEVELS = [level.lower() for level in logging._nameToLevel.keys()]
 
@@ -65,7 +66,9 @@ class LogArgumentParser(argparse.ArgumentParser):
                 # XXX check level in LEVELS?
                 logging.getLogger(logger_name).handlers[0].setLevel(level)
 
-        logging.getLogger(self.prog).info(f"Starting {self.description}")
+        # log startup banner and deferred config msgs
+        conf.start(self.prog, self.description)
+
         return args
 
 if __name__ == '__main__':

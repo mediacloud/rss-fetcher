@@ -33,21 +33,32 @@ from sqlalchemy import literal
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
 
 # feed fetcher:
-from fetcher import path_to_log_dir, APP, DYNO, DAY_WINDOW, DEFAULT_INTERVAL_MINS, \
-    MAX_FAILURES, MINIMUM_INTERVAL_MINS, RSS_FETCH_TIMEOUT_SECS, SAVE_RSS_FILES
+from fetcher import path_to_log_dir
+from fetcher.config import conf
 import fetcher.database.models as models
 from fetcher.stats import Stats
 import fetcher.queue
 import fetcher.util as util
 
-# shorthands:
+# force logging on startup:
+DAY_WINDOW = conf.DAY_WINDOW
+DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
+MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
+RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
+SAVE_RSS_FILES = conf.SAVE_RSS_FILES
+
+# Want Dokku app name!!!
+APP = conf.SQLALCHEMY_DATABASE_URI.split('/')[-1].replace('_', '-')
+DYNO = os.environ.get('DYNO', f"worker.{os.getpid()}") # Dokku supplies worker.N
+
+# shorthand:
 FeedParserDict = feedparser.FeedParserDict
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 logFormatter = logging.Formatter("[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
 # rotate file after midnight (UTC), keep 7 old files, Dokku supplies worker.N as DYNO, else use pid
 fileHandler = logging.handlers.TimedRotatingFileHandler(
-    os.path.join(path_to_log_dir, f"tasks-{os.environ.get('DYNO', str(os.getpid()))}.log"),
+    os.path.join(path_to_log_dir, f"tasks-{DYNO}.log"),
     when='midnight', utc=True, backupCount=7)
 fileHandler.setFormatter(logFormatter)
 logger.addHandler(fileHandler)
@@ -65,6 +76,8 @@ logger.addHandler(fileHandler)
 SANITY_CLAUSE = False
 
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
+
+# XXX include "academic project" + contact info????
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 
 # RDF Site Summary 1.0 Modules: Syndication
@@ -99,12 +112,11 @@ def _save_rss_file(feed: Dict, response):
 
 
 def normalized_title_exists(session, normalized_title_hash: str,
-                            sources_id: int,
-                            day_window: int = DAY_WINDOW) -> bool:
+                            sources_id: int) -> bool:
     if normalized_title_hash is None or sources_id is None:
         # err on the side of keeping URLs
         return False
-    earliest_date = dt.date.today() - dt.timedelta(days=day_window)
+    earliest_date = dt.date.today() - dt.timedelta(days=DAY_WINDOW)
     # only care if matching rows exist, so doing nested EXISTS query
     with session.begin():
         return session.query(literal(True))\
@@ -170,7 +182,7 @@ def update_feed(session, feed_id: int, success: bool, note: str,
         else:
             failures = f.last_fetch_failures = f.last_fetch_failures + 1
 
-            if failures >= MAX_FAILURES:
+            if failures >= conf.MAX_FAILURES:
                 event = models.FetchEvent.EVENT_FETCH_FAILED_DISABLED
                 f.system_enabled = False
                 next_minutes = None # don't reschedule
@@ -197,8 +209,8 @@ def update_feed(session, feed_id: int, success: bool, note: str,
             # or pass note in two halves: system_status & detail????
 
         if next_minutes is not None: # reschedule?
-            if next_minutes < MINIMUM_INTERVAL_MINS:
-                next_minutes = MINIMUM_INTERVAL_MINS # clamp to minimum
+            if next_minutes < conf.MINIMUM_INTERVAL_MINS:
+                next_minutes = conf.MINIMUM_INTERVAL_MINS # clamp to minimum
             f.next_fetch_attempt = next_dt = models.utc(seconds=next_minutes*60)
             logger.debug(f"  Feed {feed_id} rescheduled for {next_dt}")
         elif f.system_enabled:

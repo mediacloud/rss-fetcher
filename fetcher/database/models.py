@@ -1,15 +1,17 @@
-from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, text
 import datetime as dt
-from time import mktime
-from typing import List
 import hashlib
 from numbers import Real        # allows int or float
+from time import mktime
+from typing import List
 
-from fetcher import engine
-import fetcher.util as util
+# PyPI:
 import mcmetadata.urls as urls
 import mcmetadata.titles as titles
+from sqlalchemy.orm import declarative_base
+from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, text
+
+from fetcher.database.engine import engine
+import fetcher.util as util
 
 Base = declarative_base()
 

@@ -18,15 +18,16 @@ from typing import List
 from sqlalchemy import or_
 
 # app
-from fetcher import MAX_FEEDS
-import fetcher.tasks as tasks
+from fetcher.config import conf
 from fetcher.database import engine, Session
 from fetcher.logargparse import LogArgumentParser
 import fetcher.database.models as models
 import fetcher.queue as queue
 from fetcher.stats import Stats
+import fetcher.tasks as tasks
 
-logger = logging.getLogger('queue_feeds')
+SCRIPT = 'queue_feeds'          # NOTE! used for stats!
+logger = logging.getLogger(SCRIPT)
 
 class Queuer:
     """
@@ -70,8 +71,8 @@ class Queuer:
         Find some active, undisabled, unqueued feeds
         that have not been checked, or are past due for a check (oldest first).
         """
-        if limit > MAX_FEEDS:
-            limit = MAX_FEEDS
+        if limit > conf.MAX_FEEDS:
+            limit = conf.MAX_FEEDS
 
         now = dt.datetime.utcnow()
         with Session.begin() as session:
@@ -128,7 +129,7 @@ def loop(queuer):
     # how high to refill queue to
     # (once had lo_water, set to a fraction of hi_water,
     #  but it gave less direct control on queuing interval):
-    hi_water = round(MAX_FEEDS/max_feeds_minutes * refill_period_mins)
+    hi_water = round(conf.MAX_FEEDS/max_feeds_minutes * refill_period_mins)
     if hi_water < 10:
         hi_water = 10
     logger.info(f"Starting loop. hi_water = {hi_water}")
@@ -189,7 +190,7 @@ def loop(queuer):
             time.sleep(s)
 
 if __name__ == '__main__':
-    p = LogArgumentParser('queue_feeds', 'Feed Queuing')
+    p = LogArgumentParser(SCRIPT, 'Feed Queuing')
     p.add_argument('--clear', action='store_true',
                    help='Clear queue first.')
     p.add_argument('--loop', action='store_true',
@@ -200,7 +201,7 @@ if __name__ == '__main__':
     # info logging before this call unlikely to be seen:
     args = p.parse_args()       # parse logging args, output start message
 
-    stats = Stats.init('queue_feeds')
+    stats = Stats.init(SCRIPT)
 
     redis = queue.redis_connection()
     wq = queue.workq(redis)
@@ -234,4 +235,4 @@ if __name__ == '__main__':
         # classic behavior (was run from cron every 30 min)
         # to restore, uncomment crontab entry in instance.sh
         # and remove --loop from Procfile
-        queuer.find_and_queue_feeds(MAX_FEEDS)
+        queuer.find_and_queue_feeds(conf.MAX_FEEDS)

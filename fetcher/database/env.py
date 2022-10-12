@@ -1,17 +1,25 @@
-from logging.config import fileConfig
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from alembic import context
+"""
+Used by alembic only
+"""
 
-from fetcher import SQLALCHEMY_DATABASE_URI
+from logging.config import fileConfig
+
+# PyPI
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+# local
+from fetcher.config import conf
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-config.set_main_option('sqlalchemy.url', SQLALCHEMY_DATABASE_URI)
+config.set_main_option('sqlalchemy.url', conf.SQLALCHEMY_DATABASE_URI)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
+# NOTE! config vars not logged!!!  PLB: I consider this a feature!
 fileConfig(config.config_file_name)
 
 # add your model's MetaData object here

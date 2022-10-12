@@ -6,23 +6,25 @@ from sqlalchemy import text
 import gzip
 import shutil
 
-from fetcher import base_dir, engine, RSS_FILE_PATH
+from fetcher.config import conf
+from fetcher.database.engine import engine
+from fetcher import base_dir
 from fetcher.logargparse import LogArgumentParser
 import fetcher.rss.rsswriter as rsswriter
 from fetcher.stats import Stats
-
 import fetcher.util as util
 
-HISTORY = 14
+HISTORY = 14 # number of days to ensure output: have a --days option??
+SCRIPT = 'gen_rss'              # NOTE! used for stats!!!
 
 # handle relative paths smartly for local devs
-if RSS_FILE_PATH[0] == "/":
-    target_dir = RSS_FILE_PATH
+if conf.RSS_FILE_PATH[0] == "/":
+    target_dir = conf.RSS_FILE_PATH
 else:
-    target_dir = os.path.join(base_dir, RSS_FILE_PATH)
+    target_dir = os.path.join(base_dir, conf.RSS_FILE_PATH)
 
 logger = logging.getLogger(__name__)
-stats = Stats.init('gen_rss')
+stats = Stats.init(SCRIPT)
 
 def incr_files(status):
     stats.incr('files', labels=[['status', status]])
@@ -31,7 +33,7 @@ def incr_stories(status):
     stats.incr('stories', labels=[['status', status]])
 
 if __name__ == '__main__':
-    p = LogArgumentParser('gen_rss', 'RSS file generator')
+    p = LogArgumentParser(SCRIPT, 'RSS file generator')
     # info logging before this call unlikely to be seen:
     args = p.parse_args()       # parse logging args, output start message
 
