@@ -19,6 +19,7 @@ SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI
 
 SCRIPT = 'import_feeds'
 
+
 def _run_psql_command(cmd: str):
     call(['psql', '-Atx', SQLALCHEMY_DATABASE_URI, '-c', cmd])
 
@@ -27,7 +28,8 @@ if __name__ == '__main__':
     # prep file
     logger = logging.getLogger(SCRIPT)
     p = LogArgumentParser(SCRIPT, 'import feeds.csv file')
-    p.add_argument('input_file', metavar='INPUT_FILE') # mandatory positional argument
+    # mandatory positional argument
+    p.add_argument('input_file', metavar='INPUT_FILE')
     # info logging before this call unlikely to be seen:
     args = p.parse_args()       # parse logging args, output start message
 
@@ -49,9 +51,10 @@ if __name__ == '__main__':
             now = dt.datetime.utcnow()
             # Pick random time within default fetch interval:
             # spreads out load, keeping queue short, and (hopefully)
-            # avoiding hammering any site such that they give HTTP 429 
+            # avoiding hammering any site such that they give HTTP 429
             # (Too Many Requests) responses.
-            next_fetch = now + timedelta(seconds=random()*DEFAULT_INTERVAL_MINS*60)
+            next_fetch = now + \
+                timedelta(seconds=random() * DEFAULT_INTERVAL_MINS * 60)
             f = models.Feed(
                 id=row['id'],
                 url=row['url'],

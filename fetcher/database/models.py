@@ -20,11 +20,11 @@ def _class_as_dict(obj):
     return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
 
 
-def utc(seconds : Real = 0.0):
+def utc(seconds: Real = 0.0):
     """
     Return a UTC datetime with optional offset of `seconds` from current time
     """
-    d = dt.datetime.utcnow() # or dt.datetime.now(dt.timezone.utc) ??
+    d = dt.datetime.utcnow()  # or dt.datetime.now(dt.timezone.utc) ??
     if seconds != 0.0:
         d += dt.timedelta(seconds=seconds)
     return d
@@ -41,14 +41,20 @@ class Feed(Base):
     last_fetch_attempt = Column(DateTime)
     last_fetch_success = Column(DateTime)
     last_fetch_hash = Column(String)
-    last_fetch_failures = Column(Integer, nullable=False, server_default=text('0'))
+    last_fetch_failures = Column(
+        Integer,
+        nullable=False,
+        server_default=text('0'))
     created_at = Column(DateTime)
     http_etag = Column(String)  # "Entity Tag"
     http_last_modified = Column(String)
     next_fetch_attempt = Column(DateTime)
     queued = Column(Boolean, nullable=False, server_default=text('false'))
-    system_enabled = Column(Boolean, nullable=False, server_default=text('true'))
-    update_minutes = Column(Integer) # sy:updatePeriod/sy:updateFrequency
+    system_enabled = Column(
+        Boolean,
+        nullable=False,
+        server_default=text('true'))
+    update_minutes = Column(Integer)  # sy:updatePeriod/sy:updateFrequency
 
     def __repr__(self):
         return '<Feed id={} name={} sources_id={}>'.format(
@@ -96,7 +102,8 @@ class Story(Base):
         return _run_query(query)
 
     @staticmethod
-    def from_rss_entry(feed_id: int, fetched_at: dt.datetime, entry, media_name: str = None):
+    def from_rss_entry(feed_id: int, fetched_at: dt.datetime,
+                       entry, media_name: str = None):
         s = Story()
         s.feed_id = feed_id
         try:
@@ -117,10 +124,14 @@ class Story(Base):
         except Exception as _:  # likely to be an unknown string format - let the pipeline guess it from HTML later
             s.published_at = None
         try:
-            # code prior to this should have checked for title uniqueness biz logic
-            s.title = util.clean_str(entry.title)  # make sure we can save it in the DB by removing NULL chars and such
+            # code prior to this should have checked for title uniqueness biz
+            # logic
+            # make sure we can save it in the DB by removing NULL chars and
+            # such
+            s.title = util.clean_str(entry.title)
             s.normalized_title = titles.normalize_title(s.title)
-            s.normalized_title_hash = hashlib.md5(s.normalized_title.encode()).hexdigest()
+            s.normalized_title_hash = hashlib.md5(
+                s.normalized_title.encode()).hexdigest()
         except AttributeError as _:
             s.title = None
             s.normalized_title = None
@@ -147,7 +158,8 @@ class FetchEvent(Base):
     EVENT_QUEUED = 'queued'
     EVENT_FETCH_FAILED = 'fetch_failed'
     EVENT_FETCH_SUCCEEDED = 'fetch_succeeded'
-    EVENT_FETCH_FAILED_DISABLED = 'fetch_disabled' # disabled due to excessive failures
+    # disabled due to excessive failures
+    EVENT_FETCH_FAILED_DISABLED = 'fetch_disabled'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     feed_id = Column(BigInteger)

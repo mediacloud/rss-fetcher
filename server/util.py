@@ -56,7 +56,8 @@ def api_method(func):
 
 
 def as_timeseries_data(counts: List[List], names: List[str]) -> List[Dict]:
-    cleaned_data = [{r['day'].strftime("%Y-%m-%d"): r['stories'] for r in series} for series in counts]
+    cleaned_data = [{r['day'].strftime(
+        "%Y-%m-%d"): r['stories'] for r in series} for series in counts]
     dates = set(chain(*[series.keys() for series in cleaned_data]))
     stories_by_day_data = []
     for d in dates:  # need to make sure there is a pair of entries for each date

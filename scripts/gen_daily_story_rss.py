@@ -14,7 +14,7 @@ import fetcher.rss.rsswriter as rsswriter
 from fetcher.stats import Stats
 import fetcher.util as util
 
-HISTORY = 14 # number of days to ensure output: have a --days option??
+HISTORY = 14  # number of days to ensure output: have a --days option??
 SCRIPT = 'gen_rss'              # NOTE! used for stats!!!
 
 # handle relative paths smartly for local devs
@@ -26,11 +26,14 @@ else:
 logger = logging.getLogger(__name__)
 stats = Stats.init(SCRIPT)
 
+
 def incr_files(status):
     stats.incr('files', labels=[['status', status]])
 
+
 def incr_stories(status):
     stats.incr('stories', labels=[['status', status]])
+
 
 if __name__ == '__main__':
     p = LogArgumentParser(SCRIPT, 'RSS file generator')
@@ -41,7 +44,8 @@ if __name__ == '__main__':
     logger.info("Writing daily RSS files since {}".format(today))
     logger.info("  writing to {}".format(target_dir))
 
-    # generate a file for each of the last N days (skipping today, which might still be running)
+    # generate a file for each of the last N days (skipping today, which might
+    # still be running)
     for d in range(1, HISTORY):
         try:
             day = today - datetime.timedelta(d)
@@ -71,8 +75,10 @@ if __name__ == '__main__':
                                                    util.clean_str(story['title']) if 'title' in story else '')
                                 incr_stories('added')
                             except Exception as e:
-                                # probably some kind of XML encoding problem, just log and skip
-                                logger.warning("Skipped story {} - {}".format(story['id'], str(e)))
+                                # probably some kind of XML encoding problem,
+                                # just log and skip
+                                logger.warning(
+                                    "Skipped story {} - {}".format(story['id'], str(e)))
                                 incr_stories('skipped')
                             story_count += 1
                     rsswriter.add_footer(outfile)
@@ -87,7 +93,8 @@ if __name__ == '__main__':
                                 shutil.copyfileobj(f_in, f_out2)
             else:
                 incr_files('exists')
-                logger.info("  Skipping - file already exists at {}".format(compressed_filepath))
+                logger.info(
+                    "  Skipping - file already exists at {}".format(compressed_filepath))
             # and delete the uncompressed to save space
             try:
                 os.remove(filepath)
@@ -95,6 +102,8 @@ if __name__ == '__main__':
                 pass
         except Exception as exc:
             logger.exception(exc)
-            logger.error("Had an error on day {}, skipping due to: {}".format(d, str(exc)))
+            logger.error(
+                "Had an error on day {}, skipping due to: {}".format(
+                    d, str(exc)))
             incr_files('failed')
     logger.info("Done")

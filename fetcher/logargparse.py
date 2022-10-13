@@ -22,6 +22,7 @@ LEVELS = [level.lower() for level in logging._nameToLevel.keys()]
 
 LOGGER_LEVEL_SEP = ':'
 
+
 class LogArgumentParser(argparse.ArgumentParser):
     def __init__(self, prog, descr):
         super().__init__(prog=prog, description=descr)
@@ -89,15 +90,17 @@ class LogArgumentParser(argparse.ArgumentParser):
         if args.logger_level:
             # sqlalchemy.engine:INFO should log SQL
             for ll in args.logger_level:
-                logger_name, level = ll.split(LOGGER_LEVEL_SEP,1)
+                logger_name, level = ll.split(LOGGER_LEVEL_SEP, 1)
                 # XXX check logger_name in logging.root.manager.loggerDict??
                 # XXX check level.upper() in LEVELS?
-                logging.getLogger(logger_name).handlers[0].setLevel(level.upper())
+                logging.getLogger(
+                    logger_name).handlers[0].setLevel(level.upper())
 
         # log startup banner and deferred config msgs
         conf.start(self.prog, self.description)
 
         return args
+
 
 if __name__ == '__main__':
     logger = logging.getLogger(__name__)

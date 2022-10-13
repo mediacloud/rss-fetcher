@@ -27,7 +27,8 @@ class DBTest(unittest.TestCase):
             cursor.close()
         except psycopg2.errors.DuplicateDatabase:
             pass
-        self._engine = create_engine("postgresql:///test_rss_fetcher", pool_size=5)
+        self._engine = create_engine(
+            "postgresql:///test_rss_fetcher", pool_size=5)
         self._Session = sessionmaker(bind=self._engine)
         # create an empty in-memory database
         models.Base.metadata.bind = self._engine
@@ -59,14 +60,17 @@ class TestSaveFetchEvent(DBTest):
 
     def test_save_fetch_event(self):
         with self._Session() as session:
-            tasks.save_fetch_event(session, 1, models.FetchEvent.EVENT_FETCH_FAILED, "fake")
+            tasks.save_fetch_event(
+                session, 1, models.FetchEvent.EVENT_FETCH_FAILED, "fake")
             total_events = session.query(models.FetchEvent.id).count()
             assert total_events == 1
 
     def test_save_fetch_events(self):
         with self._Session() as session:
-            tasks.save_fetch_event(session, 1, models.FetchEvent.EVENT_FETCH_FAILED, "fake")
-            tasks.save_fetch_event(session, 1, models.FetchEvent.EVENT_FETCH_FAILED, "fake")
+            tasks.save_fetch_event(
+                session, 1, models.FetchEvent.EVENT_FETCH_FAILED, "fake")
+            tasks.save_fetch_event(
+                session, 1, models.FetchEvent.EVENT_FETCH_FAILED, "fake")
             total_events = session.query(models.FetchEvent.id).count()
             assert total_events == 2
 
@@ -92,7 +96,8 @@ class TestFetchFeedContent(DBTest):
             assert total_feeds == 1
 
     def test_invalid_rss_parse(self):
-        # an invalid RSS should create a fetch_event failure and increment last failed counts
+        # an invalid RSS should create a fetch_event failure and increment last
+        # failed counts
         self._create_feed()
         with self._Session() as session:
             tasks._parse_feed(session, 1, "some garbage")
@@ -106,7 +111,8 @@ class TestFetchFeedContent(DBTest):
                 assert f.last_fetch_failures == 1
 
     def test_invalid_rss(self):
-        # an invalid RSS should create a fetch_event failure and increment last failed counts
+        # an invalid RSS should create a fetch_event failure and increment last
+        # failed counts
         self._create_feed()
         with self._Session() as session:
             tasks.fetch_feed_content(session, dt.datetime.now(), dict(
@@ -130,7 +136,8 @@ class TestSaveStoriesFromFeed(DBTest):
         assert len(parsed_feed.entries) == 195
         with self._Session() as session:
             feed = dict(id=1, sources_id=1, name='cnn')
-            tasks.save_stories_from_feed(session, dt.datetime.now(), feed, parsed_feed)
+            tasks.save_stories_from_feed(
+                session, dt.datetime.now(), feed, parsed_feed)
             total_stories = session.query(models.Story.id).count()
             assert total_stories == 195
             total_fetch_events = session.query(models.FetchEvent.id).count()
@@ -144,21 +151,24 @@ class TestSaveStoriesFromFeed(DBTest):
         assert len(parsed_feed.entries) == 69
         with self._Session() as session:
             feed = dict(id=1, sources_id=1, name='cnn')
-            tasks.save_stories_from_feed(session, dt.datetime.now(), feed, parsed_feed)
+            tasks.save_stories_from_feed(
+                session, dt.datetime.now(), feed, parsed_feed)
             total_stories = session.query(models.Story.id).count()
             assert total_stories == 69
             total_fetch_events = session.query(models.FetchEvent.id).count()
             assert total_fetch_events == 1
 
     def test_duplicates_cnn(self):
-        # run a feed twice and make sure that the stories from it are only saved once
+        # run a feed twice and make sure that the stories from it are only
+        # saved once
         with open(os.path.join(fixture_dir, 'real-cnn.rss')) as f:
             content = f.read()
         parsed_feed = feedparser.parse(content)
         assert len(parsed_feed.entries) == 69
         with self._Session() as session:
             feed = dict(id=1, sources_id=1, name='cnn')
-            saved, skipped = tasks.save_stories_from_feed(session, dt.datetime.now(), feed, parsed_feed)
+            saved, skipped = tasks.save_stories_from_feed(
+                session, dt.datetime.now(), feed, parsed_feed)
             assert saved == 69
             assert skipped == 0
             total_stories = session.query(models.Story.id).count()
@@ -167,7 +177,8 @@ class TestSaveStoriesFromFeed(DBTest):
             assert total_fetch_events == 1
             # now try to import the same ones again
         with self._Session() as session:
-            saved, skipped = tasks.save_stories_from_feed(session, dt.datetime.now(), feed, parsed_feed)
+            saved, skipped = tasks.save_stories_from_feed(
+                session, dt.datetime.now(), feed, parsed_feed)
             assert saved == 0
             assert skipped == 69
             total_stories = session.query(models.Story.id).count()

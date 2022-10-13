@@ -22,12 +22,13 @@ from dotenv import load_dotenv
 # local
 from fetcher import VERSION
 
-load_dotenv() # load config from .env file (local) or env vars (production)
+load_dotenv()  # load config from .env file (local) or env vars (production)
 
 logger = logging.getLogger(__name__)
 
 # conf_XXX functions return property getters for Config members
 # used in class definition as MEMBER = conf_....('NAME', ....)
+
 
 def conf_default(name: str, defval: str):
     """
@@ -37,12 +38,13 @@ def conf_default(name: str, defval: str):
     @property
     def getter(self):
         if name in self.values:
-            value = self.values[name] # cached value
+            value = self.values[name]  # cached value
         else:
             value = os.environ.get(name, defval)
-            self._log(name, value) # log first time only
+            self._log(name, value)  # log first time only
         return value
     return getter
+
 
 def conf_bool(name: str, defval: bool):
     """
@@ -54,7 +56,7 @@ def conf_bool(name: str, defval: bool):
     @property
     def getter(self):
         if name in self.values:
-            value = self.values[name] # cached value
+            value = self.values[name]  # cached value
         else:
             value = os.environ.get(name)
             if value is None:
@@ -64,10 +66,11 @@ def conf_bool(name: str, defval: bool):
                 if value.isdigit():
                     value = bool(int(value))
                 else:
-                    value = value in ['true', 't', 'on'] # be liberal
+                    value = value in ['true', 't', 'on']  # be liberal
                 self._log(name, value)
         return value
     return getter
+
 
 def conf_int(name: str, defval: int) -> int:
     """
@@ -78,15 +81,16 @@ def conf_int(name: str, defval: int) -> int:
     @property
     def getter(self):
         if name in self.values:
-            value = self.values[name] # cached value
+            value = self.values[name]  # cached value
         else:
             try:
                 value = int(os.environ.get(name, defval))
             except ValueError:
                 value = defval
-            self._log(name, value) # log first time only
+            self._log(name, value)  # log first time only
         return value
     return getter
+
 
 def conf_optional(name: str):
     """
@@ -96,15 +100,16 @@ def conf_optional(name: str):
     @property
     def getter(self):
         if name in self.values:
-            value = self.values[name] # cached value
+            value = self.values[name]  # cached value
         else:
             value = self.values[name] = os.environ.get(name)
             if value is None:   # optional: log only if set
                 self._set(name, value)
             else:
-                self._log(name, value) # log first time only
+                self._log(name, value)  # log first time only
         return value
     return getter
+
 
 def conf_required(name):
     """
@@ -117,16 +122,17 @@ def conf_required(name):
             logger.error(f"{name} not set.")
             sys.exit(1)
         if name in self.values:
-            value = self.values[name] # cached value
+            value = self.values[name]  # cached value
         else:
             value = os.environ.get(name)
-            self._log(name, value) # log first time only
+            self._log(name, value)  # log first time only
         return value
     return getter
 
 
-_DEFAULT_DEFAULT_INTERVAL_MINS = 12*60
+_DEFAULT_DEFAULT_INTERVAL_MINS = 12 * 60
 _DEFAULT_MINIMUM_INTERVAL_MINS = _DEFAULT_DEFAULT_INTERVAL_MINS
+
 
 class _Config:                  # only instantied in this file
     """
@@ -165,7 +171,8 @@ class _Config:                  # only instantied in this file
             # test if clean?? import git; git.Repo(path).is_dirty()????
             git_rev = os.environ.get('GIT_REV', '(GIT_REV not set)')
 
-            logger.info("------------------------------------------------------------------------")
+            logger.info(
+                "------------------------------------------------------------------------")
 
             logger.info(f"Starting {prog} version {VERSION} {git_rev}")
             for msg in self.msgs:
@@ -193,7 +200,7 @@ class _Config:                  # only instantied in this file
     MAX_FEEDS = conf_int('MAX_FEEDS', 10000)
 
     # minimum requeue interval (used to clamp sy:updatePeriod/Frequency)
-    MINIMUM_INTERVAL_MINS = conf_int('MINIMUM_INTERVAL_MINS', 
+    MINIMUM_INTERVAL_MINS = conf_int('MINIMUM_INTERVAL_MINS',
                                      _DEFAULT_DEFAULT_INTERVAL_MINS)
 
     # rq uses only redis for queues
@@ -211,14 +218,14 @@ class _Config:                  # only instantied in this file
     SENTRY_DSN = conf_optional('SENTRY_DSN')
 
     SQLALCHEMY_DATABASE_URI = conf_required('DATABASE_URL')
-    
+
 
 conf = _Config()
 
 if __name__ == '__main__':
     logging.basicConfig(level='INFO')
     a = conf.RSS_FETCH_TIMEOUT_SECS    # should get default, log after start
-    conf.start("Hello World") # should output message
+    conf.start("Hello World")  # should output message
     a = conf.RSS_FETCH_TIMEOUT_SECS    # should not log
 
     try:

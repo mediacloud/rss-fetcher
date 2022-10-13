@@ -56,7 +56,8 @@ DYNO = os.environ.get('DYNO', f"worker.{os.getpid()}")
 FeedParserDict = feedparser.FeedParserDict
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
-logFormatter = logging.Formatter("[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
+logFormatter = logging.Formatter(
+    "[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
 # rotate file after midnight (UTC), keep 7 old files
 fileHandler = logging.handlers.TimedRotatingFileHandler(
     os.path.join(path_to_log_dir, f"tasks-{DYNO}.log"),
@@ -90,17 +91,18 @@ USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36
 
 # RDF Site Summary 1.0 Modules: Syndication
 # https://web.resource.org/rss/1.0/modules/syndication/
-_DAY_MINS = 24*60
+_DAY_MINS = 24 * 60
 UPDATE_PERIODS_MINS = {
     'hourly': 60,
     'daily': _DAY_MINS,
     'dayly': _DAY_MINS,  # http://cuba.cu/feed & http://tribuna.cu/feed
-    'weekly': 7*_DAY_MINS,
-    'monthly': 30*_DAY_MINS,
-    'yearly': 365*_DAY_MINS,
+    'weekly': 7 * _DAY_MINS,
+    'monthly': 30 * _DAY_MINS,
+    'yearly': 365 * _DAY_MINS,
 }
-DEFAULT_UPDATE_PERIOD = 'daily' # specified in Syndication spec
+DEFAULT_UPDATE_PERIOD = 'daily'  # specified in Syndication spec
 DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
+
 
 def _save_rss_file(feed: Dict, response):
     # debugging helper method - saves two files for the feed to /logs/rss-feeds
@@ -128,12 +130,13 @@ def normalized_title_exists(session, normalized_title_hash: str,
     # only care if matching rows exist, so doing nested EXISTS query
     with session.begin():
         return session.query(literal(True))\
-                      .filter(session.query(models.Story)\
+                      .filter(session.query(models.Story)
                               .filter(models.Story.published_at >= earliest_date,
                                       models.Story.normalized_title_hash == normalized_title_hash,
-                                      models.Story.sources_id == sources_id)\
+                                      models.Story.sources_id == sources_id)
                               .exists())\
                       .scalar()
+
 
 def normalized_url_exists(session, normalized_url: str) -> bool:
     if normalized_url is None:
@@ -141,13 +144,14 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
     # only care if matching rows exist, so doing nested EXISTS query
     with session.begin():
         return session.query(literal(True))\
-                      .filter(session.query(models.Story)\
-                              .filter(models.Story.normalized_url == normalized_url)\
+                      .filter(session.query(models.Story)
+                              .filter(models.Story.normalized_url == normalized_url)
                               .exists())\
                       .scalar()
 
+
 def update_feed(session, feed_id: int, success: bool, note: str,
-                feed_col_updates: Union[Dict,None] = None):
+                feed_col_updates: Union[Dict, None] = None):
     """
     Update Feed row, insert FeedEvent row; MUST be called from all
     feed_worker code paths in order to clear "queued" and update
@@ -193,12 +197,14 @@ def update_feed(session, feed_id: int, success: bool, note: str,
             if failures >= conf.MAX_FAILURES:
                 event = models.FetchEvent.EVENT_FETCH_FAILED_DISABLED
                 f.system_enabled = False
-                next_minutes = None # don't reschedule
-                logger.warning(f" Feed {feed_id}: disabled after {failures} failures")
+                next_minutes = None  # don't reschedule
+                logger.warning(
+                    f" Feed {feed_id}: disabled after {failures} failures")
                 # PLB: save "disabled" as system_status????
             else:
                 event = models.FetchEvent.EVENT_FETCH_FAILED
-                logger.info(f" Feed {feed_id}: upped last_fetch_failure to {failures}")
+                logger.info(
+                    f" Feed {feed_id}: upped last_fetch_failure to {failures}")
 
                 # back off to be kind to servers:
                 # linear backoff (ie; 12h, 1d, 1.5d, 2d)
@@ -211,16 +217,17 @@ def update_feed(session, feed_id: int, success: bool, note: str,
 
                 # add random minute offset to break up clumps
                 # of 429 (Too Many Requests) errors
-                next_minutes += random.random() * 60*60
+                next_minutes += random.random() * 60 * 60
 
             # PLB: save note as f.system_status??
             # (split w/ " / " and/or ":" and save front part)???
             # or pass note in two halves: system_status & detail????
 
-        if next_minutes is not None: # reschedule?
+        if next_minutes is not None:  # reschedule?
             if next_minutes < conf.MINIMUM_INTERVAL_MINS:
-                next_minutes = conf.MINIMUM_INTERVAL_MINS # clamp to minimum
-            f.next_fetch_attempt = next_dt = models.utc(seconds=next_minutes*60)
+                next_minutes = conf.MINIMUM_INTERVAL_MINS  # clamp to minimum
+            f.next_fetch_attempt = next_dt = models.utc(
+                seconds=next_minutes * 60)
             logger.debug(f"  Feed {feed_id} rescheduled for {next_dt}")
         elif f.system_enabled:
             logger.error("  Feed {feed_id} enabled but not rescheduled!")
@@ -230,6 +237,7 @@ def update_feed(session, feed_id: int, success: bool, note: str,
         session.add(models.FetchEvent.from_info(feed_id, event, note))
         session.commit()
         session.close()
+
 
 def _feed_update_period_mins(parsed_feed: FeedParserDict) -> Union[None, Real]:
     """
@@ -243,7 +251,7 @@ def _feed_update_period_mins(parsed_feed: FeedParserDict) -> Union[None, Real]:
         # as a string value, even if empty, in which case applying
         # the default is reasonable) and None if tag not present
         update_period = pff.get('sy_updateperiod')
-        if update_period is None: # tag not present
+        if update_period is None:  # tag not present
             return None
 
         # translate string to value: empty string (or pure whitespace)
@@ -268,9 +276,10 @@ def _feed_update_period_mins(parsed_feed: FeedParserDict) -> Union[None, Real]:
         ret = int(upm / ufn)    # XXX never return zero?
         #logger.debug(f" _feed_update_period_mins pd {update_period} fq {update_frequency} => {ret}")
         return ret
-    except:
-        #logger.exception("_feed_update_period_mins") # DEBUG
+    except BaseException:
+        # logger.exception("_feed_update_period_mins") # DEBUG
         return None
+
 
 def _fetch_rss_feed(feed: Dict) -> requests.Response:
     """
@@ -278,13 +287,13 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     may add headers that make GET conditional (result in 304 status_code).
     Raises exceptions on errors
     """
-    headers = { 'User-Agent': USER_AGENT }
+    headers = {'User-Agent': USER_AGENT}
 
     # if ETag (Entity-Tag) stashed, make GET conditional
     etag = feed.get('http_etag', None)
     if etag:
         # If-None-Match takes one or more etag values
-        headers['If-None-Match'] = etag # "value" or W/"value"
+        headers['If-None-Match'] = etag  # "value" or W/"value"
     else:
         # if no ETag, but have an old Last-Modified header value
         # make GET conditional on THAT.
@@ -298,7 +307,10 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
         if lastmod:
             headers['If-Modified-Since'] = lastmod
 
-    response = requests.get(feed['url'], headers=headers, timeout=RSS_FETCH_TIMEOUT_SECS)
+    response = requests.get(
+        feed['url'],
+        headers=headers,
+        timeout=RSS_FETCH_TIMEOUT_SECS)
     return response
 
 
@@ -315,6 +327,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     """
 
     stats = Stats.get()
+
     def feeds_incr(status):
         """call exactly ONCE for each feed processed"""
         stats.incr('feeds', 1, labels=[['stat', status]])
@@ -337,7 +350,8 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
              f.next_fetch_attempt > now)):
             feeds_incr('insane')
             # XXX update_feed? success or failure??
-            logger.info(f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt}")
+            logger.info(
+                f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt}")
             if SANITY_CLAUSE:
                 return
         feed = f.as_dict()
@@ -357,7 +371,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         # (full info available in fetch_event rows).
         # Do this earlier to include more human readable fetch attempt note??
         es = str(exc)
-        if 'ConnectionPool' in es: # use isinstance on exc?!
+        if 'ConnectionPool' in es:  # use isinstance on exc?!
             feeds_incr('conn_err')
         else:
             feeds_incr('fetch_err')
@@ -368,7 +382,8 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
 
     # BAIL: HTTP failed (not full response or "Not Changed")
     if response.status_code != 200 and response.status_code != 304:
-        logger.info(f"  Feed {feed_id} - skipping, bad response {response.status_code} at {response.url}")
+        logger.info(
+            f"  Feed {feed_id} - skipping, bad response {response.status_code} at {response.url}")
         update_feed(session, feed_id, False,
                     f"HTTP {response.status_code} / {response.url}")
 
@@ -395,7 +410,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
 
     # responded with data, or "not changed", so update last_fetch_success
     feed_col_updates = {
-        'last_fetch_success': now, # HTTP fetch succeeded
+        'last_fetch_success': now,  # HTTP fetch succeeded
     }
 
     # NOTE!!! feed_col_updates only currently used on "success",
@@ -458,23 +473,25 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         update_period_mins = _feed_update_period_mins(parsed_feed)
 
         if update_period_mins is not None:
-            period_str = dt.timedelta(seconds=update_period_mins*60)
+            period_str = dt.timedelta(seconds=update_period_mins * 60)
             logger.debug(f"  Feed {feed_id} update period {period_str}")
-    except:
-        logger.exception("update period") # XXX debug only?
+    except BaseException:
+        logger.exception("update period")  # XXX debug only?
         update_period_mins = None
 
     feed_col_updates['update_minutes'] = update_period_mins
     update_feed(session, feed_id, True, f"{skipped} skipped / {saved} added",
-               feed_col_updates)
+                feed_col_updates)
+
 
 def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
-                           parsed_feed: FeedParserDict) -> Tuple[int,int]:
+                           parsed_feed: FeedParserDict) -> Tuple[int, int]:
     """
     Take parsed feed, so insert all the (valid) entries.
     returns (saved_count, skipped_count)
     """
     stats = Stats.get()
+
     def stories_incr(status):
         """call exactly ONCE for each story processed"""
         stats.incr('stories', 1, labels=[['stat', status]])
@@ -500,7 +517,8 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                 skipped_count += 1
                 continue
             s = models.Story.from_rss_entry(feed['id'], now, entry)
-            # skip urls from high-quantity non-news domains we see a lot in feeds
+            # skip urls from high-quantity non-news domains we see a lot in
+            # feeds
             if s.domain in mcmetadata.urls.NON_NEWS_DOMAINS:
                 logger.debug(f" * skip non_news_domain URL: {link}")
                 stories_incr('nonews')
@@ -509,7 +527,8 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
             s.sources_id = feed['sources_id']
             # only save if url is unique, and title is unique recently
             if not normalized_url_exists(session, s.normalized_url):
-                if not normalized_title_exists(session, s.normalized_title_hash, s.sources_id):
+                if not normalized_title_exists(
+                        session, s.normalized_title_hash, s.sources_id):
                     # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
                     # those are *expected* errors, so we can ignore them
                     with session.begin():
@@ -517,11 +536,13 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                         session.commit()
                     stories_incr('ok')
                 else:
-                    logger.debug(f" * skip duplicate title URL: {link} | {s.normalized_title_hash} | {s.sources_id}")
+                    logger.debug(
+                        f" * skip duplicate title URL: {link} | {s.normalized_title_hash} | {s.sources_id}")
                     stories_incr('dup_title')
                     skipped_count += 1
             else:
-                logger.debug(f" * skip duplicate normalized URL: {link} | {s.normalized_url}")
+                logger.debug(
+                    f" * skip duplicate normalized URL: {link} | {s.normalized_url}")
                 stories_incr('dup_url')
                 skipped_count += 1
         except (AttributeError, KeyError, ValueError, UnicodeError) as exc:
@@ -536,32 +557,35 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
             skipped_count += 1
         except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
             # expected exception - log and ignore
-            logger.debug(" * duplicate normalized URL: {}".format(s.normalized_url))
+            logger.debug(
+                " * duplicate normalized URL: {}".format(s.normalized_url))
             stories_incr('dupurl2')
             skipped_count += 1
 
     entries = len(parsed_feed.entries)
-    logger.info(f"  Feed {feed['id']} - {entries} entries ({skipped_count} skipped)")
+    logger.info(
+        f"  Feed {feed['id']} - {entries} entries ({skipped_count} skipped)")
     saved_count = entries - skipped_count
     return saved_count, skipped_count
 
 
 def check_feed_title(feed: Dict, parsed_feed: FeedParserDict,
-                           feed_col_updates: Dict):
+                     feed_col_updates: Dict):
     # update feed title (if it has one and it changed)
     try:
         title = parsed_feed.feed.title
         if len(title) > 0:
-            title = ' '.join(title.split()) # condense whitespace
+            title = ' '.join(title.split())  # condense whitespace
 
             if title and feed['name'] != title:
                 # use !r (repr) to display strings w/ quotes
-                logger.info(f" Feed {feed['id']} updating name from {feed['name']!r} to {title!r}")
+                logger.info(
+                    f" Feed {feed['id']} updating name from {feed['name']!r} to {title!r}")
                 feed_col_updates['name'] = title
     except AttributeError:
         # if the feed has no title that isn't really an error, just skip safely
         pass
-    except:
+    except BaseException:
         # not REALLY worth pulling a fire alarm over, but still
         # should be fixed!
         logger.exception("check_feed_title")
@@ -570,6 +594,8 @@ def check_feed_title(feed: Dict, parsed_feed: FeedParserDict,
 
 # called via rq:
 # MUST be run from rq SimpleWorker to achieve session caching!!!!
+
+
 def feed_worker(feed_id: int, ts_iso: str):
     """
     Fetch a feed, parse out stories, store them

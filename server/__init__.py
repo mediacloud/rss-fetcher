@@ -32,7 +32,8 @@ app.include_router(feeds.router)
 app.include_router(stories.router)
 app.include_router(rss.router)
 
-SENTRY_DSN = os.environ.get('SENTRY_DSN', None)  # optional centralized logging to Sentry
+# optional centralized logging to Sentry
+SENTRY_DSN = os.environ.get('SENTRY_DSN', None)
 if SENTRY_DSN:
     sentry_sdk.init(dsn=SENTRY_DSN, release=fetcher.VERSION)
     # make sure some errors we don't care about don't make it to sentry

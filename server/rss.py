@@ -12,6 +12,7 @@ router = APIRouter(
 
 
 @router.get("/<filename>")
-def rss(filename: str = Query(..., description="The full name of the daily RSS file you want to retrieve")):
-    return send_from_directory(directory='static', path='rss', filename=filename)
-
+def rss(filename: str = Query(...,
+        description="The full name of the daily RSS file you want to retrieve")):
+    return send_from_directory(
+        directory='static', path='rss', filename=filename)

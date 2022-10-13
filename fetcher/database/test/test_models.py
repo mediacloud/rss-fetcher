@@ -21,10 +21,9 @@ class TestStory(unittest.TestCase):
         for entry in parsed_feed.entries:
             assert entry.published_parsed is not None
             s = Story.from_rss_entry(fake_feed['id'], dt.datetime.now(), entry)
-            assert s.published_at == dt.datetime.fromtimestamp(mktime(entry.published_parsed))
+            assert s.published_at == dt.datetime.fromtimestamp(
+                mktime(entry.published_parsed))
 
 
 if __name__ == "__main__":
     unittest.main()
-
-

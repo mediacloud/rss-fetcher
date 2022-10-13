@@ -28,13 +28,17 @@ def add_header(file: Optional[TextIO], today: dt.date) -> str:
     with open(os.path.join(template_path, "header.template")) as f:
         template_str = f.read()
     tm = Template(template_str)
-    content = tm.render(day=today.strftime("%Y-%m-%d"), now=formatdate(), version=VERSION)
+    content = tm.render(
+        day=today.strftime("%Y-%m-%d"),
+        now=formatdate(),
+        version=VERSION)
     if file:
         file.write(content)
     return content
 
 
-def add_item(file: Optional[TextIO], link: str, pub_date: dt.datetime, domain: str, title: Optional[str]) -> str:
+def add_item(file: Optional[TextIO], link: str,
+             pub_date: dt.datetime, domain: str, title: Optional[str]) -> str:
     with open(os.path.join(template_path, "item.template")) as f:
         template_str = f.read()
     tm = Template(template_str)

@@ -29,15 +29,16 @@ import fetcher.tasks as tasks
 SCRIPT = 'queue_feeds'          # NOTE! used for stats!
 logger = logging.getLogger(SCRIPT)
 
+
 class Queuer:
     """
     class to encapsulate feed queuing.
     move some place public if needed elsewhere!
     """
+
     def __init__(self, stats, wq):
         self.stats = stats
         self.wq = wq
-
 
     def _active_feeds(self, session, full=False):
         """
@@ -51,10 +52,8 @@ class Queuer:
                       .filter(models.Feed.active.is_(True),
                               models.Feed.system_enabled.is_(True))
 
-
     def count_active(self, session):
         return self._active_feeds(session).count()
-
 
     def _ready_query(self, session):
         """
@@ -64,7 +63,6 @@ class Queuer:
                    .filter(models.Feed.queued.is_(False),
                            or_(models.Feed.next_fetch_attempt.is_(None),
                                models.Feed.next_fetch_attempt <= models.utc()))
-
 
     def find_and_queue_feeds(self, limit: int) -> int:
         """
@@ -129,7 +127,7 @@ def loop(queuer):
     # how high to refill queue to
     # (once had lo_water, set to a fraction of hi_water,
     #  but it gave less direct control on queuing interval):
-    hi_water = round(conf.MAX_FEEDS/max_feeds_minutes * refill_period_mins)
+    hi_water = round(conf.MAX_FEEDS / max_feeds_minutes * refill_period_mins)
     if hi_water < 10:
         hi_water = 10
     logger.info(f"Starting loop. hi_water = {hi_water}")
@@ -138,10 +136,10 @@ def loop(queuer):
         t0 = time.time()        # wake time
         #logger.debug(f"top {t0}")
 
-        queuer.stats.gauge('hi_water', hi_water) # never changes
+        queuer.stats.gauge('hi_water', hi_water)  # never changes
 
-        qlen = queue.queue_length(queuer.wq) # queue(r) method??
-        active = queue.queue_active(queuer.wq) # jobs in progress
+        qlen = queue.queue_length(queuer.wq)  # queue(r) method??
+        active = queue.queue_active(queuer.wq)  # jobs in progress
 
         # NOTE: initial qlen (not including added)
         #       active entries NOT included in qlen
@@ -150,12 +148,12 @@ def loop(queuer):
         logger.info(f"qlen {qlen} active {active}")
 
         added = 0
-        if (int(t0/60) % refill_period_mins) == 0:
+        if (int(t0 / 60) % refill_period_mins) == 0:
             if qlen < hi_water:
                 added = queuer.find_and_queue_feeds(hi_water - qlen)
 
         queuer.stats.gauge('added', added)
-        ################ begin maybe move
+        # begin maybe move
         # queries done once a minute for monitoring only!
         # if this is a problem move this section up
         # (under ... % refill_period_mins == 0
@@ -178,16 +176,18 @@ def loop(queuer):
         queuer.stats.gauge('db.queued', db_queued)
         queuer.stats.gauge('db.ready', db_ready)
 
-        logger.info(f" db_active {db_active} db_queued {db_queued} db_ready {db_ready}")
-        ################ end maybe move
+        logger.info(
+            f" db_active {db_active} db_queued {db_queued} db_ready {db_ready}")
+        # end maybe move
 
         # figure out when to wake up next, prepare for bed.
-        tnext = (t0 - t0%60) + 60  # top of minute after wake time
+        tnext = (t0 - t0 % 60) + 60  # top of minute after wake time
         t1 = time.time()
         s = tnext - t1             # sleep time
         if s > 0:
             #logger.debug(f"t1 {t1} tnext {tnext} sleep {s}")
             time.sleep(s)
+
 
 if __name__ == '__main__':
     p = LogArgumentParser(SCRIPT, 'Feed Queuing')

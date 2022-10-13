@@ -30,6 +30,7 @@ TAGS = False                    # get from env?? graphite >= 1.1.0 tags
 
 logger = logging.getLogger(__name__)
 
+
 def _getenv(var):
     """
     get an MC_STATSD_ environment variable, return None if not set
@@ -57,10 +58,10 @@ class Stats:
         called from main program
         """
         if cls._instance:
-            raise Exception(f"Stats.init called twice: {component}/{cls._instance.component}")
+            raise Exception(
+                f"Stats.init called twice: {component}/{cls._instance.component}")
         cls._instance = cls(component, _init_ok=True)
         return cls._instance
-
 
     @classmethod
     def get(cls):
@@ -70,7 +71,6 @@ class Stats:
         if not cls._instance:
             raise Exception("Stats.init not called")
         return cls._instance
-
 
     def __init__(self, component, _init_ok=False):
         if not _init_ok:
@@ -99,7 +99,6 @@ class Stats:
 
         logger.info(f"sending stats to {self.host} with prefix {self.prefix}")
 
-
     def _connect(self):
         # return if have statsd, or insufficient config
         if self.statsd or not self.host or not self.prefix:
@@ -108,7 +107,7 @@ class Stats:
         try:
             self.statsd = statsd.StatsdClient(self.host, prefix=self.prefix)
             return True
-        except:
+        except BaseException:
             return False
 
     def _name(self, name, labels=[]):
@@ -123,12 +122,12 @@ class Stats:
         add a no_sort argument to "inc" and "gauge", to pass here?
         """
         if labels:
-            if TAGS: # graphite 1.1 tags
+            if TAGS:  # graphite 1.1 tags
                 # https://graphite.readthedocs.io/en/latest/tags.html#tags
                 slabels = ';'.join([f"{name}={val}" for name, val in
                                     sorted(labels)])
                 name = f"{name};{slabels}"
-            else: # pre-1.1 graphite no tag support
+            else:  # pre-1.1 graphite no tag support
                 # (no arbitrary tags in netdata)
                 slabels = '.'.join([f"{name}_{val}" for name, val in
                                     sorted(labels)])
@@ -136,7 +135,6 @@ class Stats:
         if DEBUG:
             print("name", name)
         return name
-
 
     def incr(self, name, value=1, labels=[]):
         """
@@ -151,9 +149,8 @@ class Stats:
 
             try:
                 self.statsd.incr(self._name(name, labels), value)
-            except:
+            except BaseException:
                 self.statsd = None
-
 
     def gauge(self, name, value, labels=[]):
         """
@@ -166,7 +163,7 @@ class Stats:
 
             try:
                 self.statsd.gauge(self._name(name, labels), value)
-            except:
+            except BaseException:
                 self.statsd = None
 
 

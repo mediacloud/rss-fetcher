@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # only ever contains one item:
 _sessions = LocalStack()
 
+
 def get_session():
     """
     Get SQLAlchemy connection
@@ -45,6 +46,7 @@ def get_session():
 # to allow config fetch, connect after includes complete
 # XXX wrap in a singleton??
 
+
 def redis_connection():
     u = make_url(conf.REDIS_URL)     # SQLAlchemy URL object
     if not u:
@@ -56,6 +58,8 @@ def redis_connection():
 ################
 
 # XXX wrap in a singleton?
+
+
 def workq(rconn):
     """
     Return RQ Queue for enqueuing work, clearing queue.
@@ -66,6 +70,7 @@ def workq(rconn):
     return Queue(WORKQ_NAME, connection=rconn)
 
 ################
+
 
 def queue_feeds(wq, feed_ids: List[int], ts: datetime.datetime):
     """
@@ -78,20 +83,21 @@ def queue_feeds(wq, feed_ids: List[int], ts: datetime.datetime):
             Queue.prepare_data(
                 func=fetcher.tasks.feed_worker,
                 args=(id, ts_iso),
-                result_ttl=0, # don't care about result
-                failure_ttl=0, # don't care about failures
+                result_ttl=0,  # don't care about result
+                failure_ttl=0,  # don't care about failures
                 # timeout?
                 # retry?
             ) for id in feed_ids
         ]
         jobs = wq.enqueue_many(job_datas)
         queued = len(jobs)
-    except:
+    except BaseException:
         # XXX complain?
         queued = 0
     return queued
 
 ################
+
 
 def worker():
     """
@@ -106,19 +112,23 @@ def worker():
 ################
 # called from scripts/queue_feeds.py
 
+
 def queue_length(q):
     return q.count
+
 
 def queue_active(q):
     # XXX cache StartedJobRegistry in our Queue object?
     # rq "started" jobs are not included in q.count
     return q.started_job_registry.count
 
+
 def queue_workers(q):
     """return number of workers for queue"""
     return len(SimpleWorker.all(queue=q))
 
 ################
+
 
 def clear_queue():
     with Session() as session:
@@ -138,4 +148,4 @@ def clear_queue():
                            .update({'queued': False})
 
         logger.info("Committing.")
-        session.commit() # releases lock
+        session.commit()  # releases lock

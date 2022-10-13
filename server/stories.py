@@ -17,16 +17,19 @@ router = APIRouter(
 @router.get("/fetched-by-day")
 @api_method
 def stories_fetched_counts(days: Union[int, None] = None):
-    return as_timeseries_data([models.Story.recent_published_volume(limit=days)], ["stories"])
+    return as_timeseries_data(
+        [models.Story.recent_published_volume(limit=days)], ["stories"])
 
 
 @router.get("/published-by-day")
 @api_method
 def stories_published_counts(days: Union[int, None] = None):
-    return as_timeseries_data([models.Story.recent_fetched_volume(limit=days)], ["stories"])
+    return as_timeseries_data(
+        [models.Story.recent_fetched_volume(limit=days)], ["stories"])
 
 
 @router.get("/api/rss/<filename>")
-def rss(filename: str = Query(..., description="The full name of the daily RSS file you want to retrieve")):
-    return send_from_directory(directory='static', path='rss', filename=filename)
-
+def rss(filename: str = Query(...,
+        description="The full name of the daily RSS file you want to retrieve")):
+    return send_from_directory(
+        directory='static', path='rss', filename=filename)
