@@ -123,7 +123,8 @@ def queue_workers(q):
 def clear_queue():
     with Session() as session:
         logger.info("Getting feeds table lock.")
-        session.execute(text("LOCK TABLE feeds")) # for duration of transaction.
+        # for duration of transaction:
+        session.execute(text("LOCK TABLE feeds"))
         logger.info("Locked.")
 
         logger.info("Purging work queue.")
