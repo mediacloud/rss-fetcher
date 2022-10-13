@@ -77,7 +77,13 @@ SANITY_CLAUSE = False
 
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 
-# XXX include "academic project" + contact info????
+# mediacloud/backend/apps/common/src/python/mediawords/util/web/user_agent/__init__.py has
+#    # HTTP "From:" header
+#    __OWNER = 'info@mediacloud.org'
+#
+#    # HTTP "User-Agent:" header
+#    __USER_AGENT = 'mediacloud bot for open academic research (http://mediacloud.org)'
+# see https://www.rfc-editor.org/rfc/rfc9110.html#section-10.1.2 W.R.T. From: header
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 
 # RDF Site Summary 1.0 Modules: Syndication
