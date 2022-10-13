@@ -49,14 +49,15 @@ SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 
 # Want Dokku app name!!!
 APP = conf.SQLALCHEMY_DATABASE_URI.split('/')[-1].replace('_', '-')
-DYNO = os.environ.get('DYNO', f"worker.{os.getpid()}") # Dokku supplies worker.N
+# Dokku supplies worker.N:
+DYNO = os.environ.get('DYNO', f"worker.{os.getpid()}")
 
 # shorthand:
 FeedParserDict = feedparser.FeedParserDict
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 logFormatter = logging.Formatter("[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
-# rotate file after midnight (UTC), keep 7 old files, Dokku supplies worker.N as DYNO, else use pid
+# rotate file after midnight (UTC), keep 7 old files
 fileHandler = logging.handlers.TimedRotatingFileHandler(
     os.path.join(path_to_log_dir, f"tasks-{DYNO}.log"),
     when='midnight', utc=True, backupCount=7)
@@ -83,7 +84,8 @@ RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 #
 #    # HTTP "User-Agent:" header
 #    __USER_AGENT = 'mediacloud bot for open academic research (http://mediacloud.org)'
-# see https://www.rfc-editor.org/rfc/rfc9110.html#section-10.1.2 W.R.T. From: header
+# see https://www.rfc-editor.org/rfc/rfc9110.html#section-10.1.2
+# with regard to From: header
 USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 
 # RDF Site Summary 1.0 Modules: Syndication
@@ -207,7 +209,8 @@ def update_feed(session, feed_id: int, success: bool, note: str,
                 # (ie; 12h, 1d, 2d, 4d)
                 #next_minutes *= 2 ** (failures - 1)
 
-                # add random minute offset to break up clumps of 429 (Too Many Requests) errors
+                # add random minute offset to break up clumps
+                # of 429 (Too Many Requests) errors
                 next_minutes += random.random() * 60*60
 
             # PLB: save note as f.system_status??
@@ -490,7 +493,8 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                 stories_incr('relurl')
                 skipped_count += 1
                 continue
-            if mcmetadata.urls.is_homepage_url(link):  # and skip very common homepage patterns
+            # and skip very common homepage patterns:
+            if mcmetadata.urls.is_homepage_url(link):
                 logger.debug(f" * skip homepage URL: {link}")
                 stories_incr('home')
                 skipped_count += 1
@@ -523,8 +527,11 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
         except (AttributeError, KeyError, ValueError, UnicodeError) as exc:
             # NOTE!! **REALLY** easy for coding errors to end up here!!!
             # couldn't parse the entry - skip it
-            logger.debug(f"Bad rss entry {link}: {str(exc)}")
-            #logger.exception(f"bad rss entry {link}") # control via environment var???
+            logger.debug(f"Bad rss entry {link}: {exc}")
+
+            # control via environment var???
+            #logger.exception(f"bad rss entry {link}")
+
             stories_incr('bad')
             skipped_count += 1
         except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
