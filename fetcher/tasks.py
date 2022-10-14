@@ -30,7 +30,7 @@ from sqlalchemy import literal
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
 
 # feed fetcher:
-from fetcher import path_to_log_dir, APP
+from fetcher import path_to_log_dir, APP, DYNO
 from fetcher.config import conf
 import fetcher.database.models as models
 from fetcher.stats import Stats
