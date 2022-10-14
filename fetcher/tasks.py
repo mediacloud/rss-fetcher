@@ -30,7 +30,7 @@ from sqlalchemy import literal
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
 
 # feed fetcher:
-from fetcher import path_to_log_dir
+from fetcher import path_to_log_dir, APP
 from fetcher.config import conf
 import fetcher.database.models as models
 from fetcher.stats import Stats
@@ -43,11 +43,6 @@ DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
 RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
-
-# Want Dokku app name!!!
-APP = conf.SQLALCHEMY_DATABASE_URI.split('/')[-1].replace('_', '-')
-# Dokku supplies worker.N:
-DYNO = os.environ.get('DYNO', f"worker.{os.getpid()}")
 
 # shorthand:
 FeedParserDict = feedparser.FeedParserDict
@@ -368,13 +363,14 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         response = _fetch_rss_feed(feed)
     except Exception as exc:
         # ignore fetch failure exceptions as a "normal operation" error
-        # XXX PLB does this mean no failure count increment?
+        # (no failure count increment *or* backoff)
         logger.warning(f" Feed {feed_id}: fetch failed {exc}")
         update_feed(session, feed_id, False, f"fetch: {exc}")
 
-        # NOTE!! try to limit cardinality of status: (eats stats storage)
-        # so not doing detailed breakdown for starters
-        # (full info available in fetch_event rows).
+        # NOTE!! try to limit cardinality of status: (eats stats
+        # storage and graph colors), so not doing detailed breakdown
+        # for starters (full info available in fetch_event rows).
+
         # Do this earlier to include more human readable fetch attempt note??
         es = str(exc)
         if 'ConnectionPool' in es:  # use isinstance on exc?!
@@ -396,7 +392,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
 
         # limiting tag cardinality, only a few, common codes for now.
         # NOTE! 429 is "too many requests"
-        # It's possible 403 is also used that way???
+        # It's possible 403 (Forbidden) is also used that way???
         if rsc in (403, 404, 429):
             feeds_incr(f"http_{rsc}")
         else:
@@ -445,6 +441,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
 
     # code below this point expects full body w/ RSS
     if response.status_code != 200:
+        # should not get here!
         logger.error(
             f"  Feed {feed_id} - unexpected status {response.status_code}")
 
@@ -528,8 +525,8 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
                 skipped_count += 1
                 continue
             s = models.Story.from_rss_entry(feed['id'], now, entry)
-            # skip urls from high-quantity non-news domains we see a lot in
-            # feeds
+            # skip urls from high-quantity non-news domains
+            # we see a lot in feeds
             if s.domain in mcmetadata.urls.NON_NEWS_DOMAINS:
                 logger.debug(f" * skip non_news_domain URL: {link}")
                 stories_incr('nonews')
@@ -561,7 +558,7 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
             # couldn't parse the entry - skip it
             logger.debug(f"Bad rss entry {link}: {exc}")
 
-            # control via environment var???
+            # control via environment var for debug???
             #logger.exception(f"bad rss entry {link}")
 
             stories_incr('bad')
@@ -612,12 +609,11 @@ def feed_worker(feed_id: int, ts_iso: str):
     Fetch a feed, parse out stories, store them
     :param self: this maintains the single session to use for all DB operations
     :param feed_id: integer Feed id
+    :param ts_iso: str datetime.isoformat of time queued (Feed.last_fetch_attempt)
     """
-    session = fetcher.queue.get_session()
-
-    setproctitle(f"{APP} {DYNO} feed {feed_id}")
-
-    # for total paranoia, wrap in try? call update_feed on exception??
-    fetch_and_process_feed(session, feed_id, ts_iso)
-
-    setproctitle(f"{APP} {DYNO} idle")
+    try:
+        session = fetcher.queue.get_session()
+        setproctitle(f"{APP} {DYNO} feed {feed_id}")
+        fetch_and_process_feed(session, feed_id, ts_iso)
+    except BaseException:
+        logger.exception("feed_worker")

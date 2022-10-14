@@ -78,26 +78,25 @@ class Stats:
 
         self.statsd = self.host = self.prefix = None
 
-        # prefer STATSD URL set by dokku-graphite plugin
+        # STATSD URL set by dokku-graphite plugin
         if 'STATSD_URL' in os.environ:
             url = make_url(os.environ.get('STATSD_URL'))
-            # note: SQLAlchemy parser: protocol in url.database
-            host = url.host
+            # check if url.database == 'statsd'???
+            self.host = url.host
             # handle url.port?
-        else:
-            host = _getenv('HOST')
 
-        if not host:
-            return
-
-        prefix = _getenv('PREFIX')
+        prefix = os.environ.get('MC_STATSD_PREFIX')
         if not prefix:
+            # XXX could now generate from MC_APP!
             return
 
         self.prefix = f"{prefix}.{component}"
         self.host = host
 
-        logger.info(f"sending stats to {self.host} with prefix {self.prefix}")
+        if self.host and self.prefix:
+            logger.info(f"sending stats to {self.host} with prefix {self.prefix}")
+        else:
+            logger.warning("Not sending stats")
 
     def _connect(self):
         # return if have statsd, or insufficient config
@@ -124,10 +123,11 @@ class Stats:
         if labels:
             if TAGS:  # graphite 1.1 tags
                 # https://graphite.readthedocs.io/en/latest/tags.html#tags
+                # sorting may be unnecessary
                 slabels = ';'.join([f"{name}={val}" for name, val in
                                     sorted(labels)])
                 name = f"{name};{slabels}"
-            else:  # pre-1.1 graphite no tag support
+            else:  # pre-1.1 graphite w/o tag support (note sorting)
                 # (no arbitrary tags in netdata)
                 slabels = '.'.join([f"{name}_{val}" for name, val in
                                     sorted(labels)])
