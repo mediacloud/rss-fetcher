@@ -1,12 +1,9 @@
 # PLB ISSUES to be resolved:
 # search for PLB!
-# ESPECIALLY: when to pass feed_col_updates!!!!
 # database columns w/ timezone?  run worker & PG server w/ TZ=UTC??!!!
 # any times NOT to increment failure count??
-# always pass feed_col_updates???
 
 # PLB: cleanup WISHES
-# convert all "".format calls to f""
 # type hints for session objects
 # type hints for void (-> None) functions
 # create NewType for feeds_id?
@@ -65,18 +62,6 @@ fileHandler = logging.handlers.TimedRotatingFileHandler(
 fileHandler.setFormatter(logFormatter)
 logger.addHandler(fileHandler)
 
-# control handling of queue entries that seem spurrious
-# disabled because not sure how to handle:
-# (call update_feed? as failure? will reschedule!)
-#     Driftwood (Groucho):
-#       It's all right. That's, that's in every contract.
-#       That's, that's what they call a sanity clause.
-#     Fiorello (Chico):
-#       Ha-ha-ha-ha-ha! You can't fool me.
-#       There ain't no Sanity Clause!
-#     Marx Brothers' "Night at the Opera" (1935)
-SANITY_CLAUSE = False
-
 RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 
 # mediacloud/backend/apps/common/src/python/mediawords/util/web/user_agent/__init__.py has
@@ -106,18 +91,25 @@ DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
 
 def _save_rss_file(feed: Dict, response):
     # debugging helper method - saves two files for the feed to /logs/rss-feeds
+    # only saves one feed per source? bug and feature!
+    srcid = feed['sources_id']
     summary = {
         'id': feed['id'],
         'url': feed['url'],
-        'sourcesId': feed['sources_id'],
+        'sourcesId': srcid,
         'statusCode': response.status_code,
         'headers': dict(response.headers),
     }
-    # PLB: only saves one feed per source? bug and feature!
-    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-summary.json".format(feed['sources_id'])), 'w',
-              encoding='utf-8') as f:
+    if not os.path.isdir(RSS_FILE_LOG_DIR):
+        try:
+            os.mkdir(RSS_FILE_LOG_DIR)
+        except BaseException:
+            pass
+    json_filename = os.path.join(RSS_FILE_LOG_DIR, f"{srcid}-summary.json")
+    with open(json_filename, 'w', encoding='utf-8') as f:
         json.dump(summary, f, indent=4)
-    with open(os.path.join(RSS_FILE_LOG_DIR, "{}-content.rss".format(feed['sources_id'])), 'w', encoding='utf-8') as f:
+    rss_filename = os.path.join(RSS_FILE_LOG_DIR, f"{srcid}-content.rss")
+    with open(rss_filename, 'w', encoding='utf-8') as f:
         f.write(response.text)
 
 
@@ -145,7 +137,8 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
     with session.begin():
         return session.query(literal(True))\
                       .filter(session.query(models.Story)
-                              .filter(models.Story.normalized_url == normalized_url)
+                              .filter(models.Story.normalized_url ==
+                                      normalized_url)
                               .exists())\
                       .scalar()
 
@@ -153,15 +146,17 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
 def update_feed(session, feed_id: int, success: bool, note: str,
                 feed_col_updates: Union[Dict, None] = None):
     """
-    Update Feed row, insert FeedEvent row; MUST be called from all
-    feed_worker code paths in order to clear "queued" and update
-    "next_fetch_attempt"!!!
+    Update Feed row and insert FeedEvent row
+
+    MUST be called from all feed_worker code paths
+    (for valud queue entrues) in order to clear "queued"
+    and update "next_fetch_attempt"!!!
 
     Trying to make this the one place that updates the Feed row,
     so all policy can be centralized here.
     """
 
-    # PLB log w/note?? likely makes numerous other log messages redundant!
+    # PLB log w/note?? (would duplicate existing logging)
     with session.begin():
         # NOTE! locks row, so update atomic.
         # (atomic increment IS possible without this,
@@ -194,6 +189,10 @@ def update_feed(session, feed_id: int, success: bool, note: str,
         else:
             failures = f.last_fetch_failures = f.last_fetch_failures + 1
 
+            # PLB: consider passing trinary status
+            # (success, soft_err, hard_err)
+            # and never disabling based on a soft error?
+            # Treat HTTP 429 (too many requests) is a SOFT error!?
             if failures >= conf.MAX_FAILURES:
                 event = models.FetchEvent.EVENT_FETCH_FAILED_DISABLED
                 f.system_enabled = False
@@ -342,18 +341,25 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
             logger.info(f"feed_worker: feed {feed_id} not found")
             return
 
-        # sanity checks, in case entry modified while in queue
+        # Sanity checks, in case entry modified while in queue
         # (including being queued more than once)
+        # this commonly happens when "queue_feeds" restarted
+        # (may not be emptying queue????)
+        #     Driftwood (Groucho):
+        #       It's all right. That's, that's in every contract.
+        #       That's, that's what they call a sanity clause.
+        #     Fiorello (Chico):
+        #       Ha-ha-ha-ha-ha! You can't fool me.
+        #       There ain't no Sanity Clause!
+        #     Marx Brothers' "Night at the Opera" (1935)
         if (not f.active or not f.system_enabled or
             not f.queued or
             (f.next_fetch_attempt is not None and
              f.next_fetch_attempt > now)):
             feeds_incr('insane')
-            # XXX update_feed? success or failure??
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt}")
-            if SANITY_CLAUSE:
-                return
+            return
         feed = f.as_dict()
 
     try:
@@ -381,19 +387,20 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         _save_rss_file(feed, response)
 
     # BAIL: HTTP failed (not full response or "Not Changed")
-    if response.status_code != 200 and response.status_code != 304:
+    rsc = response.status_code
+    if rsc != 200 and rsc != 304:
+        rurl = response.url
         logger.info(
-            f"  Feed {feed_id} - skipping, bad response {response.status_code} at {response.url}")
-        update_feed(session, feed_id, False,
-                    f"HTTP {response.status_code} / {response.url}")
+            f"  Feed {feed_id} - skipping, bad response {rsc} at {rurl}")
+        update_feed(session, feed_id, False, f"HTTP {rsc} / {rurl}")
 
         # limiting tag cardinality, only a few, common codes for now.
-        # NOTE! 429 is "too many requests" (ie; slow down)
+        # NOTE! 429 is "too many requests"
         # It's possible 403 is also used that way???
-        if response.status_code in (403, 404, 429):
-            feeds_incr(f"http_{response.status_code}")
+        if rsc in (403, 404, 429):
+            feeds_incr(f"http_{rsc}")
         else:
-            feeds_incr(f"http_{response.status_code//100}xx")
+            feeds_incr(f"http_{rsc//100}xx")
         return
 
     # NOTE! 304 response will not have a body (terminated by end of headers)
@@ -408,15 +415,15 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     # kept unparsed; just sent back with If-Modified-Since.
     lastmod = response.headers.get('Last-Modified', None)
 
-    # responded with data, or "not changed", so update last_fetch_success
-    feed_col_updates = {
-        'last_fetch_success': now,  # HTTP fetch succeeded
-    }
-
     # NOTE!!! feed_col_updates only currently used on "success",
     # if feed processing stopped by a bug in our code, we will
     # try again with unchanged data after the bug is fixed,
     # and the feed is reenabled.
+
+    # responded with data, or "not changed", so update last_fetch_success
+    feed_col_updates = {
+        'last_fetch_success': now,  # HTTP fetch succeeded
+    }
 
     # https://www.rfc-editor.org/rfc/rfc9110.html#status.304
     # says a 304 response MUST have an ETag if 200 would have.
@@ -429,22 +436,26 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         feed_col_updates['http_last_modified'] = lastmod
 
     # BAIL: server says file hasn't changed (no data returned)
+    # treated as success
     if response.status_code == 304:
         logger.info(f"  Feed {feed_id} - skipping, file not modified")
-        # PLB feed_col_updates??
         update_feed(session, feed_id, True, "not modified", feed_col_updates)
         feeds_incr('not_mod')
         return
 
+    # code below this point expects full body w/ RSS
+    if response.status_code != 200:
+        logger.error(
+            f"  Feed {feed_id} - unexpected status {response.status_code}")
+
     # BAIL: no changes since last time
+    # treated as success
     if new_hash == feed['last_fetch_hash']:
         logger.info(f"  Feed {feed_id} - skipping, same hash")
-        # PLB feed_col_updates??
         update_feed(session, feed_id, True, "same hash", feed_col_updates)
         feeds_incr('same_hash')
         return
 
-    # PLB: log error if here w/o status_code == 200?
     feed_col_updates['last_fetch_hash'] = new_hash
 
     # try to parse the content, parsing all the stories
@@ -465,7 +476,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
 
     saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
 
-    # may update feed_col_updates dict:
+    # may update feed_col_updates dict (add new "name")
     check_feed_title(feed, parsed_feed, feed_col_updates)
 
     # see if feed indicates update period
@@ -558,7 +569,7 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
         except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
             # expected exception - log and ignore
             logger.debug(
-                " * duplicate normalized URL: {}".format(s.normalized_url))
+                f" * duplicate normalized URL: {s.normalized_url}")
             stories_incr('dupurl2')
             skipped_count += 1
 
