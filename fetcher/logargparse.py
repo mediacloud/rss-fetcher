@@ -99,6 +99,8 @@ class LogArgumentParser(argparse.ArgumentParser):
         # log startup banner and deferred config msgs
         conf.start(self.prog, self.description)
 
+        fetcher.sentry.init()
+
         return args
 
 

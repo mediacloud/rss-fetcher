@@ -1,17 +1,18 @@
 import logging
 import os
-import sentry_sdk
+
+# PyPI:
+from fastapi import FastAPI
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 # from sentry_sdk.integrations.logging import ignore_logger
-import server.feeds as feeds
-import server.stories as stories
-import server.rss as rss
-
-from fastapi import FastAPI
 import uvicorn
 
+import server.feeds as feeds
+import server.rss as rss
+import server.stories as stories
 from server.util import api_method
 import fetcher
+import fetcher.sentry
 
 logger = logging.getLogger(__name__)
 
@@ -32,21 +33,14 @@ app.include_router(feeds.router)
 app.include_router(stories.router)
 app.include_router(rss.router)
 
-# optional centralized logging to Sentry
-SENTRY_DSN = os.environ.get('SENTRY_DSN', None)
-if SENTRY_DSN:
-    sentry_sdk.init(dsn=SENTRY_DSN, release=fetcher.VERSION)
+if fetcher.sentry.init():
     # make sure some errors we don't care about don't make it to sentry
     # ignore_logger("requests")
-    logger.info("  SENTRY_DSN: {}".format(SENTRY_DSN))
     try:
         app.add_middleware(SentryAsgiMiddleware)
     except Exception:
         # pass silently if the Sentry integration failed
         pass
-else:
-    logger.info("Not logging errors to Sentry")
-
 
 @app.get("/api/version")
 @api_method
