@@ -14,6 +14,14 @@ fi
 OP="$1"
 NAME="$2"
 
+DOMAIN=$(hostname -s).mediacloud.org
+
+# public facing server (reachable from Internet on port 443)
+# enables letsencrypt certs for app (and proxy app for stats service)
+if [ "x$DOMAIN" = tarbell.mediacloud.org ]; then
+    PUBLIC=1
+fi
+
 SCRIPT_DIR=$(dirname $0)
 INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
 if [ ! -f $INSTALL_CONF ]; then
@@ -25,6 +33,8 @@ fi
 LOCAL_CONF=$SCRIPT_DIR/local-dokku.conf
 if [ -f $LOCAL_CONF ]; then
     . $LOCAL_CONF
+else
+    echo will read $SCRIPT_DIR/local-dokku.conf if created
 fi
 
 TYPE="$OP"
@@ -59,17 +69,17 @@ APP=${PREFIX}rss-fetcher
 REDIS_SVC=$APP
 DATABASE_SVC=$APP
 
-# storage for generated RSS files:
-DAILY_FILES=${APP}-daily-files
-# DAILY_FILES mount point inside container:
-RSS_FILE_PATH=/app/storage
+# storage for generated RSS files
+STORAGE=${APP}-storage
+# STORAGE mount point inside container:
+STORAGE_MOUNT_POINT=/app/storage
 
 # XXX add storage for logs???
 
 # server log directory for scripts run via "dokku run"
 LOGDIR=/var/log/dokku/apps/$APP
 LOGROTATE=/etc/logrotate.d/$APP
-# letters and dashes only:
+# filename must use letters and dashes only!!!:
 CRONTAB=/etc/cron.d/$APP
 
 if [ "x$OP" = xdestroy ]; then
@@ -101,12 +111,22 @@ fi
 ################
 # before taking any actions:
 
-# XXX eventually for staging too?
-if [ "x$TYPE" = xprod ]; then
-    if grep ^SENTRY_DSN .prod >/dev/null; then
-	VARS="$VARS $(cat .prod)"
+if [ "x$PUBLIC" != x ]; then
+    VARS="$VARS DOKKU_LETSENCRYPT_EMAIL=system@mediacloud.org"
+fi
+
+# used in fetcher/__init__.py to set APP
+# ('cause I didn't see it available any other way -phil)
+VARS="$VARS MC_APP=$APP"
+
+case "$TYPE" in
+prod|staging)
+    # XXX maybe use .$TYPE (.staging vs .prod)???
+    VARS_FILE=.prod
+    if grep ^SENTRY_DSN $VARS_FILE >/dev/null; then
+	VARS="$VARS $(cat $VARS_FILE)"
     else
-	echo "Need .prod file w/ SENTRY_DSN" 1>&2
+	echo "Need $VARS_FILE file w/ SENTRY_DSN" 1>&2
 	exit 1
     fi
 fi
@@ -114,7 +134,7 @@ fi
 ################ ssh key management
 
 if [ "x$UNAME" = x ]; then
-    # production & staging: add logged-in user's key
+    # production & staging: use logged-in user's key
     UNAME=$(who am i | awk '{ print $1 }')
     echo using user $UNAME for ssh key
 fi
@@ -183,23 +203,43 @@ VARS="$VARS DATABASE_URL=$DATABASE_URL"
 dokku postgres:link $DATABASE_SVC $APP
 
 ################
-# worker related vars
+# non-volatile storage
 
-# XXX ensure, mount directory for worker logs???
+dokku storage:ensure-directory $STORAGE
+dokku storage:mount $APP /var/lib/dokku/data/storage/$STORAGE:$STORAGE_MOUNT_POINT
 
-dokku storage:ensure-directory $DAILY_FILES
-dokku storage:mount $APP /var/lib/dokku/data/storage/$DAILY_FILES:$RSS_FILE_PATH
+################
+# fetcher related vars
 
-VARS="$VARS RSS_FILE_PATH=$RSS_FILE_PATH"
+# XXX put rss files in $STORAGE_MOUNT_POINT/rss ???
+VARS="$VARS RSS_FILE_PATH=$STORAGE_MOUNT_POINT"
 VARS="$VARS SAVE_RSS_FILES=0"
 
 ################
+# dokku-graphite stats service (can be shared by multiple apps & app instances)
 
 if dokku graphite:exists $GRAPHITE_STATS_SVC >/dev/null 1>&2; then
     echo found dokku-graphite $GRAPHITE_STATS_SVC
 else
     dokku graphite:create $GRAPHITE_STATS_SVC
-    dokku graphite:nginx-expose $GRAPHITE_STATS_SVC stats.$(hostname -s).mediacloud.org
+
+    if [ "x$PUBLIC" != x ]; then
+	# proxy app for letsencrypt
+	# from https://github.com/dokku/dokku-graphite/issues/18
+	# "In this example, a graphite service named $GRAPHITE_STATS_SVC will be exposed under the app $STATS_PROXY"
+	# (unknown as yet whether GRAPHITE_STATS_SVC == STATS_PROXY_APP will work)
+	STATS_PROXY_APP=stats
+	echo creating service-proxy app $STATS_PROXY_APP for graphite https access
+	dokku apps:create $STATS_PROXY_APP
+	dokku config:set $STATS_PROXY_APP SERVICE_NAME=$GRAPHITE_STATS_SVC SERVICE_TYPE=graphite SERVICE_PORT=80
+	dokku graphite:link $GRAPHITE_STATS_SVC $STATS_PROXY_APP
+	dokku git:from-image $STATS_PROXY_APP dokku/service-proxy:latest
+	dokku domains:set $STATS_PROXY_APP $STATS_PROXY_APP $STATS_PROXY_APP.$DOMAIN
+	dokku letsencrypt:enable $STATS_PROXY_APP
+    else
+	# use unencrypted service on non-public server (via SSH tunnels)
+	dokku graphite:nginx-expose $GRAPHITE_STATS_SVC $GRAPHITE_STATS_SVC.$DOMAIN
+    fi
 fi
 
 dokku graphite:link $GRAPHITE_STATS_SVC $APP
@@ -208,6 +248,12 @@ dokku graphite:link $GRAPHITE_STATS_SVC $APP
 
 STATSD_PREFIX="mc.${TYPE_OR_UNAME}.rss-fetcher"
 VARS="$VARS MC_STATSD_PREFIX=$STATSD_PREFIX"
+
+################
+if [ "x$PUBLIC" != x ]; then
+    # Enable Let's Encrypt
+    dokku letsencrypt:enable $APP
+fi
 
 ################
 # set config vars
@@ -233,28 +279,33 @@ fi
 ################
 # from https://www.freecodecamp.org/news/how-to-build-your-on-heroku-with-dokku/
 
-# XXX need DOMAIN and to set DOKKU_LETSENCRYPT_EMAIL in install-dokku.sh
-
-# This requires $APP.$DOMAIN to be visible from Internet:
-
 # set a custom domain that you own for your application
-#dokku domains:set $APP $APP.$DOMAIN
+dokku domains:set $APP $APP.$DOMAIN
 
-# Enable Let's Encrypt
-#dokku letsencrypt:enable $APP
+if [ "x$PUBLIC" != x ]; then
+    # Enable Let's Encrypt
+    # This requires $APP.$DOMAIN to be visible from Internet:
+    dokku letsencrypt:enable $APP
+fi
 
 ################
 
 echo installing $CRONTAB
 
 test -d $LOGDIR || mkdir -p $LOGDIR
+
+if grep '^fetcher:.*--loop' Procfile >/dev/null; then
+    PERIODIC="# running fetcher w/ --loop in Procfile: no crontab entry needed"
+else
+    PERIODIC="*/30 * * * * root /usr/bin/dokku run $APP fetcher >> $LOGDIR/fetcher.log 2>&1"
+fi
+
 cat >$CRONTAB <<EOF
 # runs script specified in Procfile: any args are passed to that script
-#*/30 * * * * root /usr/bin/dokku run $APP fetcher >> $LOGDIR/fetcher.log 2>&1
+$PERIODIC
+# generate RSS output files:
 30 0 * * * root /usr/bin/dokku run $APP generator >> $LOGDIR/generator.log 2>&1
 EOF
-
-echo installing $LOGROTATE
 
 cat >$LOGROTATE <<EOF
 $LOGDIR/*.log {
@@ -266,9 +317,11 @@ $LOGDIR/*.log {
 }
 EOF
 
-# for production:
-# dokku postgres:backup-auth rss-fetcher-db AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-# dokku postgres:backup-schedule rss-fetcher-db "0 1 * * *" mediacloud-rss-fetcher-backup
-#
+if [ "x$TYPE" = xprod ]; then
+cat <<EOF
+dokku postgres:backup-auth rss-fetcher-db AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+dokku postgres:backup-schedule rss-fetcher-db "0 1 * * *" mediacloud-rss-fetcher-backup
 # creates /etc/cron.d/dokku-postgres-rss-fetcher-db ??
 # 0 1 * * * dokku /usr/bin/dokku postgres:backup rss-fetcher-db mediacloud-rss-fetcher-backup 
+EOF
+fi
