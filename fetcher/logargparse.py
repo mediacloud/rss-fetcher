@@ -17,6 +17,7 @@ import yaml
 # local:
 from fetcher import VERSION
 from fetcher.config import conf
+import fetcher.sentry
 
 LEVELS = [level.lower() for level in logging._nameToLevel.keys()]
 
