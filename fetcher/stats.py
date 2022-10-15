@@ -91,7 +91,6 @@ class Stats:
             return
 
         self.prefix = f"{prefix}.{component}"
-        self.host = host
 
         if self.host and self.prefix:
             logger.info(f"sending stats to {self.host} with prefix {self.prefix}")
