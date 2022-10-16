@@ -33,19 +33,23 @@ if __name__ == '__main__':
     # info logging before this call unlikely to be seen:
     args = p.parse_args()       # parse logging args, output start message
 
-    filename = args.input_file
-    logger.info("Importing from {}".format(filename))
-    if filename.endswith(".gz"):
-        import gzip
-        f = gzip.open(filename)
-    else:
-        f = open(filename)
-    # import data
-    input_file = csv.DictReader(f)
+    logger.info(f"Clearing database")
     with engine.begin() as conn:  # will automatically close
         conn.execute(text("DELETE FROM feeds;"))
         conn.execute(text("DELETE FROM fetch_events;"))
         conn.execute(text("DELETE FROM stories;"))
+
+    # import data
+    filename = args.input_file
+    logger.info(f"Importing from {filename}")
+    if filename.endswith(".gz"):
+        import gzip
+        f = gzip.open(filename, mode='rt')  # read in text mode
+    else:
+        f = open(filename)
+    input_file = csv.DictReader(f)
+
+    added = 0
     with Session() as session:
         for row in input_file:
             now = dt.datetime.utcnow()
@@ -54,7 +58,7 @@ if __name__ == '__main__':
             # avoiding hammering any site such that they give HTTP 429
             # (Too Many Requests) responses.
             next_fetch = now + \
-                timedelta(seconds=random() * DEFAULT_INTERVAL_MINS * 60)
+                dt.timedelta(seconds=random() * DEFAULT_INTERVAL_MINS * 60)
             f = models.Feed(
                 id=row['id'],
                 url=row['url'],
@@ -65,4 +69,6 @@ if __name__ == '__main__':
                 next_fetch_attempt=next_fetch
             )
             session.add(f)
+            added += 1
         session.commit()
+    logger.info(f"imported {added} rows")

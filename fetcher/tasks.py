@@ -13,7 +13,7 @@ import datetime as dt
 import hashlib
 import json
 from numbers import Real
-from typing import Dict, Tuple, Union
+from typing import Dict, Optional, Tuple
 import logging
 import logging.handlers
 import os
@@ -43,9 +43,6 @@ DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
 RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
-
-# shorthand:
-FeedParserDict = feedparser.FeedParserDict
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 logFormatter = logging.Formatter(
@@ -139,7 +136,7 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
 
 
 def update_feed(session, feed_id: int, success: bool, note: str,
-                feed_col_updates: Union[Dict, None] = None):
+                feed_col_updates: Optional[Dict] = None):
     """
     Update Feed row and insert FeedEvent row
 
@@ -158,7 +155,7 @@ def update_feed(session, feed_id: int, success: bool, note: str,
         # but we want to make choices based on the new value)
         f = session.get(models.Feed, feed_id, with_for_update=True)
         if f is None:
-            log.info(f"  Feed {feed_id} not found in update_feed")
+            logger.info(f"  Feed {feed_id} not found in update_feed")
             return
 
         # apply additional updates first to simplify checks
@@ -233,7 +230,8 @@ def update_feed(session, feed_id: int, success: bool, note: str,
         session.close()
 
 
-def _feed_update_period_mins(parsed_feed: FeedParserDict) -> Union[None, Real]:
+def _feed_update_period_mins(
+        parsed_feed: feedparser.FeedParserDict) -> Optional[int]:
     """
     Extract feed update period in minutes, if any from parsed feed.
     Returns None if <sy:updatePeriod> not present, or bogus in some way.
@@ -250,8 +248,8 @@ def _feed_update_period_mins(parsed_feed: FeedParserDict) -> Union[None, Real]:
 
         # translate string to value: empty string (or pure whitespace)
         # is treated as DEFAULT_UPDATE_PERIOD
-        update_period = update_period.strip().rstrip()
-        upm = UPDATE_PERIODS_MINS.get(update_period or DEFAULT_UPDATE_PERIOD)
+        update_period = update_period.strip().rstrip() or DEFAULT_UPDATE_PERIOD
+        upm = int(UPDATE_PERIODS_MINS[update_period])
         # *should* get here with a value (unless DEFAULT_UPDATE_PERIOD is bad)
 
         #logger.debug(f" update_period {update_period} upm {upm}")
@@ -267,7 +265,9 @@ def _feed_update_period_mins(parsed_feed: FeedParserDict) -> Union[None, Real]:
         else:
             ufn = DEFAULT_UPDATE_FREQUENCY
 
-        ret = int(upm / ufn)    # XXX never return zero?
+        ret = round(upm / ufn)
+        if ret <= 0:
+            ret = DEFAULT_INTERVAL_MINS
         #logger.debug(f" _feed_update_period_mins pd {update_period} fq {update_frequency} => {ret}")
         return ret
     except BaseException:
@@ -417,9 +417,8 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     # and the feed is reenabled.
 
     # responded with data, or "not changed", so update last_fetch_success
-    feed_col_updates = {
-        'last_fetch_success': now,  # HTTP fetch succeeded
-    }
+    # XXX mypy infers that all values are datetime?!!!
+    feed_col_updates = {'last_fetch_success': now}  # HTTP fetch succeeded
 
     # https://www.rfc-editor.org/rfc/rfc9110.html#status.304
     # says a 304 response MUST have an ETag if 200 would have.
@@ -493,7 +492,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
 
 
 def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
-                           parsed_feed: FeedParserDict) -> Tuple[int, int]:
+                           parsed_feed: feedparser.FeedParserDict) -> Tuple[int, int]:
     """
     Take parsed feed, so insert all the (valid) entries.
     returns (saved_count, skipped_count)
@@ -577,7 +576,8 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
     return saved_count, skipped_count
 
 
-def check_feed_title(feed: Dict, parsed_feed: FeedParserDict,
+def check_feed_title(feed: Dict,
+                     parsed_feed: feedparser.FeedParserDict,
                      feed_col_updates: Dict):
     # update feed title (if it has one and it changed)
     try:

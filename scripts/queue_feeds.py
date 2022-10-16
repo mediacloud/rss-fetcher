@@ -94,7 +94,7 @@ class Queuer:
                 session.add(
                     models.FetchEvent.from_info(feed_id,
                                                 models.FetchEvent.EVENT_QUEUED))
-        return self.queue_feeds(feed_ids, now)
+        return self.queue_feeds(feed_ids, now.isoformat())
 
     def queue_feeds(self, feed_ids: List[int], ts_iso: str) -> int:
         queued = queue.queue_feeds(self.wq, feed_ids, ts_iso)
@@ -203,8 +203,7 @@ if __name__ == '__main__':
 
     stats = Stats.init(SCRIPT)
 
-    redis = queue.redis_connection()
-    wq = queue.workq(redis)
+    wq = queue.workq()
 
     queuer = Queuer(stats, wq)
 
@@ -229,8 +228,8 @@ if __name__ == '__main__':
             valid_ids = [row[0] for row in rows]
         # maybe complain about invalid feeds??
         #   find via set(feed_ids) - set(valid_feeds)
-        now = dt.datetime.utcnow()
-        queuer.queue_feeds(valid_ids, now)
+        nowstr = dt.datetime.utcnow().isoformat()
+        queuer.queue_feeds(valid_ids, nowstr)
     else:
         # classic behavior (was run from cron every 30 min)
         # to restore, uncomment crontab entry in instance.sh

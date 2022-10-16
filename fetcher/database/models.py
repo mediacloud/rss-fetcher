@@ -1,6 +1,5 @@
 import datetime as dt
 import hashlib
-from numbers import Real        # allows int or float
 from time import mktime
 from typing import List
 
@@ -20,7 +19,7 @@ def _class_as_dict(obj):
     return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
 
 
-def utc(seconds: Real = 0.0):
+def utc(seconds: float = 0.0) -> dt.datetime:
     """
     Return a UTC datetime with optional offset of `seconds` from current time
     """

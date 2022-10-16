@@ -9,7 +9,7 @@ queuing system in use (once ops list is settled)
 
 import datetime
 import logging
-from typing import List
+from typing import List, Optional
 
 from redis.client import StrictRedis
 from rq import Connection, Queue, SimpleWorker
@@ -20,27 +20,18 @@ from sqlalchemy.engine.url import make_url
 from fetcher.config import conf
 from fetcher.database import Session
 from fetcher.database.models import Feed
-import fetcher.tasks
+import fetcher.tasks            # for feed_worker
 
-WORKQ_NAME = 'workq'            # XXX make config?
+WORKQ_NAME = 'workq'            # make configurable?
 
 logger = logging.getLogger(__name__)
-
-# NEEDED?? RQ Worker not multi-threaded
-#   with SimpleWorker all in one process??
-# only ever contains one item:
-_sessions = LocalStack()
 
 
 def get_session():
     """
-    Get SQLAlchemy connection
+    Get SQLAlchemy connection for current worker process
     """
-    s = _sessions.top
-    if not s:
-        s = Session()
-        _sessions.push(s)
-    return s
+    return Session()
 
 ################
 # to allow config fetch, connect after includes complete
@@ -57,10 +48,8 @@ def redis_connection():
 
 ################
 
-# XXX wrap in a singleton?
 
-
-def workq(rconn):
+def workq(rconn: Optional[StrictRedis] = None) -> Queue:
     """
     Return RQ Queue for enqueuing work, clearing queue.
     """
@@ -72,12 +61,11 @@ def workq(rconn):
 ################
 
 
-def queue_feeds(wq, feed_ids: List[int], ts: datetime.datetime):
+def queue_feeds(wq: Queue, feed_ids: List[int], ts_iso: str) -> int:
     """
     Queue feed_ids to work queue
+    ts_iso expected to be return from datetime.datetime.isoformat()
     """
-    # rq uses pickle, so datetime ok, but log output is ugly
-    ts_iso = ts.isoformat()
     try:
         job_datas = [
             Queue.prepare_data(
@@ -113,17 +101,18 @@ def worker():
 # called from scripts/queue_feeds.py
 
 
-def queue_length(q):
+def queue_length(q: Queue) -> int:
     return q.count
 
 
-def queue_active(q):
-    # XXX cache StartedJobRegistry in our Queue object?
-    # rq "started" jobs are not included in q.count
+def queue_active(q: Queue) -> int:
+    """
+    rq "started" jobs not included in queue_length
+    """
     return q.started_job_registry.count
 
 
-def queue_workers(q):
+def queue_workers(q: Queue) -> int:
     """return number of workers for queue"""
     return len(SimpleWorker.all(queue=q))
 
