@@ -15,6 +15,7 @@ Started 9/26/2022
 import logging
 import os
 import sys
+from typing import Any, Callable
 
 # PyPI
 from dotenv import load_dotenv
@@ -30,31 +31,31 @@ logger = logging.getLogger(__name__)
 # used in class definition as MEMBER = conf_....('NAME', ....)
 
 
-def conf_default(name: str, defval: str):
+def conf_default(name: str, defval: str) -> property:
     """
     return property function for
     config variable with default (if not set)
     """
-    @property
-    def getter(self):
+
+    def getter(self) -> Any:
         if name in self.values:
             value = self.values[name]  # cached value
         else:
             value = os.environ.get(name, defval)
             self._log(name, value)  # log first time only
         return value
-    return getter
+    return property(getter)
 
 
-def conf_bool(name: str, defval: bool):
+def conf_bool(name: str, defval: bool) -> property:
     """
     return property function for
     config variable with boolean value
     tries to be liberal in what it accepts:
     True values: non-zero integer, true, t, on (case insensitive)
     """
-    @property
-    def getter(self):
+
+    def getter(self) -> bool:
         if name in self.values:
             value = self.values[name]  # cached value
         else:
@@ -69,17 +70,17 @@ def conf_bool(name: str, defval: bool):
                     value = value in ['true', 't', 'on']  # be liberal
                 self._log(name, value)
         return value
-    return getter
+    return property(getter)
 
 
-def conf_int(name: str, defval: int) -> int:
+def conf_int(name: str, defval: int) -> property:
     """
     return property function for
     Integer valued configuration variable, with default value
     (could add limits)
     """
-    @property
-    def getter(self):
+
+    def getter(self) -> int:
         if name in self.values:
             value = self.values[name]  # cached value
         else:
@@ -89,16 +90,16 @@ def conf_int(name: str, defval: int) -> int:
                 value = defval
             self._log(name, value)  # log first time only
         return value
-    return getter
+    return property(getter)
 
 
-def conf_optional(name: str):
+def conf_optional(name: str) -> property:
     """
     return property function for
     optional configuration variable (returns None if not set, does not log)
     """
-    @property
-    def getter(self):
+
+    def getter(self) -> Any:
         if name in self.values:
             value = self.values[name]  # cached value
         else:
@@ -108,16 +109,16 @@ def conf_optional(name: str):
             else:
                 self._log(name, value)  # log first time only
         return value
-    return getter
+    return property(getter)
 
 
-def conf_required(name):
+def conf_required(name) -> property:
     """
     return property function for required config:
     fatal if Conf.MEMBER referenced, but environment variable not set
     """
-    @property
-    def getter(self):
+
+    def getter(self) -> Any:
         if name not in os.environ:
             logger.error(f"{name} not set.")
             sys.exit(1)
@@ -127,7 +128,7 @@ def conf_required(name):
             value = os.environ.get(name)
             self._log(name, value)  # log first time only
         return value
-    return getter
+    return property(getter)
 
 
 _DEFAULT_DEFAULT_INTERVAL_MINS = 12 * 60
@@ -225,21 +226,16 @@ conf = _Config()
 if __name__ == '__main__':
     logging.basicConfig(level='INFO')
     a = conf.RSS_FETCH_TIMEOUT_SECS    # should get default, log after start
-    conf.start("Hello World")  # should output message
+    # should output message
+    conf.start("testing", "description of test program")
     a = conf.RSS_FETCH_TIMEOUT_SECS    # should not log
 
     try:
-        a = conf.SENTRY_DSN2
-        assert False
-    except AttributeError:
-        pass
-
-    try:
         a = conf.RSS_FILE_PATH
-    except None:
+    except BaseException:
         pass
 
     try:
-        a = conf.ZZZ
+        a = conf.ZZZ            # type: ignore
     except AttributeError:
         pass
