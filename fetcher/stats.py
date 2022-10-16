@@ -93,7 +93,8 @@ class Stats:
         self.prefix = f"{prefix}.{component}"
 
         if self.host and self.prefix:
-            logger.info(f"sending stats to {self.host} with prefix {self.prefix}")
+            logger.info(
+                f"sending stats to {self.host} with prefix {self.prefix}")
         else:
             logger.warning("Not sending stats")
 

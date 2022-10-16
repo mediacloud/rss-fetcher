@@ -42,6 +42,7 @@ if fetcher.sentry.init():
         # pass silently if the Sentry integration failed
         pass
 
+
 @app.get("/api/version")
 @api_method
 def version():
