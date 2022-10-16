@@ -27,11 +27,20 @@ load_dotenv()  # load config from .env file (local) or env vars (production)
 
 logger = logging.getLogger(__name__)
 
-# conf_XXX functions return property getters for Config members
+# Conf variables implemented as property functions.
+#  Could also be done with instances of "descriptor" classes
+#  (with __get__ methods).  Only CLEAR advantage
+#  of descriptor objects is that they work on bare
+#  class (properties require an instance).  Could
+#  also memoize values directly in each object,
+#  but need default value other than None!
+
+# conf_thing functions return properties for Config members
 # used in class definition as MEMBER = conf_....('NAME', ....)
 
-# (PLB: maybe I should have implemented _Conf properties
-#  as instances of "descriptor" objects (with __get__ method)
+# The "confobj" argument passed to the getter functions
+# is the (one) _Conf class instance, since they're being
+# called to access properties of that object.
 
 def conf_default(name: str, defval: str) -> property:
     """
@@ -39,12 +48,12 @@ def conf_default(name: str, defval: str) -> property:
     config variable with default (if not set)
     """
 
-    def getter(self) -> Any:
-        if name in self.values:
-            value = self.values[name]  # cached value
+    def getter(confobj) -> Any:
+        if name in confobj.values:
+            value = confobj.values[name]  # cached value
         else:
             value = os.environ.get(name, defval)
-            self._log(name, value)  # log first time only
+            confobj._log(name, value)  # log first time only
         return value
     return property(getter)
 
@@ -57,9 +66,9 @@ def conf_bool(name: str, defval: bool) -> property:
     True values: non-zero integer, true, t, on (case insensitive)
     """
 
-    def getter(self) -> bool:
-        if name in self.values:
-            value = self.values[name]  # cached value
+    def getter(confobj) -> bool:
+        if name in confobj.values:
+            value = confobj.values[name]  # cached value
         else:
             value = os.environ.get(name)
             if value is None:
@@ -70,7 +79,7 @@ def conf_bool(name: str, defval: bool) -> property:
                     value = bool(int(value))
                 else:
                     value = value in ['true', 't', 'on']  # be liberal
-                self._log(name, value)
+                confobj._log(name, value)
         return value
     return property(getter)
 
@@ -82,15 +91,15 @@ def conf_int(name: str, defval: int) -> property:
     (could add limits)
     """
 
-    def getter(self) -> int:
-        if name in self.values:
-            value = self.values[name]  # cached value
+    def getter(confobj) -> int:
+        if name in confobj.values:
+            value = confobj.values[name]  # cached value
         else:
             try:
                 value = int(os.environ.get(name, defval))
             except ValueError:
                 value = defval
-            self._log(name, value)  # log first time only
+            confobj._log(name, value)  # log first time only
         return value
     return property(getter)
 
@@ -101,15 +110,15 @@ def conf_optional(name: str) -> property:
     optional configuration variable (returns None if not set, does not log)
     """
 
-    def getter(self) -> Any:
-        if name in self.values:
-            value = self.values[name]  # cached value
+    def getter(confobj) -> Any:
+        if name in confobj.values:
+            value = confobj.values[name]  # cached value
         else:
-            value = self.values[name] = os.environ.get(name)
+            value = confobj.values[name] = os.environ.get(name)
             if value is None:   # optional: log only if set
-                self._set(name, value)
+                confobj._set(name, value)
             else:
-                self._log(name, value)  # log first time only
+                confobj._log(name, value)  # log first time only
         return value
     return property(getter)
 
@@ -120,15 +129,15 @@ def conf_required(name) -> property:
     fatal if Conf.MEMBER referenced, but environment variable not set
     """
 
-    def getter(self) -> Any:
+    def getter(confobj) -> Any:
         if name not in os.environ:
             logger.error(f"{name} not set.")
             sys.exit(1)
-        if name in self.values:
-            value = self.values[name]  # cached value
+        if name in confobj.values:
+            value = confobj.values[name]  # cached value
         else:
             value = os.environ.get(name)
-            self._log(name, value)  # log first time only
+            confobj._log(name, value)  # log first time only
         return value
     return property(getter)
 
@@ -139,7 +148,11 @@ _DEFAULT_MINIMUM_INTERVAL_MINS = _DEFAULT_DEFAULT_INTERVAL_MINS
 
 class _Config:                  # only instantied in this file
     """
-    Configuration with logging
+    Configuration with logging on first access.
+
+    All "members" are property functions
+    (only work on an instance of this class)
+    and there should only ever be ONE instance of this class!
     """
 
     def __init__(self):
@@ -164,7 +177,7 @@ class _Config:                  # only instantied in this file
 
     def start(self, prog, descr):
         """
-        log start message with any saved messages
+        optionally log start message with any saved messages
         called from LogArgumentParser.parse_args
         after logger setup
         """
@@ -180,9 +193,10 @@ class _Config:                  # only instantied in this file
                 logger.info(msg)
             self.logging = True
 
-    # config variables in alphabetical order
+    # config variable properties in alphabetical order
     # (maybe split up into section by script??)
     # creates properties acessible in INSTANCES only!
+    # (descriptors work with bare class)
 
     # days to check in DB: only needed until table partitioned by day?
     DAY_WINDOW = conf_int('DAY_WINDOW', 7)
@@ -226,10 +240,14 @@ conf = _Config()
 if __name__ == '__main__':
     logging.basicConfig(level='INFO')
     a = conf.RSS_FETCH_TIMEOUT_SECS    # should get default, log after start
-    # should output message
-    conf.start("testing", "description of test program")
-    a = conf.RSS_FETCH_TIMEOUT_SECS    # should not log
 
+    # should output start message, plus RSS_FETCH_TIMEOUT_SECS
+    conf.start("testing", "description of test program")
+
+    # second access: should not log
+    a = conf.RSS_FETCH_TIMEOUT_SECS
+
+    # optional, should log if set
     try:
         a = conf.RSS_FILE_PATH
     except BaseException:
