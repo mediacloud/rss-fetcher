@@ -74,8 +74,6 @@ STORAGE=${APP}-storage
 # STORAGE mount point inside container:
 STORAGE_MOUNT_POINT=/app/storage
 
-# XXX add storage for logs???
-
 # server log directory for scripts run via "dokku run"
 LOGDIR=/var/log/dokku/apps/$APP
 LOGROTATE=/etc/logrotate.d/$APP
@@ -209,7 +207,7 @@ dokku storage:ensure-directory $STORAGE
 dokku storage:mount $APP /var/lib/dokku/data/storage/$STORAGE:$STORAGE_MOUNT_POINT
 
 ################
-# fetcher related vars
+# worker related vars
 
 # XXX put rss files in $STORAGE_MOUNT_POINT/rss ???
 VARS="$VARS RSS_FILE_PATH=$STORAGE_MOUNT_POINT"
