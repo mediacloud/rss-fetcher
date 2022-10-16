@@ -15,7 +15,7 @@ Started 9/26/2022
 import logging
 import os
 import sys
-from typing import Any, Callable
+from typing import Any
 
 # PyPI
 from dotenv import load_dotenv
@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 # conf_XXX functions return property getters for Config members
 # used in class definition as MEMBER = conf_....('NAME', ....)
 
+# (PLB: maybe I should have implemented _Conf properties
+#  as instances of "descriptor" objects (with __get__ method)
 
 def conf_default(name: str, defval: str) -> property:
     """
@@ -167,9 +169,7 @@ class _Config:                  # only instantied in this file
         after logger setup
         """
         if prog:
-            # GIT_REV set by Dokku; if not set
-            # use `git rev-parse HEAD` for hash
-            # test if clean?? import git; git.Repo(path).is_dirty()????
+            # GIT_REV set by Dokku
             git_rev = os.environ.get('GIT_REV', '(GIT_REV not set)')
 
             logger.info(
