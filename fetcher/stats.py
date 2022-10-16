@@ -31,20 +31,6 @@ TAGS = False                    # get from env?? graphite >= 1.1.0 tags
 logger = logging.getLogger(__name__)
 
 
-def _getenv(var):
-    """
-    get an MC_STATSD_ environment variable, return None if not set
-    (using MC_STATSD_  prefix to avoid preference to any packages naming)
-    """
-    v2 = f"MC_STATSD_{var}"
-    val = os.environ.get(v2)
-    if val:
-        return val
-
-    logger.warning(f"{v2} not set: not sending stats")
-    return None
-
-
 class Stats:
     """
     hide protocol and library being used for statistics
@@ -76,18 +62,18 @@ class Stats:
         if not _init_ok:
             raise Exception("Call Stats.init")
 
-        self.statsd = self.host = self.prefix = None
+        self.statsd = self.host = self.port = self.prefix = None
 
         # STATSD URL set by dokku-graphite plugin
         if 'STATSD_URL' in os.environ:
             url = make_url(os.environ.get('STATSD_URL'))
             # check if url.database == 'statsd'???
             self.host = url.host
-            # handle url.port?
+            self.port = url.port
 
         prefix = os.environ.get('MC_STATSD_PREFIX')
         if not prefix:
-            # XXX could now generate from MC_APP!
+            # XXX could now generate from MC_APP?
             return
 
         self.prefix = f"{prefix}.{component}"
@@ -104,7 +90,8 @@ class Stats:
             return
 
         try:
-            self.statsd = statsd.StatsdClient(self.host, prefix=self.prefix)
+            self.statsd = statsd.StatsdClient(
+                self.host, self.port, self.prefix)
             return True
         except BaseException:
             return False
