@@ -28,14 +28,16 @@ load_dotenv()  # load config from .env file (local) or env vars (production)
 logger = logging.getLogger(__name__)
 
 # Conf variables implemented as property functions.
-#  Could also be done with instances of "descriptor" classes
-#  (with __get__ methods).  Only CLEAR advantage
-#  of descriptor objects is that they work on bare
-#  class (properties require an instance).  Could
-#  also memoize values directly in each object,
-#  but need default value other than None!
 
-# conf_thing functions return properties for Config members
+#  Could also be done with instances of subclasses of a MemoizedConfig
+#  "descriptor" class with a __get__ method that checks if a value has
+#  been fetched and memoized (in self.value), and if not, calls a
+#  (subclass specific) "getvalue" method.  The Only CLEAR advantage of
+#  descriptor objects is that they work on bare class (properties
+#  require an instance), which would avoid madness (duplicate
+#  messages) if someone ever made a second _Config object instance.
+
+# conf_thing functions return properties for _Config class members
 # used in class definition as MEMBER = conf_....('NAME', ....)
 
 # The "confobj" argument passed to the getter functions
