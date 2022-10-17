@@ -241,7 +241,9 @@ def update_feed(session, feed_id: int, status: Status, note: str,
         elif f.system_enabled:
             logger.error("  Feed {feed_id} enabled but not rescheduled!!!")
 
-        session.add(models.FetchEvent.from_info(feed_id, str(event), note, now))
+        # NOTE! created_at will match last_fetch_attempt
+        # (and one of last_fetch_{failure/success}!)
+        session.add(models.FetchEvent.from_info(feed_id, event, note, now))
         session.commit()
         session.close()
     # end "with session.begin()"
