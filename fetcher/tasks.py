@@ -56,6 +56,7 @@ SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 
+
 def open_log_file():
     """
     Called from scripts/worker.py so that scripts/queue_feeds.py
@@ -354,10 +355,14 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
             logger.info(f"feed_worker: feed {feed_id} not found")
             return
 
-        # Sanity checks, in case entry modified while in queue
+        # Sanity checks, in case DB entry modified while in queue
         # (including being queued more than once)
         # this commonly happens when "queue_feeds" restarted
         # (may not be emptying queue????)
+        # scripts/queue_feeds is now passing ts_iso; the value
+        # it wrote into Feeds.last_fetch_attempt, intended
+        # to be used as another sanity check:
+        # (ts.iso != f.last_fetch_attempt.isodate())
         #     Driftwood (Groucho):
         #       It's all right. That's, that's in every contract.
         #       That's, that's what they call a sanity clause.
