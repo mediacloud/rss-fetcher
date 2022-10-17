@@ -6,37 +6,23 @@
 # type: prod, staging, or dev-UNAME
 #	(UNAME must be a user in passwd file)
 
-if [ `whoami` != root ]; then
-    echo "$0 must be run as root" 1>&2
+# Phil Budne, September 2022
+
+SCRIPT_DIR=$(dirname $0)
+INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
+if [ ! -f $INSTALL_CONF ]; then
+    echo cannot find $INSTALL_CONF 1>&2
     exit 1
 fi
+. $INSTALL_CONF
+
+check_root
 
 OP="$1"
 NAME="$2"
 
 HOST=$(hostname -s)
-DOMAIN=${HOST}.mediacloud.org
-
-# public facing server (reachable from Internet on port 443)
-# enables letsencrypt certs for app (and proxy app for stats service)
-if [ "x$DOMAIN" = tarbell.mediacloud.org ]; then
-    PUBLIC=1
-fi
-
-SCRIPT_DIR=$(dirname $0)
-INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
-if [ ! -f $INSTALL_CONF ]; then
-    echo cannot find install.conf 1>&2
-    exit 1
-fi
-. $INSTALL_CONF
-
-LOCAL_CONF=$SCRIPT_DIR/local-dokku.conf
-if [ -f $LOCAL_CONF ]; then
-    . $LOCAL_CONF
-else
-    echo will read $SCRIPT_DIR/local-dokku.conf if created
-fi
+FQDN=${HOST}.mediacloud.org
 
 TYPE="$OP"
 TYPE_OR_UNAME="$TYPE"
@@ -110,8 +96,9 @@ fi
 ################
 # before taking any actions:
 
-if [ "x$PUBLIC" != x ]; then
-    VARS="$VARS DOKKU_LETSENCRYPT_EMAIL=system@mediacloud.org"
+if public_server; then
+    # not in global config on tarbell:
+    VARS="$VARS DOKKU_LETSENCRYPT_EMAIL=$DOKKU_LETSENCRYPT_EMAI"
 fi
 
 # used in fetcher/__init__.py to set APP
@@ -230,47 +217,14 @@ VARS="$VARS RSS_FILE_PATH=$STORAGE_MOUNT_POINT"
 VARS="$VARS SAVE_RSS_FILES=0"
 
 ################
-# dokku-graphite stats service (can be shared by multiple apps & app instances)
-# XXX so move this to its own script????
 
-if dokku graphite:exists $GRAPHITE_STATS_SVC >/dev/null 1>&2; then
-    echo found dokku-graphite $GRAPHITE_STATS_SVC
-else
-    dokku graphite:create $GRAPHITE_STATS_SVC
-
-    if [ "x$PUBLIC" != x ]; then
-	# proxy app for letsencrypt
-	# from https://github.com/dokku/dokku-graphite/issues/18
-	# "In this example, a graphite service named $GRAPHITE_STATS_SVC will be exposed under the app $STATS_PROXY"
-	# (unknown as yet whether GRAPHITE_STATS_SVC == STATS_PROXY_APP will work)
-	STATS_PROXY_APP=stats
-	echo creating service-proxy app $STATS_PROXY_APP for graphite https access
-	dokku apps:create $STATS_PROXY_APP
-	dokku config:set $STATS_PROXY_APP SERVICE_NAME=$GRAPHITE_STATS_SVC SERVICE_TYPE=graphite SERVICE_PORT=80
-	dokku graphite:link $GRAPHITE_STATS_SVC $STATS_PROXY_APP
-	dokku git:from-image $STATS_PROXY_APP dokku/service-proxy:latest
-	dokku domains:set $STATS_PROXY_APP $STATS_PROXY_APP $STATS_PROXY_APP.$DOMAIN
-	dokku letsencrypt:enable $STATS_PROXY_APP
-    else
-	# use unencrypted service on non-public server (via SSH tunnels)
-	dokku graphite:nginx-expose $GRAPHITE_STATS_SVC $GRAPHITE_STATS_SVC.$DOMAIN
-    fi
-fi
-# end maybe move to separate script
-################
-
-dokku graphite:link $GRAPHITE_STATS_SVC $APP
+# check for, or create stats service, and link to our app
+$SCRIPT_DIR/create-stats.sh $APP
 
 # using automagic STATSD_URL in fetcher/stats.py
 
 STATSD_PREFIX="mc.${TYPE_OR_UNAME}.rss-fetcher"
 VARS="$VARS MC_STATSD_PREFIX=$STATSD_PREFIX"
-
-################
-if [ "x$PUBLIC" != x ]; then
-    # Enable Let's Encrypt
-    dokku letsencrypt:enable $APP
-fi
 
 ################
 # set config vars
@@ -297,9 +251,9 @@ fi
 # from https://www.freecodecamp.org/news/how-to-build-your-on-heroku-with-dokku/
 
 # set a custom domain that you own for your application
-dokku domains:set $APP $APP.$DOMAIN
+dokku domains:set $APP $APP.$BASTION.$BASTION_DOMAIN
 
-if [ "x$PUBLIC" != x ]; then
+if public_server; then
     # Enable Let's Encrypt
     # This requires $APP.$DOMAIN to be visible from Internet:
     dokku letsencrypt:enable $APP

@@ -1,8 +1,20 @@
 #!/bin/sh
 
+# Deploy code by pushing current branch to Dokkku app instance
 # Phil Budne, September 2022
-# Push current branch to Dokkku app instance
+
 # DOES NOT NEED TO BE RUN AS ROOT!!!
+
+APP=rss-fetcher
+PROCS="fetcher=1 worker=8"
+
+SCRIPT_DIR=$(dirname $0)
+INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
+if [ ! -f $INSTALL_CONF ]; then
+    echo cannot find $INSTALL_CONF 1>&2
+    exit 1
+fi
+. $INSTALL_CONF
 
 # tmp files to clean up on exit
 REMOTES=/tmp/remotes$$
@@ -21,16 +33,8 @@ if [ "x$LOGIN_USER" = x ]; then
     exit 1
 fi
 
-# using localhost causes host key pain if NFS same mounted repo
-# used from multiple servers in cluster
-# XXX use untrimmed hostname (w/o -s)? with --fqdn??
-SSH_USER="dokku@$HOSTNAME"
-
-# avoids needing to sudo to root:
-alias dokku="ssh $SSH_USER"
-
 if ! git diff --quiet; then
-    echo 'changes not checked in' 1>&2
+    echo 'local changes not checked in' 1>&2
     # XXX display diffs, or just dirty files??
     exit 1
 fi
@@ -38,6 +42,7 @@ fi
 BRANCH=$(git branch --show-current)
 
 # check if origin (ie; user github fork) not up to date
+# XXX need "git pull" ??
 if git diff --quiet origin/$BRANCH --; then
     echo "origin/$BRANCH up to date"
 else
@@ -94,9 +99,9 @@ esac
 DOKKU_GIT_BRANCH=main
 
 case $BRANCH in
-prod) APP=rss-fetcher;;
-staging) APP=staging-rss-fetcher;;
-*) APP=${LOGIN_USER}-rss-fetcher;;
+prod) ;;
+staging) APP=staging-$APP;;
+*) APP=${LOGIN_USER}-$APP;;
 esac
 
 if ! dokku apps:exists "$APP" >/dev/null 2>&1; then
@@ -196,8 +201,8 @@ for REMOTE in $PUSH_TAG_TO; do
 done
 
 SCALE=""
-# start fetcher first (the first time); resets the queue
-for CC in fetcher=1 worker=8; do
+# scale processes
+for CC in $PROCS; do
     set $(echo $CC | sed 's/=/ /')
     CONTAINER=$1
     COUNT=$2

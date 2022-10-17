@@ -1,10 +1,7 @@
 #!/bin/sh
 
+# Phil Budne, September 2022
 echo 'NOTE! NOT TESTED'
-if [ `whoami` != root ]; then
-    echo must be run as root 1>&2
-    exit 1
-fi
 
 SCRIPT_DIR=$(dirname $0)
 INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
@@ -14,10 +11,7 @@ if [ ! -f $INSTALL_CONF ]; then
 fi
 . $INSTALL_CONF
 
-LOCAL_CONF=$SCRIPT_DIR/local-dokku.conf
-if [ -f $LOCAL_CONF ]; then
-    . $LOCAL_CONF
-fi
+check_root
 
 dokku letsencrypt:cron-job --remove
 
