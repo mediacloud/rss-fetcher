@@ -46,10 +46,7 @@ else
     exit 1
 fi
 
-# DOKKU_GIT_REMOTE: Name of git remote for Dokku
-#	contains hostname because using HOSTNAME in SSH_USER
-#	to allow use on multiple server mounting same NFS repo.
-#	(Can run staging anywhere)
+# DOKKU_GIT_REMOTE: Name of git remote for Dokku instance
 # PUSH_TAG_TO: other remotes to push tag to
 PUSH_TAG_TO="origin"
 
@@ -86,16 +83,10 @@ prod|staging)
     fi
     # push tag back to github mediacloud branch
     PUSH_TAG_TO="$PUSH_TAG_TO $MCREMOTE"
-
-    # name of git remote for dokku git server for $BRANCH on $HOSTNAME server.
-    # this is likely overkill, at least for production, since it's reasonable
-    # to expect only one production environment to exist, so maybe just
-    # "dokku_$BRANCH"??
-    DOKKU_GIT_REMOTE="dokku_${HOSTNAME}_$BRANCH"
-
+    DOKKU_GIT_REMOTE=dokku_$BRANCH
     ;;
 *)
-    DOKKU_GIT_REMOTE="dokku_${HOSTNAME}_$LOGIN_USER"
+    DOKKU_GIT_REMOTE=dokku_$LOGIN_USER
     ;;
 esac
 
@@ -115,10 +106,8 @@ fi
 
 TAB='	'
 if ! grep "^$DOKKU_GIT_REMOTE$TAB" $REMOTES >/dev/null; then
-    echo adding git remote $DOKKU_GIT_REMOTE
-    # XXX prompt first?
-    git remote add $DOKKU_GIT_REMOTE $SSH_USER:$APP
-    # XXX exit on failure?
+    echo git remote $DOKKU_GIT_REMOTE not found 1>&2
+    exit 1
 fi
 
 git fetch $DOKKU_GIT_REMOTE
