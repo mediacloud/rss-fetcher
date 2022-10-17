@@ -183,6 +183,10 @@ def update_feed(session, feed_id: int, status: Status, note: str,
 
         f.queued = False        # safe to requeue
 
+        # update to actual time processed (set when queued)
+        # have a statsd timer for lag between queue + now?
+        f.last_fetch_attempt = now
+
         # get normal feed update period in minutes, one of:
         # 1. new value being passed in to update Feed row (from RSS)
         # 2. value currently stored in feed row (if fetch or parse failed)
