@@ -178,7 +178,7 @@ echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 
 if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
     # not first push, safe to push by tag name
-    git push $DOKKU_GIT_REMOTE $BRANCH:$TAG
+    git push $DOKKU_GIT_REMOTE $TAG:$DOKKU_GIT_BRANCH
 else
     # first push for new app.
     git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH
