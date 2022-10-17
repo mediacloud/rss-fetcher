@@ -41,6 +41,7 @@ BRANCH=$(git branch --show-current)
 if git diff --quiet origin/$BRANCH --; then
     echo "origin/$BRANCH up to date"
 else
+    # have an option to override this??
     echo "origin/$BRANCH not up to date.  push!"
     exit 1
 fi
@@ -59,30 +60,39 @@ prod|staging)
     # check if corresponding branch in mediacloud acct up to date
 
     # get remote for mediacloud account
-    # ONLY match ssh remote, since will likely want to push tag!!!
+    # ONLY match ssh remote, since will want to push tag.
     MCREMOTE=$(awk '/github\.com:mediacloud\// { print $1; exit }' $REMOTES)
     if [ "x$MCREMOTE" = x ]; then
-	echo could not find remote for mediacloud repo
+	echo could not find a git remote for mediacloud org repo
 	exit 1
     fi
 
     # check if MCREMOTE up to date.
+    #    XXX sufficient if current commit part of remote branch???
+    #
+    #    http://codecook.io/git/214/check-if-specific-commit-is-on-remote
+    #    "git branch -r --contains commit_sha" lists branches?
+    #
+    #    https://stackoverflow.com/questions/5549479/git-check-if-commit-xyz-in-remote-repo
+    #    has "git log --cherry-pick --left-right <commitish> ^remote/branchname"
+
     if git diff --quiet $BRANCH $MCREMOTE/$BRANCH --; then
 	echo "$MCREMOTE $BRANCH branch up to date."
     else
-	echo "$MCREMOTE $BRANCH branch not up to date.  push?"
+	# pushing to mediacloud repo should NOT be optional
+	# for production or staging!!!
+	echo "$MCREMOTE $BRANCH branch not up to date.  push first!!"
 	exit 1
     fi
-    # XXX sufficient if current commit part of remote branch
-    # (ie; remote branch ahead of us)???
-
-    # http://codecook.io/git/214/check-if-specific-commit-is-on-remote
-    # "git branch -r --contains commit_sha" lists branches?
-
-    # https://stackoverflow.com/questions/5549479/git-check-if-commit-xyz-in-remote-repo
-    #  git log --cherry-pick --left-right <commitish> ^remote/branchname
-    DOKKU_GIT_REMOTE="dokku_${HOSTNAME}_$BRANCH"
+    # push tag back to github mediacloud branch
     PUSH_TAG_TO="$PUSH_TAG_TO $MCREMOTE"
+
+    # name of git remote for dokku git server for $BRANCH on $HOSTNAME server.
+    # this is likely overkill, at least for production, since it's reasonable
+    # to expect only one production environment to exist, so maybe just
+    # "dokku_$BRANCH"??
+    DOKKU_GIT_REMOTE="dokku_${HOSTNAME}_$BRANCH"
+
     ;;
 *)
     DOKKU_GIT_REMOTE="dokku_${HOSTNAME}_$LOGIN_USER"
@@ -164,6 +174,10 @@ echo adding $TAG
 git tag $TAG
 
 echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
+# NOTE: push will complain if you (developer) switch branches
+# (or your branch has been perturbed upstream, ie; by a force push)
+# so add script option to enable --force to push to dokku git repo?
+
 # NOTE! pushing tag first time causes mayhem (reported by Rahul at
 # https://github.com/dokku/dokku/issues/5188)
 #
@@ -173,29 +187,33 @@ echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 #	value at that time."
 # (ISTR seeing refs/tags/..../refs/tags/....)
 
-# this will complain if you (developer) switch branches
-# (or your branch has been perturbed, ie; by a force push)
-# so add script option to do force push here???
-git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH
+if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
+    # not first push, safe to push by tag name
+    git push $DOKKU_GIT_REMOTE $BRANCH:$TAG
+else
+    # first push for new app.
+    git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH
 
-# XXX can push tag after first time (used to establish base branch)
-echo ''
-# XXX just redirect everything to /dev/null, & check exit code?
-echo "pushing tag $TAG (ignore WARNING)"
-# will see complaints "WARNING: deploy did not complete, you must push to main."
-git push $DOKKU_GIT_REMOTE $TAG
+    # will see complaints "WARNING: deploy did not complete, you must push to main."
+    echo "first push: pushing tag $TAG (ignore WARNING)"
+    # just redirect all output???
+    git push $DOKKU_GIT_REMOTE $TAG
+fi
 
+# push tag to upstream repos
 for REMOTE in $PUSH_TAG_TO; do
     echo pushing tag $TAG to $REMOTE
     git push $REMOTE $TAG
 done
 
-# only needed once (non-idempotent)
 SCALE=""
-for CC in worker=8 fetcher=1; do
+# start fetcher first (the first time); resets the queue
+for CC in fetcher=1 worker=8; do
     set $(echo $CC | sed 's/=/ /')
     CONTAINER=$1
     COUNT=$2
+
+    # only needed once (non-idempotent)
     CURR=$(dokku ps:report $APP | grep "Status $CONTAINER [1-9]" | wc -l)
     if [ $COUNT != $CURR ]; then
 	SCALE="$SCALE $CONTAINER=$COUNT"
@@ -205,6 +223,7 @@ for CC in worker=8 fetcher=1; do
 done
 
 if [ "x$SCALE" != x ]; then
+    # here if found processes to scale
     echo ps:scale $APP $SCALE
     dokku ps:scale $APP $SCALE
 fi

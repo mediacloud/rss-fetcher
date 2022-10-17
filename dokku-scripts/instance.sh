@@ -14,7 +14,8 @@ fi
 OP="$1"
 NAME="$2"
 
-DOMAIN=$(hostname -s).mediacloud.org
+HOST=$(hostname -s)
+DOMAIN=${HOST}.mediacloud.org
 
 # public facing server (reachable from Internet on port 443)
 # enables letsencrypt certs for app (and proxy app for stats service)
@@ -160,14 +161,28 @@ elif [ -d $HOMEDIR/.ssh ]; then
 fi
 
 ################
+# check git remotes first
+
+REM=dokku_$TYPE_OR_UNAME
+
+if git remote | grep "^$REM\$"; then
+    echo "found git remote $REM; aborting" 1>&2
+    exit 1
+fi
+
+################
 
 dokku apps:create $APP
 # XXX check status & exit on failure?
 
+echo adding git remote $REM
+# XXX maybe use FQDN?
+git remote add $REM dokku@$(HOST):$APP
+
 ################
 
 if dokku redis:exists $REDIS_SVC >/dev/null 1>&2; then
-    echo "redis $REDIS_SVC exists?"
+    echo "redis $REDIS_SVC exists? -- not creating"
 else
     dokku redis:create $REDIS_SVC
     # XXX check status & call destroy on failure?
@@ -189,11 +204,12 @@ VARS="$VARS MAX_FEEDS=$MAX_FEEDS"
 ################
 
 if dokku postgres:exists $DATABASE_SVC >/dev/null 1>&2; then
-    echo "postgres $DATABASE_SVC exists?"
+    echo "postgres $DATABASE_SVC exists? -- not creating"
 else
     dokku postgres:create $DATABASE_SVC
     # XXX check status & call destroy on failure?
 fi
+
 # postgres: URLs deprecated in SQLAlchemy 1.4
 DATABASE_URL=$(dokku postgres:info $DATABASE_SVC --dsn | sed 's@^postgres:@postgresql:@')
 VARS="$VARS DATABASE_URL=$DATABASE_URL"
@@ -215,6 +231,7 @@ VARS="$VARS SAVE_RSS_FILES=0"
 
 ################
 # dokku-graphite stats service (can be shared by multiple apps & app instances)
+# XXX so move this to its own script????
 
 if dokku graphite:exists $GRAPHITE_STATS_SVC >/dev/null 1>&2; then
     echo found dokku-graphite $GRAPHITE_STATS_SVC
@@ -239,6 +256,8 @@ else
 	dokku graphite:nginx-expose $GRAPHITE_STATS_SVC $GRAPHITE_STATS_SVC.$DOMAIN
     fi
 fi
+# end maybe move to separate script
+################
 
 dokku graphite:link $GRAPHITE_STATS_SVC $APP
 
@@ -317,6 +336,8 @@ EOF
 
 if [ "x$TYPE" = xprod ]; then
 cat <<EOF
+MANUALLY:
+
 dokku postgres:backup-auth rss-fetcher-db AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 dokku postgres:backup-schedule rss-fetcher-db "0 1 * * *" mediacloud-rss-fetcher-backup
 # creates /etc/cron.d/dokku-postgres-rss-fetcher-db ??
