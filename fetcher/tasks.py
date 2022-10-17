@@ -153,7 +153,11 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
                       .scalar()
 
 
-def update_feed(session, feed_id: int, status: Status, note: str,
+def update_feed(session,
+                feed_id: int,
+                status: Status,
+                note: str,
+                now: dt.datetime,
                 feed_col_updates: Optional[Dict] = None):
     """
     Update Feed row and insert FeedEvent row
@@ -213,7 +217,7 @@ def update_feed(session, feed_id: int, status: Status, note: str,
                     # PLB: save "disabled" as system_status????
                 else:
                     logger.info(
-                        f" Feed {feed_id}: upped last_fetch_failure to {failures}")
+                        f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
             if next_minutes is not None and failures > 0:
                 # back off to be kind to servers:
@@ -242,7 +246,7 @@ def update_feed(session, feed_id: int, status: Status, note: str,
             logger.error("  Feed {feed_id} enabled but not rescheduled!!!")
 
         # NOTE! created_at will match last_fetch_attempt
-        # (and one of last_fetch_{failure/success}!)
+        # (and last_fetch_success if a success)
         session.add(models.FetchEvent.from_info(feed_id, event, note, now))
         session.commit()
         session.close()
@@ -334,7 +338,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     ALL exits from this function should call `update_feed`
     * clear "Feed.queued"
     * create FetchEvent row
-    * increment or clear Feed.last_fetch_failure
+    * increment or clear Feed.last_fetch_failures
     * update Feed.next_fetch_attempt (or not) to reschedule
     """
 
@@ -348,7 +352,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         """
         stats.incr('feeds', 1, labels=[['stat', status]])
 
-    # used in Feed.last_fetch_success, Story.fetched_at (but not FetchEntry)
+    # used in Feed.last_fetch_success, Story.fetched_at
     now = dt.datetime.utcnow()
 
     with session.begin():
@@ -389,7 +393,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         response = _fetch_rss_feed(feed)
     except Exception as exc:
         logger.warning(f" Feed {feed_id}: fetch failed {exc}")
-        update_feed(session, feed_id, Status.SOFT, f"fetch: {exc}")
+        update_feed(session, feed_id, Status.SOFT, f"fetch: {exc}", now)
 
         # NOTE!! try to limit cardinality of status: (eats stats
         # storage and graph colors), so not doing detailed breakdown
@@ -417,7 +421,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         rurl = response.url
         logger.info(
             f"  Feed {feed_id} - skipping, bad response {rsc} at {rurl}")
-        update_feed(session, feed_id, status, f"HTTP {rsc} / {rurl}")
+        update_feed(session, feed_id, status, f"HTTP {rsc} / {rurl}", now)
 
         # limiting tag cardinality, only a few, common codes for now.
         # NOTE! 429 is "too many requests"
@@ -468,6 +472,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
             feed_id,
             Status.SUCC,
             "not modified",
+            now,
             feed_col_updates)
         feeds_incr('not_mod')
         return
@@ -487,6 +492,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
             feed_id,
             Status.SUCC,
             "same hash",
+            now,
             feed_col_updates)
         feeds_incr('same_hash')
         return
@@ -501,7 +507,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     except Exception as e:
         # BAIL: couldn't parse it correctly
         logger.warning(f"Couldn't parse feed {feed_id}: {e}")
-        update_feed(session, feed_id, Status.SOFT, f"parse: {e}")
+        update_feed(session, feed_id, Status.SOFT, f"parse: {e}", now)
         # split up into different counters if needed/desired
         # (beware label cardinality)
         feeds_incr('parse_err')
@@ -527,7 +533,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
 
     feed_col_updates['update_minutes'] = update_period_mins
     update_feed(session, feed_id, Status.SUCC, f"{skipped} skipped / {saved} added",
-                feed_col_updates)
+                now, feed_col_updates)
 
 
 def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
