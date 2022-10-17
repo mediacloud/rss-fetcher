@@ -20,4 +20,5 @@ if __name__ == '__main__':
     args = p.parse_args()       # parse logging args, output start message
 
     Stats.init('worker')
+    fetcher.tasks.open_log_file()
     worker()

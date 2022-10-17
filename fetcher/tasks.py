@@ -55,15 +55,23 @@ RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
-logFormatter = logging.Formatter(
-    "[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
-path.check_dir(path.LOG_DIR)
-# rotate file after midnight (UTC), keep 7 old files
-fileHandler = logging.handlers.TimedRotatingFileHandler(
-    os.path.join(path.LOG_DIR, f"tasks-{DYNO}.log"),
-    when='midnight', utc=True, backupCount=7)
-fileHandler.setFormatter(logFormatter)
-logger.addHandler(fileHandler)
+
+def open_log_file():
+    """
+    Called from scripts/worker.py so that scripts/queue_feeds.py
+    (which includes this file so it can queue a reference to feed_worker)
+    doesn't create an empty tasks-fetcher.1.log file
+    """
+    logFormatter = logging.Formatter(
+        "[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
+    path.check_dir(path.LOG_DIR)
+
+    # rotate file after midnight (UTC), keep 7 old files
+    fileHandler = logging.handlers.TimedRotatingFileHandler(
+        os.path.join(path.LOG_DIR, f"tasks-{DYNO}.log"),
+        when='midnight', utc=True, backupCount=7)
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
 
 
 # mediacloud/backend/apps/common/src/python/mediawords/util/web/user_agent/__init__.py has
