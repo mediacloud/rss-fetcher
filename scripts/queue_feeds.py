@@ -1,12 +1,9 @@
 """
 script invoked by run-fetch-rss-feeds.sh
-"""
 
-# XXX move all queries to models???
-# XXX maybe have environment variable control that switches
-#       between:
-#               --loop monitors and queues, cron job disabled
-#               --loop just monitors, cron job enabled
+When run with --loop, stays running as daemon,
+sending queue stats, and refreshing the queue.
+"""
 
 import datetime as dt
 import logging
@@ -120,20 +117,11 @@ def loop(queuer):
     # will _initially_ avoid lumpiness, but downtime will cause
     # pileups.
 
-    # Estimate of how long MAX_FEEDS cleared from queue:
-    max_feeds_minutes = 15
-
     # how often to refill queue (take as argument to --loop?)
     refill_period_mins = 5
 
-    # how high to refill queue to
-    # (once had lo_water, set to a fraction of hi_water,
-    #  but it gave less direct control on queuing interval):
-    hi_water = round(conf.MAX_FEEDS / max_feeds_minutes * refill_period_mins)
-    if hi_water < 10:
-        hi_water = 10
-    logger.info(f"Starting loop. hi_water = {hi_water}")
-
+    logger.info(f"Starting loop: refill every {refill_period_mins} min")
+    old_hi_water = -1
     while True:
         t0 = time.time()        # wake time
         #logger.debug(f"top {t0}")
@@ -149,31 +137,44 @@ def loop(queuer):
         queuer.stats.gauge('active', active)
         logger.info(f"qlen {qlen} active {active}")
 
-        added = 0
-        if (int(t0 / 60) % refill_period_mins) == 0:
-            if qlen < hi_water:
-                added = queuer.find_and_queue_feeds(hi_water - qlen)
-
-        queuer.stats.gauge('added', added)
-        # begin maybe move
-        # queries done once a minute for monitoring only!
-        # if this is a problem move this section up
-        # (under ... % refill_period_mins == 0
-        #  or into queuer.find_and_queue_feeds!!!)
         with Session.begin() as session:
             # all entries marked active and enabled.
             # there is probably a problem if more than a small
             #  fraction of active entries are ready!
             db_active = queuer.count_active(session)
 
+        added = 0
+        if (int(t0 / 60) % refill_period_mins) == 0:
+            # Put enough into queue to handle active feeds
+            # polled at MINIMUM_INTERVAL_MINS.
+            hi_water = round(refill_period_mins * db_active / MINIMUM_INTERVAL_MINS)
+            if hi_water < 10:
+                hi_water = 10
+
+            if hi_water != old_hi_water:
+                logger.info(f"hi_water (queue length goal): {hi_water}")
+                old_hi_water = hi_water
+
+            if qlen < hi_water:
+                added = queuer.find_and_queue_feeds(hi_water - qlen)
+
+        # begin maybe move
+        # queries done once a minute for monitoring only!
+        # if this is a problem move this section up
+        # (under ... % refill_period_mins == 0)
+        # statsd Gauges assume the value they are set to,
+        # until they are set to a new value.
+
+        # after find_and_queue_feeds, so does not include "added" entries
+        with Session.begin() as session:
             # should be approx (updated) qlen + active
             db_queued = session.query(models.Feed)\
                                .filter(models.Feed.queued.is_(True))\
                                .count()
 
-            # after find_and_queue_feeds, so does not include "added" entries
             db_ready = queuer._ready_query(session).count()
 
+        queuer.stats.gauge('added', added)
         queuer.stats.gauge('db.active', db_active)
         queuer.stats.gauge('db.queued', db_queued)
         queuer.stats.gauge('db.ready', db_ready)
