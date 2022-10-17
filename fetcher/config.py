@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 # is the (one) _Conf class instance, since they're being
 # called to access properties of that object.
 
+
 def conf_default(name: str, defval: str) -> property:
     """
     return property function for
@@ -236,7 +237,7 @@ class _Config:                  # only instantied in this file
 
 conf = _Config()
 
-if __name__ == '__main__':      #  move to a test file?
+if __name__ == '__main__':  # move to a test file?
     logging.basicConfig(level='INFO')
     a = conf.RSS_FETCH_TIMEOUT_SECS    # should get default, log after start
 

@@ -79,7 +79,8 @@ if __name__ == '__main__':
                             except Exception as e:
                                 # probably some kind of XML encoding problem,
                                 # just log and skip
-                                logger.warning(f"Skipped story {story['id']} - {e}")
+                                logger.warning(
+                                    f"Skipped story {story['id']} - {e}")
                                 incr_stories('skipped')
                             story_count += 1
                     rsswriter.add_footer(outfile)
