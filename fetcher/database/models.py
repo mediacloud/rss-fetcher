@@ -2,7 +2,7 @@ import datetime as dt
 from enum import Enum
 import hashlib
 from time import mktime
-from typing import List
+from typing import List, Optional
 
 # PyPI:
 import mcmetadata.urls as urls
