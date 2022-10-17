@@ -241,10 +241,7 @@ def update_feed(session, feed_id: int, status: Status, note: str,
         elif f.system_enabled:
             logger.error("  Feed {feed_id} enabled but not rescheduled!!!")
 
-        # PLB: use now value from top level fetch_and_process_feed
-        # for FetchEvent so matches up with Story (and
-        # Feed.last_fetch_success)??
-        session.add(models.FetchEvent.from_info(feed_id, event, note))
+        session.add(models.FetchEvent.from_info(feed_id, str(event), note, now))
         session.commit()
         session.close()
     # end "with session.begin()"

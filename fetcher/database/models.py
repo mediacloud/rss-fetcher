@@ -171,12 +171,14 @@ class FetchEvent(Base):
         return f"<FetchEvent id={self.id}>"
 
     @staticmethod
-    def from_info(feed_id: int, event: Event, note: str = None):
+    def from_info(feed_id: int, event: Event,
+                  note: Optional[str] = None,
+                  ts: Optional[dt.datetime] = None):
         fe = FetchEvent()
         fe.feed_id = feed_id
-        fe.event = event
+        fe.event = event.name
         fe.note = note
-        fe.created_at = dt.datetime.utcnow()
+        fe.created_at = ts or dt.datetime.utcnow()
         return fe
 
     def as_dict(self):
