@@ -6,6 +6,14 @@
 
 # from https://dokku.com/blog/2021/dokku-0.25.0/
 
+SCRIPT_DIR=$(dirname $0)
+INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
+if [ ! -f $INSTALL_CONF ]; then
+    echo cannot find $INSTALL_CONF 1>&2
+    exit 1
+fi
+. $INSTALL_CONF
+
 # app name on bastion server (ie; appname.servername)
 PROXY_APP=$1
 
@@ -15,7 +23,7 @@ REMOTE_PORT=${3:-80}
 if [ "x$PROXY_APP" = x -o \
 	"x$REMOTE_HOST" = x -o \
 	"x$REMOTE_PORT" = x ]; then
-    echo "Usage: $0 PROXY_APP_NAME REMOTE_HOST REMOTE_PORT" 1>&2
+    echo "Usage: $0 PROXY_APP_NAME REMOTE_HOST [ REMOTE_PORT ]" 1>&2
     exit 1
 fi
 
