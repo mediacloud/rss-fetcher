@@ -38,6 +38,15 @@ from fetcher.stats import Stats
 import fetcher.queue
 import fetcher.util as util
 
+
+class Status(Enum):
+    SUCC = 'succ'               # success
+    SOFT = 'soft'               # soft error (never disable)
+    HARD = 'hard'               # hard error
+
+
+HTTP_SOFT = set([403, 429])     # http status codes to consider "soft"
+
 # force logging on startup (actual logging deferred)
 DAY_WINDOW = conf.DAY_WINDOW
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
@@ -135,7 +144,7 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
                       .scalar()
 
 
-def update_feed(session, feed_id: int, success: bool, note: str,
+def update_feed(session, feed_id: int, status: Status, note: str,
                 feed_col_updates: Optional[Dict] = None):
     """
     Update Feed row and insert FeedEvent row
@@ -172,31 +181,28 @@ def update_feed(session, feed_id: int, success: bool, note: str,
         # (update_minutes is either a value from feed, or NULL)
         next_minutes = f.update_minutes or DEFAULT_INTERVAL_MINS
 
-        if success:
-            event = models.FetchEvent.EVENT_FETCH_SUCCEEDED
+        if status == Status.SUCC:
+            event = models.FetchEvent.Event.FETCH_SUCCEEDED
             f.last_fetch_failures = 0
             # many values come in via 'feed_col_updates'
-
             # PLB: save "working" as system_status??
         else:
-            failures = f.last_fetch_failures = f.last_fetch_failures + 1
+            event = models.FetchEvent.Event.FETCH_FAILED
+            failures = f.last_fetch_failures
+            if status == Status.HARD:
+                failures = f.last_fetch_failures = f.last_fetch_failures + 1
+                if failures >= conf.MAX_FAILURES:
+                    event = models.FetchEvent.Event.FETCH_FAILED_DISABLED
+                    f.system_enabled = False
+                    next_minutes = None  # don't reschedule
+                    logger.warning(
+                        f" Feed {feed_id}: disabled after {failures} failures")
+                    # PLB: save "disabled" as system_status????
+                else:
+                    logger.info(
+                        f" Feed {feed_id}: upped last_fetch_failure to {failures}")
 
-            # PLB: consider passing trinary status
-            # (success, soft_err, hard_err)
-            # and never disabling based on a soft error?
-            # Treat HTTP 429 (too many requests) is a SOFT error!?
-            if failures >= conf.MAX_FAILURES:
-                event = models.FetchEvent.EVENT_FETCH_FAILED_DISABLED
-                f.system_enabled = False
-                next_minutes = None  # don't reschedule
-                logger.warning(
-                    f" Feed {feed_id}: disabled after {failures} failures")
-                # PLB: save "disabled" as system_status????
-            else:
-                event = models.FetchEvent.EVENT_FETCH_FAILED
-                logger.info(
-                    f" Feed {feed_id}: upped last_fetch_failure to {failures}")
-
+            if next_minutes is not None and failures > 0:
                 # back off to be kind to servers:
                 # linear backoff (ie; 12h, 1d, 1.5d, 2d)
                 next_minutes *= failures
@@ -208,26 +214,27 @@ def update_feed(session, feed_id: int, success: bool, note: str,
 
                 # add random minute offset to break up clumps
                 # of 429 (Too Many Requests) errors
-                next_minutes += random.random() * 60 * 60
+                next_minutes += random.random() * 60
 
-            # PLB: save note as f.system_status??
-            # (split w/ " / " and/or ":" and save front part)???
-            # or pass note in two halves: system_status & detail????
+        # PLB: save note as f.system_status??
+        # (split w/ " / " and/or ":" and save front part)???
+        # or pass note in two halves: system_status & detail????
 
         if next_minutes is not None:  # reschedule?
             if next_minutes < conf.MINIMUM_INTERVAL_MINS:
                 next_minutes = conf.MINIMUM_INTERVAL_MINS  # clamp to minimum
-            f.next_fetch_attempt = next_dt = models.utc(
-                seconds=next_minutes * 60)
+            f.next_fetch_attempt = next_dt = models.utc(next_minutes * 60)
             logger.debug(f"  Feed {feed_id} rescheduled for {next_dt}")
         elif f.system_enabled:
-            logger.error("  Feed {feed_id} enabled but not rescheduled!")
+            logger.error("  Feed {feed_id} enabled but not rescheduled!!!")
 
         # PLB: use now value from top level fetch_and_process_feed
-        #   so matches up with Story (and Feed.last_fetch_success)??
+        # for FetchEvent so matches up with Story (and
+        # Feed.last_fetch_success)??
         session.add(models.FetchEvent.from_info(feed_id, event, note))
         session.commit()
         session.close()
+    # end "with session.begin()"
 
 
 def _feed_update_period_mins(
@@ -311,19 +318,22 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
 def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     """
     Was fetch_feed_content: this is THE routine called in a worker.
-    Made a single routine for clarity/communication
-    (communication could be eased by encapsulating as a class)
-    ALL exits from this function should call `update_feed` to:
+    Made a single routine for clarity/communication.
+    ALL exits from this function should call `update_feed`
     * clear "Feed.queued"
     * create FetchEvent row
     * increment or clear Feed.last_fetch_failure
     * update Feed.next_fetch_attempt (or not) to reschedule
     """
 
-    stats = Stats.get()
+    stats = Stats.get()         # get stats client object
 
     def feeds_incr(status):
-        """call exactly ONCE for each feed processed"""
+        """
+        call EXACTLY ONCE for each feed processed
+        (sum of all counters should be number of feeds processed,
+        can be displayed as a "stacked" graph)
+        """
         stats.incr('feeds', 1, labels=[['stat', status]])
 
     # used in Feed.last_fetch_success, Story.fetched_at (but not FetchEntry)
@@ -362,10 +372,8 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         logger.info(f"Working on feed {feed_id}")
         response = _fetch_rss_feed(feed)
     except Exception as exc:
-        # ignore fetch failure exceptions as a "normal operation" error
-        # (no failure count increment *or* backoff)
         logger.warning(f" Feed {feed_id}: fetch failed {exc}")
-        update_feed(session, feed_id, False, f"fetch: {exc}")
+        update_feed(session, feed_id, Status.SOFT, f"fetch: {exc}")
 
         # NOTE!! try to limit cardinality of status: (eats stats
         # storage and graph colors), so not doing detailed breakdown
@@ -385,10 +393,15 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     # BAIL: HTTP failed (not full response or "Not Changed")
     rsc = response.status_code
     if rsc != 200 and rsc != 304:
+        if rsc in HTTP_SOFT:
+            status = Status.SOFT
+        else:
+            status = Status.HARD
+
         rurl = response.url
         logger.info(
             f"  Feed {feed_id} - skipping, bad response {rsc} at {rurl}")
-        update_feed(session, feed_id, False, f"HTTP {rsc} / {rurl}")
+        update_feed(session, feed_id, status, f"HTTP {rsc} / {rurl}")
 
         # limiting tag cardinality, only a few, common codes for now.
         # NOTE! 429 is "too many requests"
@@ -434,7 +447,12 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     # treated as success
     if response.status_code == 304:
         logger.info(f"  Feed {feed_id} - skipping, file not modified")
-        update_feed(session, feed_id, True, "not modified", feed_col_updates)
+        update_feed(
+            session,
+            feed_id,
+            Status.SUCC,
+            "not modified",
+            feed_col_updates)
         feeds_incr('not_mod')
         return
 
@@ -448,7 +466,12 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     # treated as success
     if new_hash == feed['last_fetch_hash']:
         logger.info(f"  Feed {feed_id} - skipping, same hash")
-        update_feed(session, feed_id, True, "same hash", feed_col_updates)
+        update_feed(
+            session,
+            feed_id,
+            Status.SUCC,
+            "same hash",
+            feed_col_updates)
         feeds_incr('same_hash')
         return
 
@@ -462,7 +485,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
     except Exception as e:
         # BAIL: couldn't parse it correctly
         logger.warning(f"Couldn't parse feed {feed_id}: {e}")
-        update_feed(session, feed_id, False, f"parse: {e}")
+        update_feed(session, feed_id, Status.SOFT, f"parse: {e}")
         # split up into different counters if needed/desired
         # (beware label cardinality)
         feeds_incr('parse_err')
@@ -487,7 +510,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         update_period_mins = None
 
     feed_col_updates['update_minutes'] = update_period_mins
-    update_feed(session, feed_id, True, f"{skipped} skipped / {saved} added",
+    update_feed(session, feed_id, Status.SUCC, f"{skipped} skipped / {saved} added",
                 feed_col_updates)
 
 

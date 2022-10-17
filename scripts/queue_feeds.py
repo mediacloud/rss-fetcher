@@ -83,7 +83,8 @@ class Queuer:
             if not feed_ids:
                 return 0
 
-            # mark as queued first to avoid race with workers
+            # mark as queued first so that workers can never see
+            # a feed_id that hasn't been marked as queued.
             session.query(models.Feed)\
                    .filter(models.Feed.id.in_(feed_ids))\
                    .update({'last_fetch_attempt': now, 'queued': True},
@@ -91,9 +92,10 @@ class Queuer:
 
             # create a fetch_event row for each feed:
             for feed_id in feed_ids:
+                # use "now" for FetchEvent created_at?
                 session.add(
                     models.FetchEvent.from_info(feed_id,
-                                                models.FetchEvent.EVENT_QUEUED))
+                                                models.FetchEvent.Event.QUEUED))
         return self.queue_feeds(feed_ids, now.isoformat())
 
     def queue_feeds(self, feed_ids: List[int], ts_iso: str) -> int:

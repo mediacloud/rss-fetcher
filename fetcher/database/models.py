@@ -1,4 +1,5 @@
 import datetime as dt
+from enum import Enum
 import hashlib
 from time import mktime
 from typing import List
@@ -23,7 +24,7 @@ def utc(seconds: float = 0.0) -> dt.datetime:
     """
     Return a UTC datetime with optional offset of `seconds` from current time
     """
-    d = dt.datetime.utcnow()  # or dt.datetime.now(dt.timezone.utc) ??
+    d = dt.datetime.utcnow()
     if seconds != 0.0:
         d += dt.timedelta(seconds=seconds)
     return d
@@ -56,8 +57,7 @@ class Feed(Base):
     update_minutes = Column(Integer)  # sy:updatePeriod/sy:updateFrequency
 
     def __repr__(self):
-        return '<Feed id={} name={} sources_id={}>'.format(
-            self.id, self.name, self.sources_id)
+        return f"<Feed id={self.id} name={self.name} sources_id={self.sources_id}>"
 
     def as_dict(self):
         return _class_as_dict(self)
@@ -80,24 +80,24 @@ class Story(Base):
     normalized_title_hash = Column(String)
 
     def __repr__(self):
-        return '<Story id={}>'.format(self.id)
+        return f"<Story id={self.id}>"
 
     @staticmethod
     def recent_fetched_volume(limit: int = 30):
-        earliest_date = dt.date.today() - dt.timedelta(days=limit)
+        today = dt.date.today()
+        earliest_date = today - dt.timedelta(days=limit)
         query = "select fetched_at::date as day, count(1) as stories from stories " \
-                "where fetched_at <= '{}'::DATE AND fetched_at >= '{}'::DATE " \
-                "group by 1 order by 1 DESC"\
-            .format(dt.date.today(), earliest_date)
+                f"where fetched_at <= '{today}'::DATE AND fetched_at >= '{earliest_date}'::DATE " \
+                "group by 1 order by 1 DESC"
         return _run_query(query)
 
     @staticmethod
     def recent_published_volume(limit: int = 30):
-        earliest_date = dt.date.today() - dt.timedelta(days=limit)
+        today = dt.date.today()
+        earliest_date = today - dt.timedelta(days=limit)
         query = "select published_at::date as day, count(1) as stories from stories " \
-                "where published_at <= '{}'::DATE AND published_at >= '{}'::DATE " \
-                "group by 1 order by 1 DESC"\
-            .format(dt.date.today(), earliest_date)
+                f"where published_at <= '{today}'::DATE AND published_at >= '{earliest_date}'::DATE " \
+                "group by 1 order by 1 DESC"
         return _run_query(query)
 
     @staticmethod
@@ -154,28 +154,29 @@ def _run_query(query: str) -> List:
 class FetchEvent(Base):
     __tablename__ = 'fetch_events'
 
-    EVENT_QUEUED = 'queued'
-    EVENT_FETCH_FAILED = 'fetch_failed'
-    EVENT_FETCH_SUCCEEDED = 'fetch_succeeded'
-    # disabled due to excessive failures
-    EVENT_FETCH_FAILED_DISABLED = 'fetch_disabled'
-
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     feed_id = Column(BigInteger)
-    event = Column(String)
+    event = Column(String)      # Event enum
     note = Column(String)
     created_at = Column(DateTime)
 
+    class Event(Enum):
+        QUEUED = 'queued'
+        FETCH_FAILED = 'fetch_failed'
+        FETCH_SUCCEEDED = 'fetch_succeeded'
+        # disabled due to excessive failures
+        FETCH_FAILED_DISABLED = 'fetch_disabled'
+
     def __repr__(self):
-        return '<FetchEvent id={}>'.format(self.id)
+        return f"<FetchEvent id={self.id}>"
 
     @staticmethod
-    def from_info(feed_id: int, event: str, note: str = None):
+    def from_info(feed_id: int, event: Event, note: str = None):
         fe = FetchEvent()
         fe.feed_id = feed_id
         fe.event = event
         fe.note = note
-        fe.created_at = dt.datetime.now()
+        fe.created_at = dt.datetime.utcnow()
         return fe
 
     def as_dict(self):
