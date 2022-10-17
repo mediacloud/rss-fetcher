@@ -145,7 +145,7 @@ def loop(queuer):
         if (int(t0 / 60) % refill_period_mins) == 0:
             # Put enough into queue to handle active feeds
             # polled at MINIMUM_INTERVAL_MINS.
-            hi_water = round(refill_period_mins * db_active / MINIMUM_INTERVAL_MINS)
+            hi_water = round(refill_period_mins * db_active / conf.MINIMUM_INTERVAL_MINS)
             if hi_water < 10:
                 hi_water = 10
 
