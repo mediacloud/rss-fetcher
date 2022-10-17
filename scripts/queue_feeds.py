@@ -126,8 +126,6 @@ def loop(queuer):
         t0 = time.time()        # wake time
         #logger.debug(f"top {t0}")
 
-        queuer.stats.gauge('hi_water', hi_water)  # never changes
-
         qlen = queue.queue_length(queuer.wq)  # queue(r) method??
         active = queue.queue_active(queuer.wq)  # jobs in progress
 
@@ -135,7 +133,7 @@ def loop(queuer):
         #       active entries NOT included in qlen
         queuer.stats.gauge('qlen', qlen)
         queuer.stats.gauge('active', active)
-        logger.info(f"qlen {qlen} active {active}")
+        logger.debug(f"qlen {qlen} active {active}")
 
         with Session.begin() as session:
             # all entries marked active and enabled.
@@ -151,6 +149,7 @@ def loop(queuer):
             if hi_water < 10:
                 hi_water = 10
 
+            queuer.stats.gauge('hi_water', hi_water)
             if hi_water != old_hi_water:
                 logger.info(f"hi_water (queue length goal): {hi_water}")
                 old_hi_water = hi_water
