@@ -9,7 +9,7 @@
 # check type hints with mypy
 
 import datetime as dt
-import enum
+from enum import Enum
 import hashlib
 import json
 from numbers import Real
