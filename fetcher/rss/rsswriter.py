@@ -1,16 +1,18 @@
 import datetime as dt
-import logging
-from jinja2 import Template
-import os
-import html
 from email.utils import formatdate  # RFC 822 date format
+import html
+import logging
+import os
 from typing import Optional, TextIO
 
-from fetcher import base_dir, VERSION
+from jinja2 import Template
+
+from fetcher import VERSION
+from fetcher.path import BASE_DIR
 
 logger = logging.getLogger(__file__)
 
-template_path = os.path.join(base_dir, 'fetcher', 'rss')
+template_path = os.path.join(BASE_DIR, 'fetcher', 'rss')
 
 
 def _escape(text: Optional[str]) -> str:

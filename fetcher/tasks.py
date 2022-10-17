@@ -1,6 +1,5 @@
 # PLB ISSUES to be resolved:
 # search for PLB!
-# database columns w/ timezone?  run worker & PG server w/ TZ=UTC??!!!
 # any times NOT to increment failure count??
 
 # PLB: cleanup WISHES
@@ -10,6 +9,7 @@
 # check type hints with mypy
 
 import datetime as dt
+import enum
 import hashlib
 import json
 from numbers import Real
@@ -30,14 +30,15 @@ from sqlalchemy import literal
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
 
 # feed fetcher:
-from fetcher import path_to_log_dir, APP, DYNO
+from fetcher import APP, DYNO
 from fetcher.config import conf
 import fetcher.database.models as models
+import fetcher.path as path
 from fetcher.stats import Stats
 import fetcher.queue
 import fetcher.util as util
 
-# force logging on startup:
+# force logging on startup (actual logging deferred)
 DAY_WINDOW = conf.DAY_WINDOW
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
@@ -47,14 +48,14 @@ SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 logFormatter = logging.Formatter(
     "[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
+path.check_dir(path.LOG_DIR)
 # rotate file after midnight (UTC), keep 7 old files
 fileHandler = logging.handlers.TimedRotatingFileHandler(
-    os.path.join(path_to_log_dir, f"tasks-{DYNO}.log"),
+    os.path.join(path.LOG_DIR, f"tasks-{DYNO}.log"),
     when='midnight', utc=True, backupCount=7)
 fileHandler.setFormatter(logFormatter)
 logger.addHandler(fileHandler)
 
-RSS_FILE_LOG_DIR = os.path.join(path_to_log_dir, "rss-files")
 
 # mediacloud/backend/apps/common/src/python/mediawords/util/web/user_agent/__init__.py has
 #    # HTTP "From:" header
@@ -81,9 +82,11 @@ DEFAULT_UPDATE_PERIOD = 'daily'  # specified in Syndication spec
 DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
 
 
-def _save_rss_file(feed: Dict, response):
-    # debugging helper method - saves two files for the feed to /logs/rss-feeds
-    # only saves one feed per source? bug and feature!
+def _save_rss_files(feed: Dict, response):
+    """
+    debugging helper method - saves two files for the feed to paths.
+    only saves one feed per source? bug and feature!
+    """
     srcid = feed['sources_id']
     summary = {
         'id': feed['id'],
@@ -92,15 +95,12 @@ def _save_rss_file(feed: Dict, response):
         'statusCode': response.status_code,
         'headers': dict(response.headers),
     }
-    if not os.path.isdir(RSS_FILE_LOG_DIR):
-        try:
-            os.mkdir(RSS_FILE_LOG_DIR)
-        except BaseException:
-            pass
-    json_filename = os.path.join(RSS_FILE_LOG_DIR, f"{srcid}-summary.json")
+
+    path.check_dir(path.INPUT_RSS_DIR)
+    json_filename = os.path.join(path.INPUT_RSS_DIR, f"{srcid}-summary.json")
     with open(json_filename, 'w', encoding='utf-8') as f:
         json.dump(summary, f, indent=4)
-    rss_filename = os.path.join(RSS_FILE_LOG_DIR, f"{srcid}-content.rss")
+    rss_filename = os.path.join(path.INPUT_RSS_DIR, f"{srcid}-content.rss")
     with open(rss_filename, 'w', encoding='utf-8') as f:
         f.write(response.text)
 
@@ -380,7 +380,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
         return
 
     if SAVE_RSS_FILES:
-        _save_rss_file(feed, response)
+        _save_rss_files(feed, response)
 
     # BAIL: HTTP failed (not full response or "Not Changed")
     rsc = response.status_code

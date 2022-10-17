@@ -1,17 +1,18 @@
-import unittest
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import sessionmaker
-import os
-import feedparser
 import datetime as dt
+import os
+import unittest
+
+import feedparser
 import psycopg2
 import psycopg2.errors
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker
 
 import fetcher.database
 import fetcher.database.models as models
 import fetcher.tasks as tasks
 
-fixture_dir = os.path.join(fetcher.base_dir, 'fetcher', 'test', 'fixtures')
+fixture_dir = os.path.join(fetcher.BASE_DIR, 'fetcher', 'test', 'fixtures')
 
 
 class DBTest(unittest.TestCase):

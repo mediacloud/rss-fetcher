@@ -4,26 +4,17 @@ import datetime as dt
 import os.path
 from sqlalchemy import text
 import gzip
-import shutil
 
-from fetcher.config import conf
 from fetcher.database.engine import engine
-from fetcher import base_dir
 from fetcher.logargparse import LogArgumentParser
+import fetcher.path as path
 import fetcher.rss.rsswriter as rsswriter
 from fetcher.stats import Stats
 import fetcher.util as util
 
-HISTORY = 14  # number of days to ensure output: have a --days option??
 SCRIPT = 'gen_rss'              # NOTE! used for stats!!!
 
-# handle relative paths smartly for local devs
-if conf.RSS_FILE_PATH[0] == "/":
-    target_dir = conf.RSS_FILE_PATH
-else:
-    target_dir = os.path.join(base_dir, conf.RSS_FILE_PATH)
-
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(SCRIPT)
 stats = Stats.init(SCRIPT)
 
 
@@ -37,35 +28,46 @@ def incr_stories(status):
 
 if __name__ == '__main__':
     p = LogArgumentParser(SCRIPT, 'RSS file generator')
+    # XXX include default values in help??
+    p.add_argument('--days', default=14, type=int,
+                   help="number of days to (try to) output")
+    p.add_argument('--output', default=path.OUTPUT_RSS_DIR,
+                   help="directory for generated RSS files")
+    # XXX add option to output hourly files???
+    #    (if daily file exists, don't write hourly files)
+
     # info logging before this call unlikely to be seen:
     args = p.parse_args()       # parse logging args, output start message
 
+    target_dir = args.output
+    path.check_dir(target_dir)
+
     today = dt.date.today()
-    logger.info("Writing daily RSS files since {}".format(today))
-    logger.info("  writing to {}".format(target_dir))
+    logger.info(f"Writing daily RSS files since {today}")
+    logger.info(f"  writing to {target_dir}")
 
     # generate a file for each of the last N days (skipping today, which might
     # still be running)
-    for d in range(1, HISTORY):
+    for d in range(1, args.days):
         try:
             day = today - datetime.timedelta(d)
-            logger.info(" Working on {} (day {})".format(day, d))
+            day_str = day.strftime("%Y-%m-%d")
+            logger.info(f" Working on {day_str} (day {d})")
             # only do this day if it doesn't exist already
-            filename = "mc-{}.rss".format(day.strftime("%Y-%m-%d"))
-            filepath = os.path.join(target_dir, filename)
-            compressed_filepath = '{}.gz'.format(filepath)
+            filename = f"mc-{day_str}.rss.gz"
+            compressed_filepath = os.path.join(target_dir, filename)
             if not os.path.exists(compressed_filepath):
-                with open(filepath, 'w') as outfile:
+                with gzip.open(compressed_filepath, 'wt') as outfile:
                     incr_files('created')
                     rsswriter.add_header(outfile, day)
                     # grab the stories fetched on that day
                     # (ignore ones that didn't have URLs - ie. podcast feeds, which have `<enclosure url="...">` instead)
                     story_count = 0
-                    query = """
+                    query = f"""
                         select id, url, guid, published_at, domain, title
                         from stories
-                        where fetched_at::date = '{}'::date and url is not NULL
-                    """.format(day.strftime("%Y-%m-%d"))
+                        where fetched_at::date = '{day_str}'::date and url is not NULL
+                    """
                     with engine.begin() as connection:  # will auto-close
                         result = connection.execute(text(query))
                         for row in result:
@@ -77,29 +79,16 @@ if __name__ == '__main__':
                             except Exception as e:
                                 # probably some kind of XML encoding problem,
                                 # just log and skip
-                                logger.warning(
-                                    "Skipped story {} - {}".format(story['id'], str(e)))
+                                logger.warning(f"Skipped story {story['id']} - {e}")
                                 incr_stories('skipped')
                             story_count += 1
                     rsswriter.add_footer(outfile)
-                logger.info("   Found {} stories".format(story_count))
-                logger.info("   Wrote out to {}".format(filepath))
-                # compress for storage and transmission speed
-                # https://stackoverflow.com/questions/38018071/how-to-compress-a-large-file-in-python
-                if not os.path.exists(compressed_filepath):
-                    with open(filepath, 'rb') as f_in:
-                        with open(compressed_filepath, 'wb') as f_out1:
-                            with gzip.GzipFile(filepath, 'wb', fileobj=f_out1) as f_out2:
-                                shutil.copyfileobj(f_in, f_out2)
+                logger.info(f"   Found {story_count} stories")
+                logger.info(f"   Wrote out to {compressed_filepath}")
             else:
                 incr_files('exists')
                 logger.info(
                     "  Skipping - file already exists at {}".format(compressed_filepath))
-            # and delete the uncompressed to save space
-            try:
-                os.remove(filepath)
-            except FileNotFoundError:
-                pass
         except Exception as exc:
             logger.exception(exc)
             logger.error(

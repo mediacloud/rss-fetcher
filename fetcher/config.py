@@ -226,10 +226,7 @@ class _Config:                  # only instantied in this file
     # timeout in sec. for fetching an RSS file
     RSS_FETCH_TIMEOUT_SECS = conf_int('RSS_FETCH_TIMEOUT_SECS', 30)
 
-    # where to save RSS files when SAVE_RSS_FILES enabled
-    RSS_FILE_PATH = conf_required('RSS_FILE_PATH')
-
-    # save rss files (one per source) plus metadata
+    # save input rss files (one per source) plus metadata for debug
     SAVE_RSS_FILES = conf_bool('SAVE_RSS_FILES', False)
 
     SENTRY_DSN = conf_optional('SENTRY_DSN')
@@ -239,7 +236,7 @@ class _Config:                  # only instantied in this file
 
 conf = _Config()
 
-if __name__ == '__main__':
+if __name__ == '__main__':      #  move to a test file?
     logging.basicConfig(level='INFO')
     a = conf.RSS_FETCH_TIMEOUT_SECS    # should get default, log after start
 
@@ -249,13 +246,11 @@ if __name__ == '__main__':
     # second access: should not log
     a = conf.RSS_FETCH_TIMEOUT_SECS
 
-    # optional, should log if set
-    try:
-        a = conf.RSS_FILE_PATH
-    except BaseException:
-        pass
+    # optional, should log only if set
+    a = conf.SENTRY_DSN
 
     try:
         a = conf.ZZZ            # type: ignore
+        assert False
     except AttributeError:
         pass
