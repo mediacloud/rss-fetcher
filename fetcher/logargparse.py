@@ -2,8 +2,8 @@
 argparser class with logging arguments for rss-fetcher scripts
 """
 
-# NOTE! celery, flask, rq, uvicorn all use "click" for command line parsing (instead of argparse)
-# so that may be worth examining???
+# NOTE! celery, flask, rq, uvicorn all use "click" for command line parsing (instead of argparse).
+# WISH: add --log-file PREFIX (writes /app/logs/PREFIX-DYNO.N.log); attach to root logger???
 
 import argparse
 import json
