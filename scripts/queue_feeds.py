@@ -149,8 +149,8 @@ def loop(queuer):
         added = 0
 
         # always refill on restart, or when there is a backlog.
-        if hi_water < 0 or db_ready > hi_water or
-                (int(t0 / 60) % refill_period_mins) == 0:
+        if (hi_water < 0 or db_ready > hi_water or
+                (int(t0 / 60) % refill_period_mins) == 0):
             # Put enough into queue to handle all active feeds
             # polled at MINIMUM_INTERVAL_MINS.  So far, an adaptive
             # solution to estimate the run-rate, has been illusive
