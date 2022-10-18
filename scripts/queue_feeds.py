@@ -36,6 +36,7 @@ class Queuer:
     def __init__(self, stats, wq):
         self.stats = stats
         self.wq = wq
+        _ = conf.MAX_FEEDS  # log early
 
     def _active_feeds(self, session, full=False):
         """
@@ -115,13 +116,17 @@ def loop(queuer):
     # keeps queue short (db changes seen quickly)
     # Initial randomization of next_fetch_attempt in import process
     # will _initially_ avoid lumpiness, but downtime will cause
-    # pileups.
+    # pileups that will take at most MINIMUM_INTERVAL_MINS
+    # to clear (given enough workers).
 
     # how often to refill queue (take as argument to --loop?)
     refill_period_mins = 5
 
+    # log early
+    _ = conf.MINIMUM_INTERVAL_MINS
+
     logger.info(f"Starting loop: refill every {refill_period_mins} min")
-    old_hi_water = -1
+    db_ready = hi_water = -1
     while True:
         t0 = time.time()        # wake time
         #logger.debug(f"top {t0}")
@@ -142,20 +147,30 @@ def loop(queuer):
             db_active = queuer.count_active(session)
 
         added = 0
-        if (int(t0 / 60) % refill_period_mins) == 0:
-            # Put enough into queue to handle active feeds
-            # polled at MINIMUM_INTERVAL_MINS.
-            hi_water = round(refill_period_mins * db_active / conf.MINIMUM_INTERVAL_MINS)
+        if hi_water < 0 or (int(t0 / 60) % refill_period_mins) == 0:
+            # Put enough into queue to handle all active feeds
+            # polled at MINIMUM_INTERVAL_MINS.  So far, an adaptive
+            # solution to estimate the run-rate, has been illusive
+            # (estimates were noisy, and code bulky).
+            hi_water = round(
+                refill_period_mins *
+                db_active /
+                conf.MINIMUM_INTERVAL_MINS)
+
+            # if the work queue emptied out, and there's a
+            # backlog of ready feeds in the database, increase the
+            # queue limit to try to eliminate idle time.
+            if qlen == 0 and db_ready > hi_water:
+                hi_water *= 2   # a guess!
+
+            # for dev/debug, avoid underflow on small databases:
             if hi_water < 10:
                 hi_water = 10
 
-            queuer.stats.gauge('hi_water', hi_water)
-            if hi_water != old_hi_water:
-                logger.info(f"hi_water (queue length goal): {hi_water}")
-                old_hi_water = hi_water
-
+            # if queue is below the limit, fill up to the limit.
             if qlen < hi_water:
                 added = queuer.find_and_queue_feeds(hi_water - qlen)
+        queuer.stats.gauge('added', added)
 
         # begin maybe move
         # queries done once a minute for monitoring only!
@@ -173,12 +188,11 @@ def loop(queuer):
 
             db_ready = queuer._ready_query(session).count()
 
-        queuer.stats.gauge('added', added)
         queuer.stats.gauge('db.active', db_active)
         queuer.stats.gauge('db.queued', db_queued)
         queuer.stats.gauge('db.ready', db_ready)
 
-        logger.info(
+        logger.debug(
             f" db_active {db_active} db_queued {db_queued} db_ready {db_ready}")
         # end maybe move
 
