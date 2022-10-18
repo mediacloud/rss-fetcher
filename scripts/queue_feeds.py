@@ -120,7 +120,7 @@ def loop(queuer):
     # to clear (given enough workers).
 
     # how often to refill queue (take as argument to --loop?)
-    refill_period_mins = 5
+    refill_period_mins = 5      # XXX config param?
 
     # log early
     _ = conf.MINIMUM_INTERVAL_MINS
@@ -147,7 +147,12 @@ def loop(queuer):
             db_active = queuer.count_active(session)
 
         added = 0
-        if hi_water < 0 or (int(t0 / 60) % refill_period_mins) == 0:
+
+        # always refill on restart, or when there is a backlog,
+        # and the work queue is empty.
+        if (hi_water < 0 or
+            (qlen == 0 and db_ready > hi_water) or
+                (int(t0 / 60) % refill_period_mins) == 0):
             # Put enough into queue to handle all active feeds
             # polled at MINIMUM_INTERVAL_MINS.  So far, an adaptive
             # solution to estimate the run-rate, has been illusive
@@ -156,12 +161,6 @@ def loop(queuer):
                 refill_period_mins *
                 db_active /
                 conf.MINIMUM_INTERVAL_MINS)
-
-            # if the work queue emptied out, and there's a
-            # backlog of ready feeds in the database, increase the
-            # queue limit to try to eliminate idle time.
-            if qlen == 0 and db_ready > hi_water:
-                hi_water *= 2   # a guess!
 
             # for dev/debug, avoid underflow on small databases:
             if hi_water < 10:
