@@ -9,6 +9,7 @@ queuing system in use (once ops list is settled)
 
 import datetime
 import logging
+import time
 from typing import List, Optional
 
 from redis.client import StrictRedis
@@ -138,3 +139,10 @@ def clear_queue():
 
         logger.info("Committing.")
         session.commit()  # releases lock
+
+    for i in range(0,5):
+        ql = queue_length(q)
+        logger.info(f"queue length {ql}")
+        if ql == 0:
+            break
+        time.sleep(1)
