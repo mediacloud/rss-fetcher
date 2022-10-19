@@ -13,7 +13,7 @@ from fetcher.config import conf
 logger = logging.getLogger(__name__)
 
 
-def init():
+def init() -> bool:
     """
     optional centralized logging to Sentry.
     If possible, call after initial logging setup

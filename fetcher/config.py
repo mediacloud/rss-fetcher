@@ -15,7 +15,7 @@ Started 9/26/2022
 import logging
 import os
 import sys
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 # PyPI
 from dotenv import load_dotenv
@@ -51,7 +51,7 @@ def conf_default(name: str, defval: str) -> property:
     config variable with default (if not set)
     """
 
-    def getter(confobj) -> Any:
+    def getter(confobj: '_Config') -> Any:
         if name in confobj.values:
             value = confobj.values[name]  # cached value
         else:
@@ -69,13 +69,13 @@ def conf_bool(name: str, defval: bool) -> property:
     True values: non-zero integer, true, t, on (case insensitive)
     """
 
-    def getter(confobj) -> bool:
+    def getter(confobj: '_Config') -> bool:
         if name in confobj.values:
             value = confobj.values[name]  # cached value
         else:
             value = os.environ.get(name)
             if value is None:
-                val = defval
+                value = defval
             else:
                 value = value.strip().rstrip().lower()
                 if value.isdigit():
@@ -94,7 +94,7 @@ def conf_int(name: str, defval: int) -> property:
     (could add limits)
     """
 
-    def getter(confobj) -> int:
+    def getter(confobj: '_Config') -> int:
         if name in confobj.values:
             value = confobj.values[name]  # cached value
         else:
@@ -113,7 +113,7 @@ def conf_optional(name: str) -> property:
     optional configuration variable (returns None if not set, does not log)
     """
 
-    def getter(confobj) -> Any:
+    def getter(confobj: '_Config') -> Any:
         if name in confobj.values:
             value = confobj.values[name]  # cached value
         else:
@@ -126,13 +126,13 @@ def conf_optional(name: str) -> property:
     return property(getter)
 
 
-def conf_required(name) -> property:
+def conf_required(name: str) -> property:
     """
     return property function for required config:
     fatal if Conf.MEMBER referenced, but environment variable not set
     """
 
-    def getter(confobj) -> Any:
+    def getter(confobj: '_Config') -> Any:
         if name not in os.environ:
             logger.error(f"{name} not set.")
             sys.exit(1)
@@ -158,16 +158,16 @@ class _Config:                  # only instantied in this file
     and there should only ever be ONE instance of this class!
     """
 
-    def __init__(self):
-        self.values = {}        # cache
+    def __init__(self) -> None:
+        self.values: Dict[str, Any] = {}  # cache
         self.engine = None
-        self.msgs = []
+        self.msgs: List[str] = []
         self.logging = False
 
-    def _set(self, name, value):
+    def _set(self, name: str, value: Any) -> None:
         self.values[name] = value
 
-    def _log(self, name, value):
+    def _log(self, name: str, value: Any) -> None:
         """
         set and log name & value
         """
@@ -178,7 +178,7 @@ class _Config:                  # only instantied in this file
         else:
             self.msgs.append(msg)
 
-    def start(self, prog, descr):
+    def start(self, prog: Optional[str], descr: Optional[str]) -> None:
         """
         optionally log start message with any saved messages
         called from LogArgumentParser.parse_args

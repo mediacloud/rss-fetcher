@@ -8,6 +8,7 @@ argparser class with logging arguments for rss-fetcher scripts
 import argparse
 import json
 import logging
+import logging.config
 import os
 import sys
 
@@ -25,7 +26,7 @@ LOGGER_LEVEL_SEP = ':'
 
 
 class LogArgumentParser(argparse.ArgumentParser):
-    def __init__(self, prog, descr):
+    def __init__(self, prog: str, descr: str):
         super().__init__(prog=prog, description=descr)
 
         # all loggers:
@@ -54,7 +55,7 @@ class LogArgumentParser(argparse.ArgumentParser):
         self.add_argument('--version', '-V', action='version',
                           version=f"rss-fetcher {prog} {VERSION}")
 
-    def parse_args(self):
+    def parse_args(self) -> argparse.Namespace:
         args = super().parse_args()
 
         if args.list_loggers:
@@ -108,7 +109,7 @@ class LogArgumentParser(argparse.ArgumentParser):
 if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     p = LogArgumentParser('main', 'test program')
-    p.parse_args()
+    args = p.parse_args()
 
     logger.debug('debug')
     logger.info('info')
