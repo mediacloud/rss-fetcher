@@ -2,7 +2,7 @@ from urllib.parse import urlparse
 from typing import Optional
 
 
-def is_absolute_url(url):
+def is_absolute_url(url: str) -> bool:
     # https://stackoverflow.com/questions/8357098/how-can-i-check-if-a-url-is-absolute-using-python
     try:
         return bool(urlparse(url).netloc)

@@ -2,7 +2,7 @@ import datetime as dt
 from enum import Enum
 import hashlib
 from time import mktime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 # PyPI:
 import mcmetadata.urls as urls
@@ -16,7 +16,7 @@ import fetcher.util as util
 Base = declarative_base()
 
 
-def _class_as_dict(obj):
+def _class_as_dict(obj) -> Dict[str, Any]:
     return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
 
 
@@ -56,10 +56,10 @@ class Feed(Base):
         server_default=text('true'))
     update_minutes = Column(Integer)  # sy:updatePeriod/sy:updateFrequency
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Feed id={self.id} name={self.name} sources_id={self.sources_id}>"
 
-    def as_dict(self):
+    def as_dict(self) -> Dict[str, Any]:
         return _class_as_dict(self)
 
 
@@ -79,7 +79,7 @@ class Story(Base):
     normalized_title = Column(String)
     normalized_title_hash = Column(String)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Story id={self.id}>"
 
     @staticmethod
@@ -92,7 +92,7 @@ class Story(Base):
         return _run_query(query)
 
     @staticmethod
-    def recent_published_volume(limit: int = 30):
+    def recent_published_volume(limit: int = 30) -> int:
         today = dt.date.today()
         earliest_date = today - dt.timedelta(days=limit)
         query = "select published_at::date as day, count(1) as stories from stories " \
@@ -102,7 +102,7 @@ class Story(Base):
 
     @staticmethod
     def from_rss_entry(feed_id: int, fetched_at: dt.datetime,
-                       entry, media_name: str = None):
+                       entry, media_name: str = None) -> 'Story':
         s = Story()
         s.feed_id = feed_id
         try:
@@ -138,7 +138,7 @@ class Story(Base):
         s.fetched_at = fetched_at
         return s
 
-    def as_dict(self):
+    def as_dict(self) -> Dict[str, Any]:
         return _class_as_dict(self)
 
 
@@ -167,13 +167,13 @@ class FetchEvent(Base):
         # disabled due to excessive failures
         FETCH_FAILED_DISABLED = 'fetch_disabled'
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<FetchEvent id={self.id}>"
 
     @staticmethod
     def from_info(feed_id: int, event: Event,
                   note: Optional[str] = None,
-                  ts: Optional[dt.datetime] = None):
+                  ts: Optional[dt.datetime] = None) -> FetchEvent:
         fe = FetchEvent()
         fe.feed_id = feed_id
         fe.event = event.name
@@ -181,5 +181,5 @@ class FetchEvent(Base):
         fe.created_at = ts or dt.datetime.utcnow()
         return fe
 
-    def as_dict(self):
+    def as_dict(self) -> Dict[str, Any]:
         return _class_as_dict(self)

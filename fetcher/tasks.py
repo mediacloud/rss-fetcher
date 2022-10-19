@@ -57,7 +57,7 @@ SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 
 
-def open_log_file():
+def open_log_file() -> None:
     """
     Called from scripts/worker.py so that scripts/queue_feeds.py
     (which includes this file so it can queue a reference to feed_worker)
@@ -100,7 +100,7 @@ DEFAULT_UPDATE_PERIOD = 'daily'  # specified in Syndication spec
 DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
 
 
-def _save_rss_files(feed: Dict, response):
+def _save_rss_files(feed: Dict, response) -> None:
     """
     debugging helper method - saves two files for the feed to paths.
     only saves one feed per source? bug and feature!
@@ -137,7 +137,7 @@ def normalized_title_exists(session, normalized_title_hash: str,
                                       models.Story.normalized_title_hash == normalized_title_hash,
                                       models.Story.sources_id == sources_id)
                               .exists())\
-                      .scalar()
+                      .scalar() is True
 
 
 def normalized_url_exists(session, normalized_url: str) -> bool:
@@ -150,7 +150,7 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
                               .filter(models.Story.normalized_url ==
                                       normalized_url)
                               .exists())\
-                      .scalar()
+                      .scalar() is True
 
 
 def update_feed(session,
@@ -254,7 +254,7 @@ def update_feed(session,
 
 
 def _feed_update_period_mins(
-        parsed_feed: feedparser.FeedParserDict) -> Optional[int]:
+        parsed_feed: feedparser.FeedParserDict) -> Any:
     """
     Extract feed update period in minutes, if any from parsed feed.
     Returns None if <sy:updatePeriod> not present, or bogus in some way.
@@ -331,7 +331,7 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     return response
 
 
-def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
+def fetch_and_process_feed(session, feed_id: int, ts_iso: str) -> None:
     """
     Was fetch_feed_content: this is THE routine called in a worker.
     Made a single routine for clarity/communication.
@@ -344,13 +344,13 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str):
 
     stats = Stats.get()         # get stats client object
 
-    def feeds_incr(status):
+    def feeds_incr(status: str) -> None:
         """
         call EXACTLY ONCE for each feed processed
         (sum of all counters should be number of feeds processed,
         can be displayed as a "stacked" graph)
         """
-        stats.incr('feeds', 1, labels=[['stat', status]])
+        stats.incr('feeds', 1, labels=[('stat', status)])
 
     # used in Feed.last_fetch_success, Story.fetched_at
     now = dt.datetime.utcnow()
@@ -544,9 +544,9 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
     """
     stats = Stats.get()
 
-    def stories_incr(status):
+    def stories_incr(status: str) -> None:
         """call exactly ONCE for each story processed"""
-        stats.incr('stories', 1, labels=[['stat', status]])
+        stats.incr('stories', 1, labels=[('stat', status)])
 
     skipped_count = 0
     for entry in parsed_feed.entries:
@@ -623,7 +623,7 @@ def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
 
 def check_feed_title(feed: Dict,
                      parsed_feed: feedparser.FeedParserDict,
-                     feed_col_updates: Dict):
+                     feed_col_updates: Dict) -> None:
     # update feed title (if it has one and it changed)
     try:
         title = parsed_feed.feed.title
@@ -649,7 +649,7 @@ def check_feed_title(feed: Dict,
 # MUST be run from rq SimpleWorker to achieve session caching!!!!
 
 
-def feed_worker(feed_id: int, ts_iso: str):
+def feed_worker(feed_id: int, ts_iso: str) -> None:
     """
     Fetch a feed, parse out stories, store them
     :param self: this maintains the single session to use for all DB operations

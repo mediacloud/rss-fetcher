@@ -39,7 +39,7 @@ def get_session():
 # XXX wrap in a singleton??
 
 
-def redis_connection():
+def redis_connection() -> StrictRedis:
     u = make_url(conf.REDIS_URL)     # SQLAlchemy URL object
     if not u:
         raise Exception(f"Bad REDIS_URL {conf.REDIS_URL}")
@@ -88,7 +88,7 @@ def queue_feeds(wq: Queue, feed_ids: List[int], ts_iso: str) -> int:
 ################
 
 
-def worker():
+def worker() -> None:
     """
     run as worker, called by scripts/worker.py
     """
@@ -120,7 +120,7 @@ def queue_workers(q: Queue) -> int:
 ################
 
 
-def clear_queue():
+def clear_queue() -> None:
     with Session() as session:
         logger.info("Getting feeds table lock.")
         # for duration of transaction:

@@ -17,7 +17,7 @@ INPUT_RSS_DIR = os.path.join(STORAGE_DIR, 'saved-input-files')
 OUTPUT_RSS_DIR = os.path.join(STORAGE_DIR, 'rss-output-files')
 
 
-def check_dir(dir: str):
+def check_dir(dir: str) -> None:
     """
     call before trying to create files in a directory
     """

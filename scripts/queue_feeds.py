@@ -50,7 +50,7 @@ class Queuer:
                       .filter(models.Feed.active.is_(True),
                               models.Feed.system_enabled.is_(True))
 
-    def count_active(self, session):
+    def count_active(self, session) -> int:
         return self._active_feeds(session).count()
 
     def _ready_query(self, session):
@@ -107,7 +107,7 @@ class Queuer:
 
 
 # XXX make a queuer method? should only be used here!
-def loop(queuer):
+def loop(queuer) -> None:
     """
     Loop monitoring & reporting queue length to stats server
     """

@@ -7,6 +7,7 @@ ie; transparently handle statsd (with and without tag support) and prometheus
 
 import logging
 import os
+from typing import Any, List, Tuple
 
 # PyPi
 import statsd                   # pkg statsd_client
@@ -39,7 +40,7 @@ class Stats:
     _instance = None
 
     @classmethod
-    def init(cls, component):
+    def init(cls, component: str) -> Stats:
         """
         called from main program
         """
@@ -50,7 +51,7 @@ class Stats:
         return cls._instance
 
     @classmethod
-    def get(cls):
+    def get(cls) -> Stats:
         """
         called from non-main modules
         """
@@ -58,7 +59,7 @@ class Stats:
             raise Exception("Stats.init not called")
         return cls._instance
 
-    def __init__(self, component, _init_ok=False):
+    def __init__(self, component: str, _init_ok: bool = False):
         if not _init_ok:
             raise Exception("Call Stats.init")
 
@@ -84,10 +85,10 @@ class Stats:
         else:
             logger.warning("Not sending stats")
 
-    def _connect(self):
+    def _connect(self) -> bool:
         # return if have statsd, or insufficient config
         if self.statsd or not self.host or not self.prefix:
-            return
+            return False
 
         try:
             self.statsd = statsd.StatsdClient(
@@ -96,7 +97,7 @@ class Stats:
         except BaseException:
             return False
 
-    def _name(self, name, labels=[]):
+    def _name(self, name: str, labels: List[Tuple[str, Any]] = []) -> str:
         """
         return a statsd suitable variable for name (may contain dots)
         and labels (in the prometheus sense), a list of [name,value] pairs.
@@ -123,7 +124,7 @@ class Stats:
             print("name", name)
         return name
 
-    def incr(self, name, value=1, labels=[]):
+    def incr(self, name: str, value: int = 1, labels: List[Tuple[str, Any]] = []) -> None:
         """
         Increment a counter
         (something that never decreases, like an odometer)
@@ -139,7 +140,7 @@ class Stats:
             except BaseException:
                 self.statsd = None
 
-    def gauge(self, name, value, labels=[]):
+    def gauge(self, name: str, value: float, labels: List[Tuple[str, Any]] = []) -> None:
         """
         Indicate value of a gauge
         (something that goes up and down, like a thermometer or speedometer)
@@ -159,4 +160,4 @@ if __name__ == '__main__':
     s2 = Stats.get()
     assert s is s2
     s.incr('requests')
-    s.gauge('bar', 33.33, labels=(('y', 2), ('x', 1)))
+    s.gauge('bar', 33.33, labels=[('y', 2), ('x', 1)])
