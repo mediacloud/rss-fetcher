@@ -42,7 +42,8 @@ def _duration(start_time: float) -> int:
 
 
 # stolen from fastapi/routing.py
-def api_method(func: Callable) -> Callable[[VarArg(Any), KwArg(Any)], Dict[str, Any]]:
+def api_method(
+        func: Callable) -> Callable[[VarArg(Any), KwArg(Any)], Dict[str, Any]]:
     """
     Helper to wrap API method responses and add metadata.
     Use this in server.py and it will add stuff like the
@@ -68,7 +69,8 @@ def api_method(func: Callable) -> Callable[[VarArg(Any), KwArg(Any)], Dict[str, 
     return wrapper
 
 
-def as_timeseries_data(counts: List[List[Dict]], names: List[str]) -> TimeSeriesData:
+def as_timeseries_data(counts: List[List[Dict]],
+                       names: List[str]) -> TimeSeriesData:
     cleaned_data = [
         {
             r['day'].strftime("%Y-%m-%d"): r['stories']

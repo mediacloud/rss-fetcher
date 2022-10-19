@@ -9,13 +9,15 @@ from feedparser.util import FeedParserDict
 import mcmetadata.urls as urls
 import mcmetadata.titles as titles
 from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, text
-# SQLAlchemy moves this to sqlalchemy.orm, but available type hints only has it old location:
+# SQLAlchemy moves this to sqlalchemy.orm, but available type hints only
+# has it old location:
 from sqlalchemy.ext.declarative import declarative_base
 
 from fetcher.database.engine import engine
 import fetcher.util as util
 
 Base = declarative_base()
+
 
 class MyBase(Base):
     __abstract__ = True
@@ -184,4 +186,3 @@ class FetchEvent(MyBase):
         fe.note = note
         fe.created_at = ts or dt.datetime.utcnow()
         return fe
-

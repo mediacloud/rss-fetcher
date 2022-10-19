@@ -140,7 +140,7 @@ def clear_queue() -> None:
         logger.info("Committing.")
         session.commit()  # releases lock
 
-    for i in range(0,5):
+    for i in range(0, 5):
         ql = queue_length(q)
         logger.info(f"queue length {ql}")
         if ql == 0:

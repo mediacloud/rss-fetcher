@@ -38,6 +38,6 @@ def stories_published_counts(days: Optional[int] = None) -> TimeSeriesData:
 
 @router.get("/api/rss/<filename>")
 def rss(filename: str = Query(...,
-        description = "The full name of the daily RSS file you want to retrieve")) -> "Response":
+        description="The full name of the daily RSS file you want to retrieve")) -> "Response":
     return send_from_directory(
         directory='static', path='rss', filename=filename)

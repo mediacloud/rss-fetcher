@@ -128,7 +128,8 @@ class Stats:
             print("name", name)
         return name
 
-    def incr(self, name: str, value: int = 1, labels: List[Tuple[str, Any]] = []) -> None:
+    def incr(self, name: str, value: int = 1,
+             labels: List[Tuple[str, Any]] = []) -> None:
         """
         Increment a counter
         (something that never decreases, like an odometer)
@@ -147,7 +148,8 @@ class Stats:
             except BaseException:
                 self.statsd = None
 
-    def gauge(self, name: str, value: float, labels: List[Tuple[str, Any]] = []) -> None:
+    def gauge(self, name: str, value: float,
+              labels: List[Tuple[str, Any]] = []) -> None:
         """
         Indicate value of a gauge
         (something that goes up and down, like a thermometer or speedometer)

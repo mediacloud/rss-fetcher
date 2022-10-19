@@ -140,7 +140,8 @@ def normalized_title_exists(session: SessionType,
                       .scalar() is True
 
 
-def normalized_url_exists(session: SessionType, normalized_url: Optional[str]) -> bool:
+def normalized_url_exists(session: SessionType,
+                          normalized_url: Optional[str]) -> bool:
     if normalized_url is None:
         return False
     # only care if matching rows exist, so doing nested EXISTS query
@@ -331,7 +332,8 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     return response
 
 
-def fetch_and_process_feed(session: SessionType, feed_id: int, ts_iso: str) -> None:
+def fetch_and_process_feed(
+        session: SessionType, feed_id: int, ts_iso: str) -> None:
     """
     Was fetch_feed_content: this is THE routine called in a worker.
     Made a single routine for clarity/communication.
@@ -451,7 +453,8 @@ def fetch_and_process_feed(session: SessionType, feed_id: int, ts_iso: str) -> N
 
     # responded with data, or "not changed", so update last_fetch_success
     # XXX mypy infers that all values are datetime?!!!
-    feed_col_updates: Dict[str, Any] = {'last_fetch_success': now}  # HTTP fetch succeeded
+    feed_col_updates: Dict[str, Any] = {
+        'last_fetch_success': now}  # HTTP fetch succeeded
 
     # https://www.rfc-editor.org/rfc/rfc9110.html#status.304
     # says a 304 response MUST have an ETag if 200 would have.
