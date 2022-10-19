@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Dict
 
 # PyPI:
 from fastapi import FastAPI
@@ -45,7 +46,7 @@ if fetcher.sentry.init():
 
 @app.get("/api/version")
 @api_method
-def version():
+def version() -> Dict:
     return {'GIT_REV': os.environ.get('GIT_REV')}
 
 

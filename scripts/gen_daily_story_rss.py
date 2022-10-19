@@ -37,7 +37,7 @@ if __name__ == '__main__':
     #    (if daily file exists, don't write hourly files)
 
     # info logging before this call unlikely to be seen:
-    args = p.parse_args()       # parse logging args, output start message
+    args = p.my_parse_args()       # parse logging args, output start message
 
     target_dir = args.output
     path.check_dir(target_dir)

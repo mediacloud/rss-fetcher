@@ -1,18 +1,27 @@
-from itertools import chain
+import datetime as dt
 from functools import wraps
-import time
-from typing import Dict, List
+from itertools import chain
 import logging
+import time
+from typing import Any, Callable, Dict, List, TypedDict
+
+from fastapi.types import DecoratedCallable
+from mypy_extensions import VarArg, KwArg
 
 from fetcher import VERSION
 
 STATUS_OK = 'ok'
 STATUS_ERROR = 'error'
 
+
+TimeSeriesData = List[Dict[str, object]]
+
 logger = logging.getLogger(__name__)
 
 
-def _error_results(message: str, start_time: float, status_code: int = 400):
+# PLB: Could hint as a TypedDict
+def _error_results(message: str, start_time: float,
+                   status_code: int = 400) -> Dict:
     """
     Central handler for returning error messages.
     :param message:
@@ -28,17 +37,21 @@ def _error_results(message: str, start_time: float, status_code: int = 400):
     }
 
 
-def _duration(start_time: float):
+def _duration(start_time: float) -> int:
     return int(round((time.time() - start_time) * 1000)) if start_time else 0
 
 
-def api_method(func):
+# stolen from fastapi/routing.py
+def api_method(func: Callable) -> Callable[[VarArg(Any), KwArg(Any)], Dict[str, Any]]:
     """
-    Helper to add metadata to every api method. Use this in server.py and it will add stuff like the
-    version to the response. Plug it handles errors in one place, and supresses ones we don't care to log to Sentry.
+    Helper to wrap API method responses and add metadata.
+    Use this in server.py and it will add stuff like the
+    version to the response.
+
+    Plus it handles errors in one place, and supresses ones we don't care to log to Sentry.
     """
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Dict[str, Any]:
         start_time = time.time()
         try:
             results = func(*args, **kwargs)
@@ -55,9 +68,14 @@ def api_method(func):
     return wrapper
 
 
-def as_timeseries_data(counts: List[List], names: List[str]) -> List[Dict]:
-    cleaned_data = [{r['day'].strftime(
-        "%Y-%m-%d"): r['stories'] for r in series} for series in counts]
+def as_timeseries_data(counts: List[List[Dict]], names: List[str]) -> TimeSeriesData:
+    cleaned_data = [
+        {
+            r['day'].strftime("%Y-%m-%d"): r['stories']
+            for r in series
+        }
+        for series in counts
+    ]
     dates = set(chain(*[series.keys() for series in cleaned_data]))
     stories_by_day_data = []
     for d in dates:  # need to make sure there is a pair of entries for each date

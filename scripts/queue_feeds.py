@@ -9,14 +9,15 @@ import datetime as dt
 import logging
 import sys
 import time
-from typing import List
+from typing import Any, List
 
 # PyPI
 from sqlalchemy import or_
+from sqlalchemy.orm.query import Query
 
 # app
 from fetcher.config import conf
-from fetcher.database import engine, Session
+from fetcher.database import engine, Session, SessionType
 from fetcher.logargparse import LogArgumentParser
 import fetcher.database.models as models
 import fetcher.queue as queue
@@ -33,27 +34,27 @@ class Queuer:
     move some place public if needed elsewhere!
     """
 
-    def __init__(self, stats, wq):
+    def __init__(self, stats: Stats, wq: queue.Queue):
         self.stats = stats
         self.wq = wq
         _ = conf.MAX_FEEDS  # log early
 
-    def _active_feeds(self, session, full=False):
+    def _active_feeds(self, session: SessionType, full: bool = False) -> Query:
         """
         base query to return active feeds
         """
+        q: Query[Any]
         if full:
-            q = models.Feed
+            q = session.query(models.Feed)
         else:
-            q = models.Feed.id
-        return session.query(q)\
-                      .filter(models.Feed.active.is_(True),
-                              models.Feed.system_enabled.is_(True))
+            q = session.query(models.Feed.id)
+        return q.filter(models.Feed.active.is_(True),
+                        models.Feed.system_enabled.is_(True))
 
-    def count_active(self, session) -> int:
+    def count_active(self, session: SessionType) -> int:
         return self._active_feeds(session).count()
 
-    def _ready_query(self, session):
+    def _ready_query(self, session: SessionType) -> Query:
         """
         return base query for feed id's ready to be fetched
         """
@@ -107,7 +108,7 @@ class Queuer:
 
 
 # XXX make a queuer method? should only be used here!
-def loop(queuer) -> None:
+def loop(queuer: Queuer) -> None:
     """
     Loop monitoring & reporting queue length to stats server
     """
@@ -212,7 +213,7 @@ if __name__ == '__main__':
                    help='Fetch specific feeds')
 
     # info logging before this call unlikely to be seen:
-    args = p.parse_args()       # parse logging args, output start message
+    args = p.my_parse_args()       # parse logging args, output start message
 
     stats = Stats.init(SCRIPT)
 
@@ -227,8 +228,9 @@ if __name__ == '__main__':
     if args.loop:
         if args.feeds:
             logger.error('Cannot give both --loop and feed ids')
-            sys.exit(1)
-        sys.exit(loop(queuer))
+        else:
+            loop(queuer)        # never returns
+        sys.exit(1)
 
     # support passing in one or more feed ids on the command line
     if args.feeds:

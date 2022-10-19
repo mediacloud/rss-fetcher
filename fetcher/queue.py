@@ -19,7 +19,7 @@ from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
 from fetcher.config import conf
-from fetcher.database import Session
+from fetcher.database import Session, SessionType
 from fetcher.database.models import Feed
 import fetcher.tasks            # for feed_worker
 
@@ -28,7 +28,7 @@ WORKQ_NAME = 'workq'            # make configurable?
 logger = logging.getLogger(__name__)
 
 
-def get_session():
+def get_session() -> SessionType:
     """
     Get SQLAlchemy connection for current worker process
     """

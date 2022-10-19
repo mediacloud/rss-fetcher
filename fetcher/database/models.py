@@ -5,19 +5,23 @@ from time import mktime
 from typing import Any, Dict, List, Optional
 
 # PyPI:
+from feedparser.util import FeedParserDict
 import mcmetadata.urls as urls
 import mcmetadata.titles as titles
-from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, text
+# SQLAlchemy moves this to sqlalchemy.orm, but available type hints only has it old location:
+from sqlalchemy.ext.declarative import declarative_base
 
 from fetcher.database.engine import engine
 import fetcher.util as util
 
 Base = declarative_base()
 
+class MyBase(Base):
+    __abstract__ = True
 
-def _class_as_dict(obj) -> Dict[str, Any]:
-    return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
+    def as_dict(self) -> Dict[str, Any]:
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 
 def utc(seconds: float = 0.0) -> dt.datetime:
@@ -30,7 +34,7 @@ def utc(seconds: float = 0.0) -> dt.datetime:
     return d
 
 
-class Feed(Base):
+class Feed(MyBase):
     __tablename__ = 'feeds'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -59,11 +63,8 @@ class Feed(Base):
     def __repr__(self) -> str:
         return f"<Feed id={self.id} name={self.name} sources_id={self.sources_id}>"
 
-    def as_dict(self) -> Dict[str, Any]:
-        return _class_as_dict(self)
 
-
-class Story(Base):
+class Story(MyBase):
     __tablename__ = 'stories'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -83,7 +84,7 @@ class Story(Base):
         return f"<Story id={self.id}>"
 
     @staticmethod
-    def recent_fetched_volume(limit: int = 30):
+    def recent_fetched_volume(limit: int) -> List[Any]:
         today = dt.date.today()
         earliest_date = today - dt.timedelta(days=limit)
         query = "select fetched_at::date as day, count(1) as stories from stories " \
@@ -92,7 +93,7 @@ class Story(Base):
         return _run_query(query)
 
     @staticmethod
-    def recent_published_volume(limit: int = 30) -> int:
+    def recent_published_volume(limit: int) -> List[Any]:
         today = dt.date.today()
         earliest_date = today - dt.timedelta(days=limit)
         query = "select published_at::date as day, count(1) as stories from stories " \
@@ -101,8 +102,10 @@ class Story(Base):
         return _run_query(query)
 
     @staticmethod
-    def from_rss_entry(feed_id: int, fetched_at: dt.datetime,
-                       entry, media_name: str = None) -> 'Story':
+    def from_rss_entry(feed_id: int,
+                       fetched_at: dt.datetime,
+                       entry: FeedParserDict,
+                       media_name: Optional[str] = None) -> 'Story':
         s = Story()
         s.feed_id = feed_id
         try:
@@ -129,8 +132,11 @@ class Story(Base):
             # such
             s.title = util.clean_str(entry.title)
             s.normalized_title = titles.normalize_title(s.title)
-            s.normalized_title_hash = hashlib.md5(
-                s.normalized_title.encode()).hexdigest()
+            if s.normalized_title:
+                s.normalized_title_hash = hashlib.md5(
+                    s.normalized_title.encode()).hexdigest()
+            else:
+                s.normalized_title_hash = None
         except AttributeError as _:
             s.title = None
             s.normalized_title = None
@@ -138,20 +144,18 @@ class Story(Base):
         s.fetched_at = fetched_at
         return s
 
-    def as_dict(self) -> Dict[str, Any]:
-        return _class_as_dict(self)
 
-
-def _run_query(query: str) -> List:
+def _run_query(query: str) -> List[Any]:
     data = []
     with engine.begin() as connection:
         result = connection.execute(text(query))
+        # PLB would "return list(result)" work?
         for row in result:
             data.append(row)
     return data
 
 
-class FetchEvent(Base):
+class FetchEvent(MyBase):
     __tablename__ = 'fetch_events'
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -181,5 +185,3 @@ class FetchEvent(Base):
         fe.created_at = ts or dt.datetime.utcnow()
         return fe
 
-    def as_dict(self) -> Dict[str, Any]:
-        return _class_as_dict(self)

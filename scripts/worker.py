@@ -17,7 +17,7 @@ if __name__ == '__main__':
     p = LogArgumentParser('worker', 'Queue Worker')
 
     # info logging before this call unlikely to be seen:
-    args = p.parse_args()       # parse logging args, output start message
+    args = p.my_parse_args()       # parse logging args, output start message
 
     Stats.init('worker')
     fetcher.tasks.open_log_file()

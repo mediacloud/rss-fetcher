@@ -1,0 +1,5 @@
+mypy
+# https://github.com/dropbox/sqlalchemy-stubs
+sqlalchemy-stubs
+# https://github.com/python/typeshed?
+types-psycopg2

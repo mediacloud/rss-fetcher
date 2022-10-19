@@ -30,6 +30,7 @@ from sqlalchemy.exc import IntegrityError, PendingRollbackError
 # feed fetcher:
 from fetcher import APP, DYNO
 from fetcher.config import conf
+from fetcher.database import SessionType
 import fetcher.database.models as models
 import fetcher.path as path
 from fetcher.stats import Stats
@@ -98,7 +99,7 @@ DEFAULT_UPDATE_PERIOD = 'daily'  # specified in Syndication spec
 DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
 
 
-def _save_rss_files(feed: Dict, response) -> None:
+def _save_rss_files(feed: Dict, response: requests.Response) -> None:
     """
     debugging helper method - saves two files for the feed to paths.
     only saves one feed per source? bug and feature!
@@ -121,8 +122,9 @@ def _save_rss_files(feed: Dict, response) -> None:
         f.write(response.text)
 
 
-def normalized_title_exists(session, normalized_title_hash: str,
-                            sources_id: int) -> bool:
+def normalized_title_exists(session: SessionType,
+                            normalized_title_hash: Optional[str],
+                            sources_id: Optional[int]) -> bool:
     if normalized_title_hash is None or sources_id is None:
         # err on the side of keeping URLs
         return False
@@ -138,7 +140,7 @@ def normalized_title_exists(session, normalized_title_hash: str,
                       .scalar() is True
 
 
-def normalized_url_exists(session, normalized_url: str) -> bool:
+def normalized_url_exists(session: SessionType, normalized_url: Optional[str]) -> bool:
     if normalized_url is None:
         return False
     # only care if matching rows exist, so doing nested EXISTS query
@@ -151,12 +153,12 @@ def normalized_url_exists(session, normalized_url: str) -> bool:
                       .scalar() is True
 
 
-def update_feed(session,
+def update_feed(session: SessionType,
                 feed_id: int,
                 status: Status,
                 note: str,
                 now: dt.datetime,
-                feed_col_updates: Optional[Dict] = None):
+                feed_col_updates: Optional[Dict] = None) -> None:
     """
     Update Feed row and insert FeedEvent row
 
@@ -252,7 +254,7 @@ def update_feed(session,
 
 
 def _feed_update_period_mins(
-        parsed_feed: feedparser.FeedParserDict) -> Any:
+        parsed_feed: feedparser.FeedParserDict) -> Optional[int]:
     """
     Extract feed update period in minutes, if any from parsed feed.
     Returns None if <sy:updatePeriod> not present, or bogus in some way.
@@ -329,7 +331,7 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     return response
 
 
-def fetch_and_process_feed(session, feed_id: int, ts_iso: str) -> None:
+def fetch_and_process_feed(session: SessionType, feed_id: int, ts_iso: str) -> None:
     """
     Was fetch_feed_content: this is THE routine called in a worker.
     Made a single routine for clarity/communication.
@@ -449,7 +451,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str) -> None:
 
     # responded with data, or "not changed", so update last_fetch_success
     # XXX mypy infers that all values are datetime?!!!
-    feed_col_updates = {'last_fetch_success': now}  # HTTP fetch succeeded
+    feed_col_updates: Dict[str, Any] = {'last_fetch_success': now}  # HTTP fetch succeeded
 
     # https://www.rfc-editor.org/rfc/rfc9110.html#status.304
     # says a 304 response MUST have an ETag if 200 would have.
@@ -534,7 +536,7 @@ def fetch_and_process_feed(session, feed_id: int, ts_iso: str) -> None:
                 now, feed_col_updates)
 
 
-def save_stories_from_feed(session, now: dt.datetime, feed: Dict,
+def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
                            parsed_feed: feedparser.FeedParserDict) -> Tuple[int, int]:
     """
     Take parsed feed, so insert all the (valid) entries.

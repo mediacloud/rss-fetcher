@@ -66,13 +66,14 @@ class Stats:
         self.statsd = self.host = self.port = self.prefix = None
 
         # STATSD URL set by dokku-graphite plugin
-        if 'STATSD_URL' in os.environ:
-            url = make_url(os.environ.get('STATSD_URL'))
+        e = os.getenv('STATSD_URL')
+        if e:
+            url = make_url(e)
             # check if url.database == 'statsd'???
             self.host = url.host
             self.port = url.port
 
-        prefix = os.environ.get('MC_STATSD_PREFIX')
+        prefix = os.getenv('MC_STATSD_PREFIX')
         if not prefix:
             # XXX could now generate from MC_APP?
             return
@@ -87,7 +88,10 @@ class Stats:
 
     def _connect(self) -> bool:
         # return if have statsd, or insufficient config
-        if self.statsd or not self.host or not self.prefix:
+        if self.statsd:
+            return True
+
+        if not self.host or not self.prefix:
             return False
 
         try:
@@ -132,7 +136,10 @@ class Stats:
         Please use the convention that counter names end in "s".
         """
         for tries in (1, 2):
-            if not self.statsd and not self._connect():
+            if not self._connect():
+                return
+
+            if not self.statsd:
                 return
 
             try:
@@ -146,7 +153,10 @@ class Stats:
         (something that goes up and down, like a thermometer or speedometer)
         """
         for tries in (1, 2):
-            if not self.statsd and not self._connect():
+            if not self._connect():
+                return
+
+            if not self.statsd:
                 return
 
             try:

@@ -4,6 +4,7 @@ argparser class with logging arguments for rss-fetcher scripts
 
 # NOTE! celery, flask, rq, uvicorn all use "click" for command line parsing (instead of argparse).
 # WISH: add --log-file PREFIX (writes /app/logs/PREFIX-DYNO.N.log); attach to root logger???
+# WISH: add --config VAR=VALUE (overwrite environment)??
 
 import argparse
 import json
@@ -11,6 +12,7 @@ import logging
 import logging.config
 import os
 import sys
+from typing import Optional, Sequence
 
 # PyPI:
 import yaml
@@ -43,7 +45,7 @@ class LogArgumentParser(argparse.ArgumentParser):
                           help="configure logging with .json, .yml, or .ini file",
                           metavar='LOG_CONFIG_FILE')
         self.add_argument('--log-level', '-l', action='store', choices=LEVELS,
-                          default=os.environ.get('LOG_LEVEL', 'INFO'),
+                          default=os.getenv('LOG_LEVEL', 'INFO'),
                           help="set default logging level to LEVEL")
 
         # set specific logger verbosity:
@@ -55,8 +57,9 @@ class LogArgumentParser(argparse.ArgumentParser):
         self.add_argument('--version', '-V', action='version',
                           version=f"rss-fetcher {prog} {VERSION}")
 
-    def parse_args(self) -> argparse.Namespace:
-        args = super().parse_args()
+    # PLB: wanted to override parse_args, but couldn't get typing right!
+    def my_parse_args(self) -> argparse.Namespace:
+        args = self.parse_args()
 
         if args.list_loggers:
             for name in sorted(logging.root.manager.loggerDict):

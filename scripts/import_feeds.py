@@ -20,7 +20,7 @@ SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI
 SCRIPT = 'import_feeds'
 
 
-def _run_psql_command(cmd: str):
+def _run_psql_command(cmd: str) -> None:
     call(['psql', '-Atx', SQLALCHEMY_DATABASE_URI, '-c', cmd])
 
 
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     # mandatory positional argument
     p.add_argument('input_file', metavar='INPUT_FILE')
     # info logging before this call unlikely to be seen:
-    args = p.parse_args()       # parse logging args, output start message
+    args = p.my_parse_args()       # parse logging args, output start message
 
     logger.info(f"Clearing database")
     with engine.begin() as conn:  # will automatically close
@@ -60,9 +60,9 @@ if __name__ == '__main__':
             next_fetch = now + \
                 dt.timedelta(seconds=random() * DEFAULT_INTERVAL_MINS * 60)
             f = models.Feed(
-                id=row['id'],
+                id=int(row['id']),
                 url=row['url'],
-                sources_id=row['sources_id'],
+                sources_id=int(row['sources_id']),
                 name=row['name'],
                 active=True,
                 created_at=now,

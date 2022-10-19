@@ -18,7 +18,9 @@ router = APIRouter(
 @router.get("/{feed_id}/history")
 @api_method
 def stories_fetched_counts(feed_id: int) -> List[Dict]:
-    session = Session()
-    query = select(FetchEvent).where(FetchEvent.feed_id == feed_id)
-    fetch_events = session.execute(query).scalars().all()
-    return [fe.as_dict() for fe in fetch_events]
+    with Session() as session:
+        fetch_events = session.query(FetchEvent)\
+                              .filter(FetchEvent.feed_id == feed_id)\
+                              .scalars()\
+                              .all()
+        return [fe.as_dict() for fe in fetch_events]

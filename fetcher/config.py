@@ -71,17 +71,17 @@ def conf_bool(name: str, defval: bool) -> property:
 
     def getter(confobj: '_Config') -> bool:
         if name in confobj.values:
-            value = confobj.values[name]  # cached value
+            value = bool(confobj.values[name])  # cached value
         else:
-            value = os.environ.get(name)
-            if value is None:
+            v = os.environ.get(name)
+            if v is None:
                 value = defval
             else:
-                value = value.strip().rstrip().lower()
-                if value.isdigit():
-                    value = bool(int(value))
+                v = v.strip().rstrip().lower()
+                if v.isdigit():
+                    value = bool(int(v))
                 else:
-                    value = value in ['true', 't', 'on']  # be liberal
+                    value = v in ['true', 't', 'on']  # be liberal
                 confobj._log(name, value)
         return value
     return property(getter)
@@ -96,7 +96,7 @@ def conf_int(name: str, defval: int) -> property:
 
     def getter(confobj: '_Config') -> int:
         if name in confobj.values:
-            value = confobj.values[name]  # cached value
+            value = int(confobj.values[name])  # cached value
         else:
             try:
                 value = int(os.environ.get(name, defval))
