@@ -40,7 +40,7 @@ class Stats:
     _instance = None
 
     @classmethod
-    def init(cls, component: str) -> Stats:
+    def init(cls, component: str) -> 'Stats':
         """
         called from main program
         """
@@ -51,7 +51,7 @@ class Stats:
         return cls._instance
 
     @classmethod
-    def get(cls) -> Stats:
+    def get(cls) -> 'Stats':
         """
         called from non-main modules
         """

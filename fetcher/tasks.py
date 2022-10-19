@@ -6,14 +6,12 @@
 # type hints for session objects
 # type hints for void (-> None) functions
 # create NewType for feeds_id?
-# check type hints with mypy
 
 import datetime as dt
 from enum import Enum
 import hashlib
 import json
-from numbers import Real
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 import logging
 import logging.handlers
 import os

@@ -173,7 +173,7 @@ class FetchEvent(Base):
     @staticmethod
     def from_info(feed_id: int, event: Event,
                   note: Optional[str] = None,
-                  ts: Optional[dt.datetime] = None) -> FetchEvent:
+                  ts: Optional[dt.datetime] = None) -> 'FetchEvent':
         fe = FetchEvent()
         fe.feed_id = feed_id
         fe.event = event.name
