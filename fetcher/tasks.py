@@ -171,6 +171,18 @@ def update_feed(session: SessionType,
     so all policy can be centralized here.
     """
 
+    try:
+        stats = Stats.get()
+        if stats:
+            # likely to be multi-modal (connection timeouts)
+            stats.timing_td('processing',
+                            dt.datetime.utcnow() - now,
+                            labels=[('status', status)])
+    except BaseException:
+        # not important enough to log without rate limiting!!!
+        pass
+
+
     # PLB log w/note?? (would duplicate existing logging)
     with session.begin():
         # NOTE! locks row, so update atomic.
@@ -188,8 +200,9 @@ def update_feed(session: SessionType,
 
         f.queued = False        # safe to requeue
 
-        # update to actual time processed (set when queued)
-        # have a statsd timer for lag between queue + now?
+        # update to reflect ACTUAL fetch attempt time
+        # rather than queued time.  See note at "sanity clause"
+        # for a case for updating sooner.
         f.last_fetch_attempt = now
 
         # get normal feed update period in minutes, one of:
@@ -357,21 +370,36 @@ def fetch_and_process_feed(
     # used in Feed.last_fetch_success, Story.fetched_at
     now = dt.datetime.utcnow()
 
-    with session.begin():
+    try:
+        qtime = dt.datetime.fromisoformat(ts_iso)
+        stats.timing_td('time_in_queue', now - qtime)
+    except BaseException as e:
+        # not important enough to log w/o rate limiting
+        pass
+
+    with session.begin(): # XXX no transaction needed... yet (see sanity clause)
         f = session.get(models.Feed, feed_id)
         if f is None:
             feeds_incr('missing')
             logger.info(f"feed_worker: feed {feed_id} not found")
             return
 
-        # Sanity checks, in case DB entry modified while in queue
-        # (including being queued more than once)
-        # this commonly happens when "queue_feeds" restarted
-        # (may not be emptying queue????)
-        # scripts/queue_feeds is now passing ts_iso; the value
-        # it wrote into Feeds.last_fetch_attempt, intended
-        # to be used as another sanity check:
-        # (ts.iso != f.last_fetch_attempt.isodate())
+        # Sanity clause, in case DB entry modified while in queue:
+        # (including being queued more than once).
+
+        # "insane" commonly happens when queue_feeds.py restarted
+        # (setting queued = False, but not fully clearing queue?)
+
+        # scripts/queue_feeds is now passing ts_iso; the value it
+        # wrote into Feeds.last_fetch_attempt, intended to be used as
+        # another sanity check ts_iso should match
+        # f.last_fetch_attempt.isodate(); Using it might require
+        # get'ing with_for_update=True to do atomic fetch, checking
+        # for expected value (declaring insanity if not), and updating
+        # last_fetch_attempt to current time immediately, rather than
+        # in update_feed.  Don't want to clear queued until
+        # next_fetch_attempt is updated.
+
         #     Driftwood (Groucho):
         #       It's all right. That's, that's in every contract.
         #       That's, that's what they call a sanity clause.
