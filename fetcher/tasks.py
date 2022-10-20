@@ -56,24 +56,6 @@ SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 
 
-def open_log_file() -> None:
-    """
-    Called from scripts/worker.py so that scripts/queue_feeds.py
-    (which includes this file so it can queue a reference to feed_worker)
-    doesn't create an empty tasks-fetcher.1.log file
-    """
-    logFormatter = logging.Formatter(
-        "[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
-    path.check_dir(path.LOG_DIR)
-
-    # rotate file after midnight (UTC), keep 7 old files
-    fileHandler = logging.handlers.TimedRotatingFileHandler(
-        os.path.join(path.LOG_DIR, f"tasks-{DYNO}.log"),
-        when='midnight', utc=True, backupCount=7)
-    fileHandler.setFormatter(logFormatter)
-    logger.addHandler(fileHandler)
-
-
 # mediacloud/backend/apps/common/src/python/mediawords/util/web/user_agent/__init__.py has
 #    # HTTP "From:" header
 #    __OWNER = 'info@mediacloud.org'
@@ -97,6 +79,30 @@ UPDATE_PERIODS_MINS = {
 }
 DEFAULT_UPDATE_PERIOD = 'daily'  # specified in Syndication spec
 DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
+
+
+def open_log_file() -> None:
+    """
+    Was once inline (not in function).
+
+    Called from scripts/worker.py so that scripts/queue_feeds.py
+    (which includes this file so it can queue a reference to feed_worker)
+    doesn't create an empty tasks-fetcher.1.log file
+
+    Maybe make a generic function for this
+    (move to logargparse for use from cmd line)?
+    """
+    # why special format? there should be no thread action.
+    logFormatter = logging.Formatter(
+        "[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
+    path.check_dir(path.LOG_DIR)
+
+    # rotate file after midnight (UTC), keep 7 old files
+    fileHandler = logging.handlers.TimedRotatingFileHandler(
+        os.path.join(path.LOG_DIR, f"tasks-{DYNO}.log"),
+        when='midnight', utc=True, backupCount=7)
+    fileHandler.setFormatter(logFormatter)
+    logger.addHandler(fileHandler)
 
 
 def _save_rss_files(feed: Dict, response: requests.Response) -> None:
