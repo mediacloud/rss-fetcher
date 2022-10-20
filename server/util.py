@@ -1,17 +1,16 @@
 import datetime as dt
+from enum import Enum
 from functools import wraps
 from itertools import chain
 import logging
 import time
-from typing import Any, Callable, Dict, List, TypedDict
-
-from fastapi.types import DecoratedCallable
-from mypy_extensions import VarArg, KwArg
+from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
 
 from fetcher import VERSION
 
-STATUS_OK = 'ok'
-STATUS_ERROR = 'error'
+class Status(Enum):
+    OK = 'ok'
+    ERROR = 'error'
 
 
 TimeSeriesData = List[Dict[str, object]]
@@ -19,9 +18,25 @@ TimeSeriesData = List[Dict[str, object]]
 logger = logging.getLogger(__name__)
 
 
-# PLB: Could hint as a TypedDict
+class ApiBaseResult(TypedDict):
+    status: Status
+    duration: int               # ms
+    version: str
+
+
+class ApiResultOK(ApiBaseResult):
+    results: Dict
+
+
+class ApiResultERROR(ApiBaseResult):
+    statusCode: int
+    message: str
+
+
+ApiResults = Union[ApiResultOK, ApiResultERROR]
+
 def _error_results(message: str, start_time: float,
-                   status_code: int = 400) -> Dict:
+                   status_code: int = 400) -> ApiResultERROR:
     """
     Central handler for returning error messages.
     :param message:
@@ -30,10 +45,11 @@ def _error_results(message: str, start_time: float,
     :return:
     """
     return {
-        'status': STATUS_ERROR,
+        'status': Status.ERROR,
         'statusCode': status_code,
         'duration': _duration(start_time),
         'message': message,
+        'version': VERSION,
     }
 
 
@@ -41,9 +57,11 @@ def _duration(start_time: float) -> int:
     return int(round((time.time() - start_time) * 1000)) if start_time else 0
 
 
-# stolen from fastapi/routing.py
-def api_method(
-        func: Callable) -> Callable[[VarArg(Any), KwArg(Any)], Dict[str, Any]]:
+# Phil: only working type signature I've found requires mypy to be installed for normal execution:
+# from fastapi.types import DecoratedCallable
+# from mypy_extensions import VarArg, KwArg
+# def api_method(func: DecoratedCallable) -> Callable[[VarArg(Any), KwArg(Any)], ApiResults]:
+def api_method(func: Any) -> Any:
     """
     Helper to wrap API method responses and add metadata.
     Use this in server.py and it will add stuff like the
@@ -52,13 +70,13 @@ def api_method(
     Plus it handles errors in one place, and supresses ones we don't care to log to Sentry.
     """
     @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def wrapper(*args: Any, **kwargs: Any) -> ApiResults:
         start_time = time.time()
         try:
             results = func(*args, **kwargs)
-            return {
+            return {            # update ApiResultOK if adding items!
                 'version': VERSION,
-                'status': STATUS_OK,
+                'status': Status.OK,
                 'duration': _duration(start_time),
                 'results': results,
             }
