@@ -5,6 +5,7 @@ Meant to be independent of stats gathering protocol/schema AND library.
 ie; transparently handle statsd (with and without tag support) and prometheus
 """
 
+import datetime as dt
 import logging
 import os
 from typing import Any, List, Optional, Tuple
@@ -166,6 +167,30 @@ class Stats:
             except BaseException:
                 self.statsd = None
 
+    def timing(self, name: str, sec: float,
+              labels: List[Tuple[str, Any]] = []) -> None:
+        """
+        Report a timing (duration) in seconds
+        """
+        for tries in (1, 2):
+            if not self._connect():
+                return
+
+            if not self.statsd:
+                return
+
+            try:
+                # statsd timings are in ms
+                self.statsd.timing(self._name(name, labels), sec*1000)
+            except BaseException:
+                self.statsd = None
+
+    def timing_td(self, name: str, td: dt.timedelta,
+              labels: List[Tuple[str, Any]] = []) -> None:
+        """
+        Report a timing (duration) with a timedelta
+        """
+        self.timing(name, td.total_seconds(), labels)
 
 if __name__ == '__main__':
     s = Stats.init('foo')
@@ -173,3 +198,4 @@ if __name__ == '__main__':
     assert s is s2
     s.incr('requests')
     s.gauge('bar', 33.33, labels=[('y', 2), ('x', 1)])
+    s.timing('baz', 1.234)
