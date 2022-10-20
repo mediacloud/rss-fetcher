@@ -176,23 +176,25 @@ def update_feed(session: SessionType,
     Trying to make this the one place that updates the Feed row,
     so all policy can be centralized here.
     """
-
+    logger.debug(f"  Feed {feed_id} {status} {note}")
     try:
+        total_td = dt.datetime.utcnow() - now  # fetch + processing
+        total_sec = proc_td.total_seconds()
+        logger.debug(f"  Feed {feed_id} fetch/processing {proc_sec:.06d} sec")
         stats = Stats.get()
         if stats:
             # likely to be multi-modal (connection timeouts)
-            stats.timing_td('processing',
-                            dt.datetime.utcnow() - now,
-                            labels=[('status', status.name)])
-    except BaseException:
-        # not important enough to log without rate limiting!!!
-        pass
+            stats.timing('total', proc_sec,
+                         labels=[('status', status.name)])
+    except BaseException as e:
+        logger.debug(f"total time: {e}")
 
     # PLB log w/note?? (would duplicate existing logging)
     with session.begin():
-        # NOTE! locks row, so update atomic.
-        # (atomic increment IS possible without this,
-        # but we want to make choices based on the new value)
+        # NOTE! locks row, so atomic update of last_fetch_errors.
+        # Atomic increment IS possible without this,
+        # but we need to make choices based on the new value,
+        # and to clear queued after those choices.
         f = session.get(models.Feed, feed_id, with_for_update=True)
         if f is None:
             logger.info(f"  Feed {feed_id} not found in update_feed")
@@ -203,6 +205,7 @@ def update_feed(session: SessionType,
             for key, value in feed_col_updates.items():
                 setattr(f, key, value)
 
+        f.last_fetch_attempt = now  # match fetch_event & stories
         f.queued = False        # safe to requeue
 
         # get normal feed update period in minutes, one of:
@@ -426,6 +429,13 @@ def fetch_and_process_feed(
         feed = f.as_dict()      # code below expects dict
         session.commit()
         # end with session.begin() & with_for_update
+
+    try:
+        if feed['next_fetch_attempt']:
+            # delay from when ready to queue to start of processing
+            stats.timing_td('start_delay', now - feed['next_fetch_attempt'])
+    except BaseException as e:
+        logger.debug(f"start_delay timing: {e}")
 
     try:
         # first thing is to fetch the content
