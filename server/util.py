@@ -18,17 +18,17 @@ TimeSeriesData = List[Dict[str, object]]
 logger = logging.getLogger(__name__)
 
 
-class ApiBaseResult(TypedDict):
+class ApiResultBase(TypedDict):
     status: Status
     duration: int               # ms
     version: str
 
 
-class ApiResultOK(ApiBaseResult):
+class ApiResultOK(ApiResultBase):  # when status == Status.OK
     results: Dict
 
 
-class ApiResultERROR(ApiBaseResult):
+class ApiResultERROR(ApiResultBase):  # when status == Status.ERROR
     statusCode: int
     message: str
 
