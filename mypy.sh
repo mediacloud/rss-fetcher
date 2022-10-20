@@ -44,6 +44,13 @@ if [ ! -f $VENV/.mypy-requirements ]; then
     touch $VENV/.mypy-requirements
 fi
 
+# seems to work for rq 1.11.1
+for RQ in $VENC/lib/python*/site-packages/rq; do
+    if [ -d $RQ -a ! -f $RQ/py.typed ]; then
+	touch $RQ/py.typed
+    fi
+done
+
 # uses cache from a previous run:
 #if [ ! -f $VENV/.mypy--install-types ]; then
 #    echo mypy --install types
