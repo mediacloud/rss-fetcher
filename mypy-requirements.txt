@@ -1,5 +1,12 @@
 mypy
+#
 # https://github.com/dropbox/sqlalchemy-stubs
 sqlalchemy-stubs
+#
 # https://github.com/python/typeshed?
 types-psycopg2
+#
+# suggested by mypi:
+types-PyYAML
+types-redis
+types-requests
