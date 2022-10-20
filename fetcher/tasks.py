@@ -437,7 +437,7 @@ def fetch_and_process_feed(
     # NOTE! 304 response will not have a body (terminated by end of headers)
     # so the last hash isn't (over)written below
     # (tho presumably if we get 304 responses, the next feed we get
-    # will be different)
+    # will be different).
     new_hash = hashlib.md5(response.content).hexdigest()
 
     # Entity Tag may be W/"value" or "value", so keep as-is
@@ -454,7 +454,8 @@ def fetch_and_process_feed(
     # responded with data, or "not changed", so update last_fetch_success
     # XXX mypy infers that all values are datetime?!!!
     feed_col_updates: Dict[str, Any] = {
-        'last_fetch_success': now}  # HTTP fetch succeeded
+        'last_fetch_success': now  # HTTP fetch succeeded
+    }
 
     # https://www.rfc-editor.org/rfc/rfc9110.html#status.304
     # says a 304 response MUST have an ETag if 200 would have.
@@ -469,6 +470,9 @@ def fetch_and_process_feed(
     # BAIL: server says file hasn't changed (no data returned)
     # treated as success
     if response.status_code == 304:
+        # Maybe set a boolean column (via feed_col_updates)
+        # "sends_not_modified" to note this feed sends 304 responses,
+        # and use that as license use a smaller minimum poll interval?
         logger.info(f"  Feed {feed_id} - skipping, file not modified")
         update_feed(
             session,
@@ -489,6 +493,7 @@ def fetch_and_process_feed(
     # BAIL: no changes since last time
     # treated as success
     if new_hash == feed['last_fetch_hash']:
+        # Maybe clear "sends_not_modified" column mentioned above??
         logger.info(f"  Feed {feed_id} - skipping, same hash")
         update_feed(
             session,
