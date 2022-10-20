@@ -177,7 +177,7 @@ def update_feed(session: SessionType,
             # likely to be multi-modal (connection timeouts)
             stats.timing_td('processing',
                             dt.datetime.utcnow() - now,
-                            labels=[('status', status)])
+                            labels=[('status', status.name)])
     except BaseException:
         # not important enough to log without rate limiting!!!
         pass
