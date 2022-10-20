@@ -73,8 +73,10 @@ class Queuer:
 
         now = dt.datetime.utcnow()
         with Session.begin() as session:
+            # NOTE nulls_first is preferred in sqlalchemy 1.4
+            #  but not available in sqlalchemy-stubs 0.4
             rows = self._ready_query(session)\
-                       .order_by(models.Feed.next_fetch_attempt.asc().nulls_first(),
+                       .order_by(models.Feed.next_fetch_attempt.asc().nullsfirst(),
                                  models.Feed.id.desc())\
                        .limit(limit)\
                        .all()  # all rows
