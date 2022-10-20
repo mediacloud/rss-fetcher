@@ -121,7 +121,7 @@ def queue_workers(q: Queue) -> int:
 
 
 def clear_queue() -> None:
-    with Session() as session:
+    with Session.begin() as session:
         logger.info("Getting feeds table lock.")
         # for duration of transaction:
         session.execute(text("LOCK TABLE feeds"))
