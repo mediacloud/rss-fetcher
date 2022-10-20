@@ -17,18 +17,22 @@
 # then stepping through the messages with c-x ` (next-error)
 # to re-run, go back to the mypy.sh buffer and repeat.
 
+PYTHON=${PYTHON:-python3}
+
 # expected to be run in a venv w/ requirements.txt installed
 VENV=venv
 if [ ! -d $VENV ]; then
     echo creating venv
-    python -mvenv $VENV
+    $PYTHON -mvenv $VENV || exit 1
 fi
 . ./$VENV/bin/activate
 
+# from here down "python" symlink available from venv
+
 # XXX check if requirements.txt newer than .turd?
 if [ ! -f $VENV/.requirements ]; then
-    echo installint requirements
-    pip install -r requirements.txt
+    echo installing requirements
+    python -mpip install -r requirements.txt || exit 1
     touch $VENV/.requirements
 fi
 
@@ -36,15 +40,16 @@ fi
 # XXX check if mypy-requirements.txt newer than .turd?
 if [ ! -f $VENV/.mypy-requirements ]; then
     echo mypy-requirements
-    pip install -r mypy-requirements.txt
+    python -mpip install -r mypy-requirements.txt || exit 1
     touch $VENV/.mypy-requirements
 fi
 
-if [ ! -f $VENV/.mypy--install-types ]; then
-    echo mypy --install types
-    mypy --install-types --non-interactive
-    touch $VENV/.mypy--install-types
-fi
+# uses cache from a previous run:
+#if [ ! -f $VENV/.mypy--install-types ]; then
+#    echo mypy --install types
+#    mypy --install-types --non-interactive || exit 1
+#    touch $VENV/.mypy--install-types
+#fi
 
 mypy \
 	-mscripts.gen_daily_story_rss \
