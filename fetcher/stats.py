@@ -7,7 +7,7 @@ ie; transparently handle statsd (with and without tag support) and prometheus
 
 import logging
 import os
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 # PyPi
 import statsd                   # pkg statsd_client
@@ -62,7 +62,8 @@ class Stats:
         if not _init_ok:
             raise Exception("Call Stats.init")
 
-        self.statsd = self.host = self.port = self.prefix = None
+        self.statsd: Optional[statsd.StatsdClient] = None
+        self.host = self.port = self.prefix = None
 
         # STATSD URL set by dokku-graphite plugin
         e = os.getenv('STATSD_URL')
