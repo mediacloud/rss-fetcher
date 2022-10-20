@@ -179,12 +179,12 @@ def update_feed(session: SessionType,
     logger.debug(f"  Feed {feed_id} {status} {note}")
     try:
         total_td = dt.datetime.utcnow() - now  # fetch + processing
-        total_sec = proc_td.total_seconds()
-        logger.debug(f"  Feed {feed_id} fetch/processing {proc_sec:.06d} sec")
+        total_sec = total_td.total_seconds()
+        logger.debug(f"  Feed {feed_id} fetch/processing {total_sec:.06d} sec")
         stats = Stats.get()
         if stats:
             # likely to be multi-modal (connection timeouts)
-            stats.timing('total', proc_sec,
+            stats.timing('total', total_sec,
                          labels=[('status', status.name)])
     except BaseException as e:
         logger.debug(f"total time: {e}")
