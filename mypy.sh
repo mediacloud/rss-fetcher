@@ -44,8 +44,10 @@ if [ ! -f $VENV/.mypy-requirements ]; then
     touch $VENV/.mypy-requirements
 fi
 
-# seems to work for rq 1.11.1
-for PKG in $VENV/lib/python*/site-packages/rq  $VENV/lib/python*/site-packages/mcmetadata; do
+# seems to work for rq 1.11.1, mcmetadata 0.7.9, uvicorn 0.18.3
+for PKG in $VENV/lib/python*/site-packages/rq \
+	   $VENV/lib/python*/site-packages/mcmetadata \
+	   $VENV/lib/python*/site-packages/uvicorn; do
     if [ -d $PKG -a ! -f $PKG/py.typed ]; then
 	echo creating $PKG/py.typed
 	touch $PKG/py.typed
