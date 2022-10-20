@@ -30,7 +30,7 @@ from sqlalchemy.exc import IntegrityError, PendingRollbackError
 # feed fetcher:
 from fetcher import APP, DYNO
 from fetcher.config import conf
-from fetcher.database import SessionType
+from fetcher.database import Session, SessionType
 import fetcher.database.models as models
 import fetcher.path as path
 from fetcher.stats import Stats
@@ -199,11 +199,6 @@ def update_feed(session: SessionType,
                 setattr(f, key, value)
 
         f.queued = False        # safe to requeue
-
-        # update to reflect ACTUAL fetch attempt time
-        # rather than queued time.  See note at "sanity clause"
-        # for a case for updating sooner.
-        f.last_fetch_attempt = now
 
         # get normal feed update period in minutes, one of:
         # 1. new value being passed in to update Feed row (from RSS)
@@ -375,10 +370,11 @@ def fetch_and_process_feed(
         stats.timing_td('time_in_queue', now - qtime)
     except BaseException as e:
         # not important enough to log w/o rate limiting
-        pass
+        qtime = None
 
-    with session.begin(): # XXX no transaction needed... yet (see sanity clause)
-        f = session.get(models.Feed, feed_id)
+    with session.begin():
+        # lock row for duration of transaction:
+        f = session.get(models.Feed, feed_id, with_for_update=True)
         if f is None:
             feeds_incr('missing')
             logger.info(f"feed_worker: feed {feed_id} not found")
@@ -386,20 +382,6 @@ def fetch_and_process_feed(
 
         # Sanity clause, in case DB entry modified while in queue:
         # (including being queued more than once).
-
-        # "insane" commonly happens when queue_feeds.py restarted
-        # (setting queued = False, but not fully clearing queue?)
-
-        # scripts/queue_feeds is now passing ts_iso; the value it
-        # wrote into Feeds.last_fetch_attempt, intended to be used as
-        # another sanity check ts_iso should match
-        # f.last_fetch_attempt.isodate(); Using it might require
-        # get'ing with_for_update=True to do atomic fetch, checking
-        # for expected value (declaring insanity if not), and updating
-        # last_fetch_attempt to current time immediately, rather than
-        # in update_feed.  Don't want to clear queued until
-        # next_fetch_attempt is updated.
-
         #     Driftwood (Groucho):
         #       It's all right. That's, that's in every contract.
         #       That's, that's what they call a sanity clause.
@@ -407,15 +389,38 @@ def fetch_and_process_feed(
         #       Ha-ha-ha-ha-ha! You can't fool me.
         #       There ain't no Sanity Clause!
         #     Marx Brothers' "Night at the Opera" (1935)
-        if (not f.active or not f.system_enabled or
+
+        # reasons for being declared insane:
+        # * db entry marked inactive by human
+        # * db entry disabled by fetcher
+        # * db entry not marked as queued
+        # * db entry last_fetch_attempt does not match queue entry
+        #       (depends on isoformat/fromisoformat fidelity,
+        #        and matching DB dt granularity. rq allows passing
+        #        of datetime (uses pickle rather than json)
+        #        if deemed necessary)
+        # * db entry next_fetch_attempt set, and in the future
+
+        # commonly happens when queue_feeds.py restarted
+        # (setting queued = False, but not fully clearing queue?)
+
+        if (not f.active or
+            not f.system_enabled or
             not f.queued or
-            (f.next_fetch_attempt is not None and
-             f.next_fetch_attempt > now)):
+            (qtime and f.last_fetch_attempt != qtime) or
+            (f.next_fetch_attempt and f.next_fetch_attempt > now)):
             feeds_incr('insane')
             logger.info(
-                f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt}")
+                f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt} qt {qtime}")
             return
-        feed = f.as_dict()
+
+        # mark time of actual attempt (start)
+        # above `f.last_fetch_attempt != qtime` depends on this
+        # (could also replace "queued" with a tri-state: idle, queued, active):
+        f.last_fetch_attempt = now
+        feed = f.as_dict()      # code below expects dict
+        session.commit()
+        # end with session.begin() & with_for_update
 
     try:
         # first thing is to fetch the content
@@ -693,7 +698,7 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
     :param ts_iso: str datetime.isoformat of time queued (Feed.last_fetch_attempt)
     """
     try:
-        session = fetcher.queue.get_session()
+        session = Session()
         setproctitle(f"{APP} {DYNO} feed {feed_id}")
         fetch_and_process_feed(session, feed_id, ts_iso)
     except BaseException:

@@ -28,12 +28,6 @@ WORKQ_NAME = 'workq'            # make configurable?
 logger = logging.getLogger(__name__)
 
 
-def get_session() -> SessionType:
-    """
-    Get SQLAlchemy connection for current worker process
-    """
-    return Session()
-
 ################
 # to allow config fetch, connect after includes complete
 # XXX wrap in a singleton??
