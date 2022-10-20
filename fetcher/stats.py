@@ -168,7 +168,7 @@ class Stats:
                 self.statsd = None
 
     def timing(self, name: str, sec: float,
-              labels: List[Tuple[str, Any]] = []) -> None:
+               labels: List[Tuple[str, Any]] = []) -> None:
         """
         Report a timing (duration) in seconds
         """
@@ -181,16 +181,17 @@ class Stats:
 
             try:
                 # statsd timings are in ms
-                self.statsd.timing(self._name(name, labels), sec*1000)
+                self.statsd.timing(self._name(name, labels), sec * 1000)
             except BaseException:
                 self.statsd = None
 
     def timing_td(self, name: str, td: dt.timedelta,
-              labels: List[Tuple[str, Any]] = []) -> None:
+                  labels: List[Tuple[str, Any]] = []) -> None:
         """
         Report a timing (duration) with a timedelta
         """
         self.timing(name, td.total_seconds(), labels)
+
 
 if __name__ == '__main__':
     s = Stats.init('foo')

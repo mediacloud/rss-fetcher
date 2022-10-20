@@ -135,7 +135,7 @@ class Story(MyBase):
             s.title = util.clean_str(entry.title)
             s.normalized_title = titles.normalize_title(s.title or "")
             s.normalized_title_hash = hashlib.md5(
-                    s.normalized_title.encode()).hexdigest()
+                s.normalized_title.encode()).hexdigest()
         except AttributeError as _:
             s.title = None
             s.normalized_title = None

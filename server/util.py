@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, TypedDict, Union
 
 from fetcher import VERSION
 
+
 class Status(Enum):
     OK = 'ok'
     ERROR = 'error'
@@ -35,6 +36,7 @@ class ApiResultERROR(ApiResultBase):  # when status == Status.ERROR
 
 ApiResults = Union[ApiResultOK, ApiResultERROR]
 
+
 def _error_results(message: str, start_time: float,
                    status_code: int = 400) -> ApiResultERROR:
     """
@@ -60,7 +62,8 @@ def _duration(start_time: float) -> int:
 # Phil: only working type signature I've found requires mypy to be installed for normal execution:
 # from fastapi.types import DecoratedCallable
 # from mypy_extensions import VarArg, KwArg
-# def api_method(func: DecoratedCallable) -> Callable[[VarArg(Any), KwArg(Any)], ApiResults]:
+# def api_method(func: DecoratedCallable) -> Callable[[VarArg(Any),
+# KwArg(Any)], ApiResults]:
 def api_method(func: Any) -> Any:
     """
     Helper to wrap API method responses and add metadata.

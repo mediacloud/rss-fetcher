@@ -188,7 +188,6 @@ def update_feed(session: SessionType,
         # not important enough to log without rate limiting!!!
         pass
 
-
     # PLB log w/note?? (would duplicate existing logging)
     with session.begin():
         # NOTE! locks row, so update atomic.
@@ -414,7 +413,7 @@ def fetch_and_process_feed(
             not f.system_enabled or
             not f.queued or
             (qtime and f.last_fetch_attempt != qtime) or
-            (f.next_fetch_attempt and f.next_fetch_attempt > now)):
+                (f.next_fetch_attempt and f.next_fetch_attempt > now)):
             feeds_incr('insane')
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt} qt {qtime}")
