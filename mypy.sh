@@ -39,15 +39,16 @@ fi
 # install mypy etc. in venv
 # XXX check if mypy-requirements.txt newer than .turd?
 if [ ! -f $VENV/.mypy-requirements ]; then
-    echo mypy-requirements
+    echo installing mypy-requirements
     python -mpip install -r mypy-requirements.txt || exit 1
     touch $VENV/.mypy-requirements
 fi
 
 # seems to work for rq 1.11.1
-for RQ in $VENC/lib/python*/site-packages/rq; do
-    if [ -d $RQ -a ! -f $RQ/py.typed ]; then
-	touch $RQ/py.typed
+for PKG in $VENV/lib/python*/site-packages/rq  $VENV/lib/python*/site-packages/mcmetadata; do
+    if [ -d $PKG -a ! -f $PKG/py.typed ]; then
+	echo creating $PKG/py.typed
+	touch $PKG/py.typed
     fi
 done
 
