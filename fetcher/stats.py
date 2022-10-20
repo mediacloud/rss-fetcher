@@ -22,9 +22,8 @@ from sqlalchemy.engine.url import make_url
 # calls in requirements not used elsewhere, and
 # the only upside seems to be support of "sets"
 
-# See docs/stats.md for discussion of how statistics
-# to name and organize statistics, the expected values
-# for environment variables etc!!!
+# See docs/stats.md for discussion of to name and organize statistics,
+# the expected values for environment variables etc!!!
 
 DEBUG = False
 TAGS = False                    # get from env?? graphite >= 1.1.0 tags
