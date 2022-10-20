@@ -151,8 +151,13 @@ def loop(queuer: Queuer) -> None:
 
         added = 0
 
-        # always refill on restart, or when there is a backlog.
-        if (hi_water < 0 or db_ready > hi_water or
+        # determine if backlogged (refill immediately)
+        #backlogged = db_ready > hi_water
+        backlogged = False   # try to smear peaks at the cost of delay
+
+        # always refill on restart, or when there is a backlog,
+        # else wait for multiple of refill_period_mins.
+        if (hi_water < 0 or backlogged or
                 (int(t0 / 60) % refill_period_mins) == 0):
             # Put enough into queue to handle all active feeds
             # polled at MINIMUM_INTERVAL_MINS.  So far, an adaptive
