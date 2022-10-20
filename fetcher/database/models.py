@@ -133,12 +133,9 @@ class Story(MyBase):
             # make sure we can save it in the DB by removing NULL chars and
             # such
             s.title = util.clean_str(entry.title)
-            s.normalized_title = titles.normalize_title(s.title)
-            if s.normalized_title:
-                s.normalized_title_hash = hashlib.md5(
+            s.normalized_title = titles.normalize_title(s.title or "")
+            s.normalized_title_hash = hashlib.md5(
                     s.normalized_title.encode()).hexdigest()
-            else:
-                s.normalized_title_hash = None
         except AttributeError as _:
             s.title = None
             s.normalized_title = None
