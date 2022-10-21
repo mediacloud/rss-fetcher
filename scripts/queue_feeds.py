@@ -134,7 +134,7 @@ def fetches_per_minute(session: SessionType) -> int:
     return int(
         session.query(
             f.sum(
-                1 /
+                1.0 /
                 ff.greatest(    # never faster than minimum interval
                     f.coalesce(  # use DEFAULT if update_minutes is NULL
                         Feed.update_minutes,
