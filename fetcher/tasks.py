@@ -264,7 +264,7 @@ def update_feed(session: SessionType,
 
         # NOTE! created_at will match last_fetch_attempt
         # (and last_fetch_success if a success)
-        session.add(models.FetchEvent.from_info(feed_id, event, note, now))
+        session.add(models.FetchEvent.from_info(feed_id, event, now, note))
         session.commit()
         session.close()
     # end "with session.begin()"

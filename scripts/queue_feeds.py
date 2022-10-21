@@ -104,10 +104,12 @@ class Queuer:
 
             # create a fetch_event row for each feed:
             for feed_id in feed_ids:
-                # use "now" for FetchEvent created_at?
+                # created_at value matches Feed.last_fetch_attempt
+                # (when queued) and queue entry
                 session.add(
                     FetchEvent.from_info(feed_id,
-                                         FetchEvent.Event.QUEUED))
+                                         FetchEvent.Event.QUEUED,
+                                         now))
         return self.queue_feeds(feed_ids, now.isoformat())
 
     def queue_feeds(self, feed_ids: List[int], ts_iso: str) -> int:
@@ -128,17 +130,19 @@ def fetches_per_minute(session: SessionType) -> int:
 
     feeds_per_minute = sum(1/f.minutes_per_update for f in Feeds)
     """
-    return session.query(
-        f.sum(
-            1 /
-            ff.greatest(       # never faster than minimum interval
-                f.coalesce(    # use DEFAULT if update_minutes is NULL
-                    Feed.update_minutes,
-                    conf.DEFAULT_INTERVAL_MINS),
-                conf.MINIMUM_INTERVAL_MINS
-            )  # greatest
-        )  # sum
-    ).one()[0]
+    return int(
+        session.query(
+            f.sum(
+                1 /
+                ff.greatest(    # never faster than minimum interval
+                    f.coalesce(  # use DEFAULT if update_minutes is NULL
+                        Feed.update_minutes,
+                        conf.DEFAULT_INTERVAL_MINS),
+                    conf.MINIMUM_INTERVAL_MINS
+                )  # greatest
+            )  # sum
+        ).one()[0]
+    )
 
 # XXX make a queuer method? should only be used here!
 

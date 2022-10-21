@@ -175,11 +175,11 @@ class FetchEvent(MyBase):
 
     @staticmethod
     def from_info(feed_id: int, event: Event,
-                  note: Optional[str] = None,
-                  ts: Optional[dt.datetime] = None) -> 'FetchEvent':
+                  created_at: Optional[dt.datetime],
+                  note: Optional[str] = None) -> 'FetchEvent':
         fe = FetchEvent()
         fe.feed_id = feed_id
         fe.event = event.name
         fe.note = note
-        fe.created_at = ts or dt.datetime.utcnow()
+        fe.created_at = created_at
         return fe
