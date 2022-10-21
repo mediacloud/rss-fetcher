@@ -97,12 +97,15 @@ def worker() -> None:
 
 
 def queue_length(q: Queue) -> int:
+    """
+    number of jobs in queue; must exclude jobs currently assigned to a worker
+    """
     return q.count
 
 
 def queue_active(q: Queue) -> int:
     """
-    rq "started" jobs not included in queue_length
+    rq "started" jobs ***NOT*** included in queue_length
     """
     return q.started_job_registry.count
 

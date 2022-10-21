@@ -14,19 +14,20 @@ from typing import Any, List
 # PyPI
 from sqlalchemy import or_
 from sqlalchemy.orm.query import Query
+import sqlalchemy.sql.functions as f
 
 # app
 from fetcher.config import conf
 from fetcher.database import engine, Session, SessionType
 from fetcher.logargparse import LogArgumentParser
-import fetcher.database.models as models
+import fetcher.database.functions as ff
+from fetcher.database.models import Feed, FetchEvent, utc
 import fetcher.queue as queue
 from fetcher.stats import Stats
 import fetcher.tasks as tasks
 
 SCRIPT = 'queue_feeds'          # NOTE! used for stats!
 logger = logging.getLogger(SCRIPT)
-
 
 class Queuer:
     """
@@ -37,31 +38,33 @@ class Queuer:
     def __init__(self, stats: Stats, wq: queue.Queue):
         self.stats = stats
         self.wq = wq
-        _ = conf.MAX_FEEDS  # log early
 
-    def _active_feeds(self, session: SessionType, full: bool = False) -> Query:
+    def _active_filter(self, q: Query) -> Query:
         """
-        base query to return active feeds
+        filter a feeds query to return only active feeds
         """
-        q: Query[Any]
-        if full:
-            q = session.query(models.Feed)
-        else:
-            q = session.query(models.Feed.id)
-        return q.filter(models.Feed.active.is_(True),
-                        models.Feed.system_enabled.is_(True))
+        return q.filter(Feed.active.is_(True),
+                        Feed.system_enabled.is_(True))
+
+    def _active_feed_ids(self, session: SessionType) -> Query:
+        """
+        base query to return active feed ids
+        """
+        return self._active_filter(session.query(Feed.id))
 
     def count_active(self, session: SessionType) -> int:
-        return self._active_feeds(session).count()
+        return self._active_feed_ids(session).count()
+
+    def _ready_filter(self, q: Query) -> Query:
+        return q.filter(Feed.queued.is_(False),
+                        or_(Feed.next_fetch_attempt.is_(None),
+                            Feed.next_fetch_attempt <= utc()))
 
     def _ready_query(self, session: SessionType) -> Query:
         """
         return base query for feed id's ready to be fetched
         """
-        return self._active_feeds(session)\
-                   .filter(models.Feed.queued.is_(False),
-                           or_(models.Feed.next_fetch_attempt.is_(None),
-                               models.Feed.next_fetch_attempt <= models.utc()))
+        return self._ready_filter(self._active_feed_ids(session))
 
     def find_and_queue_feeds(self, limit: int) -> int:
         """
@@ -78,9 +81,13 @@ class Queuer:
         with Session.begin() as session:
             # NOTE nulls_first is preferred in sqlalchemy 1.4
             #  but not available in sqlalchemy-stubs 0.4
-            rows = self._ready_query(session)\
-                       .order_by(models.Feed.next_fetch_attempt.asc().nullsfirst(),
-                                 models.Feed.id.desc())\
+
+            # maybe secondary order by (Feed.id % 1001)?
+            #  would require adding adding a column to query
+            rows = self._ready_filter(
+                self._active_filter(session.query(Feed.id)))\
+                       .order_by(Feed.next_fetch_attempt.asc().nullsfirst(),
+                                 Feed.id.desc())\
                        .limit(limit)\
                        .all()  # all rows
             feed_ids = [row[0] for row in rows]
@@ -89,8 +96,8 @@ class Queuer:
 
             # mark as queued first so that workers can never see
             # a feed_id that hasn't been marked as queued.
-            session.query(models.Feed)\
-                   .filter(models.Feed.id.in_(feed_ids))\
+            session.query(Feed)\
+                   .filter(Feed.id.in_(feed_ids))\
                    .update({'last_fetch_attempt': now, 'queued': True},
                            synchronize_session=False)
 
@@ -98,8 +105,8 @@ class Queuer:
             for feed_id in feed_ids:
                 # use "now" for FetchEvent created_at?
                 session.add(
-                    models.FetchEvent.from_info(feed_id,
-                                                models.FetchEvent.Event.QUEUED))
+                    FetchEvent.from_info(feed_id,
+                                                FetchEvent.Event.QUEUED))
         return self.queue_feeds(feed_ids, now.isoformat())
 
     def queue_feeds(self, feed_ids: List[int], ts_iso: str) -> int:
@@ -111,25 +118,38 @@ class Queuer:
         logger.info(f"Queued {queued}/{total} feeds")
         return queued
 
+def fetches_per_minute(session: SessionType) -> int:
+    """
+    Return average expected fetches per minute, based on
+    Feed.update_minutes (derived from <sy:updatePeriod> and
+    <sy:updateFrequency>).
+
+    feeds_per_minute = sum(1/f.minutes_per_update for f in Feeds)
+    """
+    return session.query(
+        f.sum(
+            1 /
+            ff.greatest(       # never faster than minimum interval
+                f.coalesce(    # use DEFAULT if update_minutes is NULL
+                    Feed.update_minutes,
+                    conf.DEFAULT_INTERVAL_MINS),
+                conf.MINIMUM_INTERVAL_MINS
+            ) # greatest
+        ) # sum
+    ).one()[0]
 
 # XXX make a queuer method? should only be used here!
-def loop(queuer: Queuer) -> None:
+def loop(queuer: Queuer, refill_period_mins: int = 5) -> None:
     """
     Loop monitoring & reporting queue length to stats server
+
+    Try to spread out load (smooth out any lumps),
+    keeps queue short (db changes seen quickly)
+    Initial randomization of next_fetch_attempt in import process
+    will _initially_ avoid lumpiness, but downtime will cause
+    pileups that will take at most MINIMUM_INTERVAL_MINS
+    to clear (given enough workers).
     """
-
-    # Try to spread out load (smooth out any lumps),
-    # keeps queue short (db changes seen quickly)
-    # Initial randomization of next_fetch_attempt in import process
-    # will _initially_ avoid lumpiness, but downtime will cause
-    # pileups that will take at most MINIMUM_INTERVAL_MINS
-    # to clear (given enough workers).
-
-    # how often to refill queue (take as argument to --loop?)
-    refill_period_mins = 5      # XXX config param?
-
-    # log early
-    _ = conf.MINIMUM_INTERVAL_MINS
 
     logger.info(f"Starting loop: refill every {refill_period_mins} min")
     db_ready = hi_water = -1
@@ -137,50 +157,55 @@ def loop(queuer: Queuer) -> None:
         t0 = time.time()        # wake time
         # logger.debug(f"top {t0}")
 
+        # always report queue stats (inexpensive with rq):
         qlen = queue.queue_length(queuer.wq)  # queue(r) method??
         active = queue.queue_active(queuer.wq)  # jobs in progress
+        workers = queue.queue_workers(queuer.wq)  # active workers
 
         # NOTE: initial qlen (not including added)
-        #       active entries NOT included in qlen
+        #       active entries are NOT included in qlen
         queuer.stats.gauge('qlen', qlen)
         queuer.stats.gauge('active', active)
-        logger.debug(f"qlen {qlen} active {active}")
-
-        with Session.begin() as session:
-            # all entries marked active and enabled.
-            # there is probably a problem if more than a small
-            #  fraction of active entries are ready!
-            db_active = queuer.count_active(session)
+        queuer.stats.gauge('workers', workers)
+        logger.debug(f"qlen {qlen} active {active} workers {workers}")
 
         added = 0
 
-        # determine if backlogged (refill immediately)
-        #backlogged = db_ready > hi_water
-        backlogged = False   # try to smear peaks at the cost of delay
+        # always queue on startup, then
+        # wait for multiple of refill_period_mins.
+        if (hi_water < 0 or
+            (int(t0 / 60) % refill_period_mins) == 0):
 
-        # always refill on restart, or when there is a backlog,
-        # else wait for multiple of refill_period_mins.
-        if (hi_water < 0 or backlogged or
-                (int(t0 / 60) % refill_period_mins) == 0):
-            # Put enough into queue to handle all active feeds
-            # polled at MINIMUM_INTERVAL_MINS.  So far, an adaptive
-            # solution to estimate the run-rate, has been illusive
-            # (estimates were noisy, and code bulky).
-            hi_water = round(
-                refill_period_mins *
-                db_active /
-                conf.MINIMUM_INTERVAL_MINS)
+            # name hi_water is a remnant of an implementation attempt
+            # that refilled to hi_water only when queue drained to lo_water.
 
-            # for dev/debug, avoid underflow on small databases:
+            # hi_water is the number of fetches per refill_period_mins
+            # that need to be performed.  Enforcing this average means
+            # that any "bunching" of ready feeds (due to outage) will
+            # be spread out evenly.
+
+            # Only putting as much work as needs to be done in
+            # refill_period_mins means that database changes
+            # (additions, enables, disables) can be seen quickly
+            # rather than waiting for the whole queue to drain.
+
+            with Session() as session:
+                hi_water = fetches_per_minute(session) * refill_period_mins
+
+            # for dev/debug, on small databases:
             if hi_water < 10:
                 hi_water = 10
+
+            queuer.stats.gauge('hi_water', hi_water)
 
             # if queue is below the limit, fill up to the limit.
             if qlen < hi_water:
                 added = queuer.find_and_queue_feeds(hi_water - qlen)
+
+        # gauges "stick" at last value, so always set:
         queuer.stats.gauge('added', added)
 
-        # begin maybe move
+        # BEGIN MAYBE MOVE:
         # queries done once a minute for monitoring only!
         # if this is a problem move this section up
         # (under ... % refill_period_mins == 0)
@@ -188,10 +213,15 @@ def loop(queuer: Queuer) -> None:
         # until they are set to a new value.
 
         # after find_and_queue_feeds, so does not include "added" entries
-        with Session.begin() as session:
+        with Session() as session:
+            # all entries marked active and enabled.
+            # there is probably a problem if more than a small
+            #  fraction of active entries are ready!
+            db_active = queuer.count_active(session)
+
             # should be approx (updated) qlen + active
-            db_queued = session.query(models.Feed)\
-                               .filter(models.Feed.queued.is_(True))\
+            db_queued = session.query(Feed)\
+                               .filter(Feed.queued.is_(True))\
                                .count()
 
             db_ready = queuer._ready_query(session).count()
@@ -201,11 +231,10 @@ def loop(queuer: Queuer) -> None:
         queuer.stats.gauge('db.ready', db_ready)
 
         logger.debug(
-            f" db_active {db_active} db_queued {db_queued} db_ready {db_ready}")
-        # end maybe move
+            f" db active {db_active} queued {db_queued} ready {db_ready}")
+        # END MAYBE MOVE
 
-        # figure out when to wake up next, prepare for bed.
-        tnext = (t0 - t0 % 60) + 60  # top of minute after wake time
+        tnext = (t0 - t0 % 60) + 60  # top of the next minute after wake time
         t1 = time.time()
         s = tnext - t1             # sleep time
         if s > 0:
@@ -216,9 +245,9 @@ def loop(queuer: Queuer) -> None:
 if __name__ == '__main__':
     p = LogArgumentParser(SCRIPT, 'Feed Queuing')
     p.add_argument('--clear', action='store_true',
-                   help='Clear queue first.')
+                   help='Clear queue and exit.')
     p.add_argument('--loop', action='store_true',
-                   help='Run as daemon, sending stats (implies --clear)')
+                   help='Clear queue and run as daemon, sending stats.')
     p.add_argument('feeds', metavar='FEED_ID', nargs='*', type=int,
                    help='Fetch specific feeds')
 
@@ -231,16 +260,26 @@ if __name__ == '__main__':
 
     queuer = Queuer(stats, wq)
 
-    if args.clear or args.loop:
+    if args.clear:
+        logger.info("Clearing Queue")
+        queue.clear_queue()
+        sys.exit(0)
+
+    if args.loop:
+        # log early
+        _ = conf.MINIMUM_INTERVAL_MINS
+        _ = conf.DEFAULT_INTERVAL_MINS
+        _ = conf.MAX_FEEDS
+
+        if args.feeds:
+            logger.error('Cannot give both --loop and feed ids')
+            sys.exit(1)
+
         logger.info("Clearing Queue")
         queue.clear_queue()
 
-    if args.loop:
-        if args.feeds:
-            logger.error('Cannot give both --loop and feed ids')
-        else:
-            loop(queuer)        # never returns
-        sys.exit(1)
+        loop(queuer)            # should never return
+        sys.exit(1)             # should not get here
 
     # support passing in one or more feed ids on the command line
     if args.feeds:
@@ -248,7 +287,7 @@ if __name__ == '__main__':
         with Session.begin() as session:
             # validate ids
             rows = queuer._ready_query(session)\
-                         .filter(models.Feed.id.in_(feed_ids))\
+                         .filter(Feed.id.in_(feed_ids))\
                          .all()
             valid_ids = [row[0] for row in rows]
         # maybe complain about invalid feeds??
