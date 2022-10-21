@@ -72,6 +72,9 @@ class Queuer:
             limit = conf.MAX_FEEDS
 
         now = dt.datetime.utcnow()
+
+        # Maybe order by (id % 100) instead of id
+        #  to help break up clumps?
         with Session.begin() as session:
             # NOTE nulls_first is preferred in sqlalchemy 1.4
             #  but not available in sqlalchemy-stubs 0.4
