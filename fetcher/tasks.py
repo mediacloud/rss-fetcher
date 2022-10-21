@@ -176,11 +176,11 @@ def update_feed(session: SessionType,
     Trying to make this the one place that updates the Feed row,
     so all policy can be centralized here.
     """
-    logger.debug(f"  Feed {feed_id} {status} {note}")
+    logger.debug(f"  Feed {feed_id} {status.name} {note}")
     try:
         total_td = dt.datetime.utcnow() - now  # fetch + processing
         total_sec = total_td.total_seconds()
-        logger.debug(f"  Feed {feed_id} fetch/processing {total_sec:.06d} sec")
+        logger.debug(f"  Feed {feed_id} fetch/processing {total_sec:.06f} sec")
         stats = Stats.get()
         if stats:
             # likely to be multi-modal (connection timeouts)
