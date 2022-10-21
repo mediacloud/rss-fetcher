@@ -175,6 +175,10 @@ def update_feed(session: SessionType,
 
     Trying to make this the one place that updates the Feed row,
     so all policy can be centralized here.
+
+    NOTE!! Changes in policy (eg; no minimum on feeds from servers
+    that return 304) need to be reflected in the fetches_per_minite
+    function in scripts/queue_feeds.py!!!!
     """
     logger.debug(f"  Feed {feed_id} {status.name} {note}")
     try:

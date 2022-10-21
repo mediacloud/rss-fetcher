@@ -128,7 +128,8 @@ def fetches_per_minute(session: SessionType) -> int:
     Feed.update_minutes (derived from <sy:updatePeriod> and
     <sy:updateFrequency>).
 
-    feeds_per_minute = sum(1/f.minutes_per_update for f in Feeds)
+    NOTE!! This needs to be kept in sync with the policy in
+    fetcher.tasks.update_feed()!!!
     """
     return int(
         session.query(
