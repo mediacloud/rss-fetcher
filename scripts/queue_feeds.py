@@ -29,6 +29,7 @@ import fetcher.tasks as tasks
 SCRIPT = 'queue_feeds'          # NOTE! used for stats!
 logger = logging.getLogger(SCRIPT)
 
+
 class Queuer:
     """
     class to encapsulate feed queuing.
@@ -86,10 +87,10 @@ class Queuer:
             #  would require adding adding a column to query
             rows = self._ready_filter(
                 self._active_filter(session.query(Feed.id)))\
-                       .order_by(Feed.next_fetch_attempt.asc().nullsfirst(),
-                                 Feed.id.desc())\
-                       .limit(limit)\
-                       .all()  # all rows
+                .order_by(Feed.next_fetch_attempt.asc().nullsfirst(),
+                          Feed.id.desc())\
+                .limit(limit)\
+                .all()  # all rows
             feed_ids = [row[0] for row in rows]
             if not feed_ids:
                 return 0
@@ -106,7 +107,7 @@ class Queuer:
                 # use "now" for FetchEvent created_at?
                 session.add(
                     FetchEvent.from_info(feed_id,
-                                                FetchEvent.Event.QUEUED))
+                                         FetchEvent.Event.QUEUED))
         return self.queue_feeds(feed_ids, now.isoformat())
 
     def queue_feeds(self, feed_ids: List[int], ts_iso: str) -> int:
@@ -117,6 +118,7 @@ class Queuer:
 
         logger.info(f"Queued {queued}/{total} feeds")
         return queued
+
 
 def fetches_per_minute(session: SessionType) -> int:
     """
@@ -134,11 +136,13 @@ def fetches_per_minute(session: SessionType) -> int:
                     Feed.update_minutes,
                     conf.DEFAULT_INTERVAL_MINS),
                 conf.MINIMUM_INTERVAL_MINS
-            ) # greatest
-        ) # sum
+            )  # greatest
+        )  # sum
     ).one()[0]
 
 # XXX make a queuer method? should only be used here!
+
+
 def loop(queuer: Queuer, refill_period_mins: int = 5) -> None:
     """
     Loop monitoring & reporting queue length to stats server
@@ -174,7 +178,7 @@ def loop(queuer: Queuer, refill_period_mins: int = 5) -> None:
         # always queue on startup, then
         # wait for multiple of refill_period_mins.
         if (hi_water < 0 or
-            (int(t0 / 60) % refill_period_mins) == 0):
+                (int(t0 / 60) % refill_period_mins) == 0):
 
             # name hi_water is a remnant of an implementation attempt
             # that refilled to hi_water only when queue drained to lo_water.
