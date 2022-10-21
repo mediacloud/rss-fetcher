@@ -1,22 +1,21 @@
 #!/bin/sh
 # emacs: -*- compile-command: "./mypy.sh" -*-
 
-# Script phil uses to run mypy; see also mypy.ini
+# Script phil uses to run mypy on Ubuntu 20.04; see also mypy.ini
+# NOTE! psycopg2 install requires postgres client library/dev packages?
 
-# a work in progress; still generates some noise
-# some causes may be:
-# * mcmetadata lacks py.typed?
-# * available stubs for sqlalchemy are out of date??
+# a work in progress; still generates some noise:
+# * available stubs for sqlalchemy are not up to date:
 #	missing: Session.begin(), PendingRollbackError
-# * no type hints for: feedparser, rq, statsd, uvicorn
-#	(could put our own .pyi files in stubs/)
+# * no type hints for feedparser: (could put our own .pyi files in stubs/)
 
-# Phil runs this under emacs by opening this file, then:
+# Phil runs this file by opening this file in emacs, then:
 # M-x compile<RET>
 # <RET>
 # then stepping through the messages with c-x ` (next-error)
 # to re-run, go back to the mypy.sh buffer and repeat.
 
+# allow alternate python interpreter if multiple versions installed:
 PYTHON=${PYTHON:-python3}
 
 # expected to be run in a venv w/ requirements.txt installed
