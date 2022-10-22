@@ -79,8 +79,15 @@ in our situation (easy to aggregate counters from multiple worker processes).
 
 ### Statsd metric types
 
-1.  Counter:  An integer value that only increases (an odometer); An event counter.
-2.  Gauge:  A numeric value that can go up or down (gas gauge, thermometer, load average, disk space used, queue length).
+1.  Counter:  An integer value that only increases (an odometer);
+    An event counter.  Multiple increments for a counter are summed for
+    each reporting interval (default period is 10 seconds).
+
+2.  Gauge: A numeric value that can go up or down (gas gauge,
+    thermometer, load average, disk space used, queue length).
+    A new gauge report replaces the existing one (non-additive);
+    Each gauge report "sticks" until replaced by another.
+    
 3.  Timer: aggregate statistics of duration timings.
 
 [statsd metric_types page](https://github.com/statsd/statsd/blob/master/docs/metric_types.md)
