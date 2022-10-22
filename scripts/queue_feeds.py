@@ -40,33 +40,6 @@ class Queuer:
         self.stats = stats
         self.wq = wq
 
-    def _active_filter(self, q: Query) -> Query:
-        """
-        filter a feeds query to return only active feeds
-        """
-        return q.filter(Feed.active.is_(True),
-                        Feed.system_enabled.is_(True))
-
-    def _active_feed_ids(self, session: SessionType) -> Query:
-        """
-        base query to return active feed ids
-        """
-        return self._active_filter(session.query(Feed.id))
-
-    def count_active(self, session: SessionType) -> int:
-        return self._active_feed_ids(session).count()
-
-    def _ready_filter(self, q: Query) -> Query:
-        return q.filter(Feed.queued.is_(False),
-                        or_(Feed.next_fetch_attempt.is_(None),
-                            Feed.next_fetch_attempt <= utc()))
-
-    def _ready_query(self, session: SessionType) -> Query:
-        """
-        return base query for feed id's ready to be fetched
-        """
-        return self._ready_filter(self._active_feed_ids(session))
-
     def find_and_queue_feeds(self, limit: int) -> int:
         """
         Find some active, undisabled, unqueued feeds
@@ -85,8 +58,8 @@ class Queuer:
 
             # maybe secondary order by (Feed.id % 1001)?
             #  would require adding adding a column to query
-            rows = self._ready_filter(
-                self._active_filter(session.query(Feed.id)))\
+            rows = \
+                _ready_ids(session)\
                 .order_by(Feed.next_fetch_attempt.asc().nullsfirst(),
                           Feed.id.desc())\
                 .limit(limit)\
@@ -122,6 +95,38 @@ class Queuer:
         return queued
 
 
+def _active_filter(q: Query) -> Query:
+    """
+    filter a feeds query to return only active feeds
+    """
+    return q.filter(Feed.active.is_(True),
+                    Feed.system_enabled.is_(True))
+
+
+def _active_feed_ids(session: SessionType) -> Query:
+    """
+    base query to return active feed ids
+    """
+    return _active_filter(session.query(Feed.id))
+
+
+def count_active(session: SessionType) -> int:
+    return _active_feed_ids(session).count()
+
+
+def _ready_filter(q: Query) -> Query:
+    return q.filter(Feed.queued.is_(False),
+                    or_(Feed.next_fetch_attempt.is_(None),
+                        Feed.next_fetch_attempt <= utc()))
+
+
+def _ready_ids(session: SessionType) -> Query:
+    """
+    return base query for feed id's ready to be fetched
+    """
+    return _ready_filter(_active_feed_ids(session))
+
+
 def fetches_per_minute(session: SessionType) -> int:
     """
     Return average expected fetches per minute, based on
@@ -131,19 +136,22 @@ def fetches_per_minute(session: SessionType) -> int:
     NOTE!! This needs to be kept in sync with the policy in
     fetcher.tasks.update_feed()!!!
     """
-    return int(
+    q = _active_filter(
         session.query(
             f.sum(
                 1.0 /
-                ff.greatest(    # never faster than minimum interval
-                    f.coalesce(  # use DEFAULT if update_minutes is NULL
+                # never faster than minimum interval
+                ff.greatest(
+                    # use DEFAULT if update_minutes is NULL
+                    f.coalesce(
                         Feed.update_minutes,
                         conf.DEFAULT_INTERVAL_MINS),
                     conf.MINIMUM_INTERVAL_MINS
                 )  # greatest
             )  # sum
-        ).one()[0]
-    )
+        )  # query
+    )  # active
+    return int(q.one()[0])
 
 # XXX make a queuer method? should only be used here!
 
@@ -226,14 +234,14 @@ def loop(queuer: Queuer, refill_period_mins: int = 5) -> None:
             # all entries marked active and enabled.
             # there is probably a problem if more than a small
             #  fraction of active entries are ready!
-            db_active = queuer.count_active(session)
+            db_active = count_active(session)
 
             # should be approx (updated) qlen + active
             db_queued = session.query(Feed)\
                                .filter(Feed.queued.is_(True))\
                                .count()
 
-            db_ready = queuer._ready_query(session).count()
+            db_ready = _ready_ids(session).count()
 
         queuer.stats.gauge('db.active', db_active)
         queuer.stats.gauge('db.queued', db_queued)
@@ -293,12 +301,14 @@ if __name__ == '__main__':
     # support passing in one or more feed ids on the command line
     if args.feeds:
         feed_ids = [int(feed) for feed in args.feeds]
-        with Session.begin() as session:
-            # validate ids
-            rows = queuer._ready_query(session)\
-                         .filter(Feed.id.in_(feed_ids))\
-                         .all()
+
+        # validate ids:
+        with Session() as session:
+            rows = _active_feed_ids(session)\
+                .filter(Feed.id.in_(feed_ids))\
+                .all()
             valid_ids = [row[0] for row in rows]
+
         # maybe complain about invalid feeds??
         #   find via set(feed_ids) - set(valid_feeds)
         nowstr = dt.datetime.utcnow().isoformat()
