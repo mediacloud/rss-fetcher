@@ -39,9 +39,9 @@ import fetcher.util as util
 
 
 class Status(Enum):
-    SUCC = 'succ'               # success
-    SOFT = 'soft'               # soft error (never disable)
-    HARD = 'hard'               # hard error
+    SUCC = 'Success'            # success
+    SOFT = 'Soft error'         # soft error (never disable)
+    HARD = 'Hard error'         # hard error
 
 
 HTTP_SOFT = set([403, 429])     # http status codes to consider "soft"
@@ -176,11 +176,12 @@ def update_feed(session: SessionType,
     Trying to make this the one place that updates the Feed row,
     so all policy can be centralized here.
 
-    NOTE!! Changes in policy (eg; no minimum on feeds from servers
-    that return 304) need to be reflected in the fetches_per_minite
+    ***NOTE!!*** Any changes here in requeue policy
+    need to be reflected in the fetches_per_minite
     function in scripts/queue_feeds.py!!!!
     """
-    logger.debug(f"  Feed {feed_id} {status.name} {note}")
+    # maybe vary message severity based on status??
+    logger.info(f"  Feed {feed_id} {status.value}: {note}")
     try:
         total_td = dt.datetime.utcnow() - now  # fetch + processing
         total_sec = total_td.total_seconds()
@@ -443,10 +444,11 @@ def fetch_and_process_feed(
 
     try:
         # first thing is to fetch the content
-        logger.info(f"Working on feed {feed_id}")
+        logger.info(f"Working on feed {feed_id}: {feed['url']}")
         response = _fetch_rss_feed(feed)
     except Exception as exc:
-        logger.warning(f" Feed {feed_id}: fetch failed {exc}")
+        # now logged in update_feed:
+        #logger.warning(f" Feed {feed_id}: fetch failed {exc}")
         update_feed(session, feed_id, Status.SOFT, f"fetch: {exc}", now)
 
         # NOTE!! try to limit cardinality of status: (eats stats
@@ -473,8 +475,6 @@ def fetch_and_process_feed(
             status = Status.HARD
 
         rurl = response.url
-        logger.info(
-            f"  Feed {feed_id} - skipping, bad response {rsc} at {rurl}")
         update_feed(session, feed_id, status, f"HTTP {rsc} / {rurl}", now)
 
         # limiting tag cardinality, only a few, common codes for now.
@@ -522,7 +522,6 @@ def fetch_and_process_feed(
     # BAIL: server says file hasn't changed (no data returned)
     # treated as success
     if response.status_code == 304:
-        logger.info(f"  Feed {feed_id} - skipping, file not modified")
         # Note if feed has ever sent 304 response.
         # Maybe allow use to allow polling at higher rate
         # (or even feed.update_minutes)?
@@ -546,8 +545,6 @@ def fetch_and_process_feed(
     # BAIL: no changes since last time
     # treated as success
     if new_hash == feed['last_fetch_hash']:
-        # Maybe clear "sends_not_modified" column mentioned above??
-        logger.info(f"  Feed {feed_id} - skipping, same hash")
         if feed['http_304']:
             # considering, maybe, clearing http_304, but want to see
             # how often this happens (could happen because file metadata
@@ -572,7 +569,6 @@ def fetch_and_process_feed(
             raise RuntimeError(parsed_feed.bozo_exception)
     except Exception as e:
         # BAIL: couldn't parse it correctly
-        logger.warning(f"Couldn't parse feed {feed_id}: {e}")
         update_feed(session, feed_id, Status.SOFT, f"parse: {e}", now)
         # split up into different counters if needed/desired
         # (beware label cardinality)
@@ -588,16 +584,14 @@ def fetch_and_process_feed(
 
     # see if feed indicates update period
     try:                        # paranoia
-        update_period_mins = _feed_update_period_mins(parsed_feed)
-
-        if update_period_mins is not None:
-            period_str = dt.timedelta(seconds=update_period_mins * 60)
-            logger.debug(f"  Feed {feed_id} update period {period_str}")
+        update_minutes = _feed_update_period_mins(parsed_feed)
+        if feed['update_minutes'] != update_minutes:
+            logger.info(
+                f"  Feed {feed_id} updating update_minutes from {feed['update_minutes']} to {update_minutes}")
+            feed_col_updates['update_minutes'] = update_minutes
     except BaseException:
         logger.exception("update period")  # XXX debug only?
-        update_period_mins = None
 
-    feed_col_updates['update_minutes'] = update_period_mins
     update_feed(session, feed_id, Status.SUCC, f"{skipped} skipped / {saved} added",
                 now, feed_col_updates)
 
@@ -681,8 +675,6 @@ def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
             skipped_count += 1
 
     entries = len(parsed_feed.entries)
-    logger.info(
-        f"  Feed {feed['id']} - {entries} entries ({skipped_count} skipped)")
     saved_count = entries - skipped_count
     return saved_count, skipped_count
 
@@ -699,7 +691,7 @@ def check_feed_title(feed: Dict,
             if title and feed['name'] != title:
                 # use !r (repr) to display strings w/ quotes
                 logger.info(
-                    f" Feed {feed['id']} updating name from {feed['name']!r} to {title!r}")
+                    f"  Feed {feed['id']} updating name from {feed['name']!r} to {title!r}")
                 feed_col_updates['name'] = title
     except AttributeError:
         # if the feed has no title that isn't really an error, just skip safely
