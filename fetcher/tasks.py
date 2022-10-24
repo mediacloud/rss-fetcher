@@ -311,7 +311,7 @@ def _feed_update_period_mins(
 
         ret = round(upm / ufn)
         if ret <= 0:
-            ret = DEFAULT_INTERVAL_MINS
+            ret = DEFAULT_INTERVAL_MINS  # XXX maybe return None?
         #logger.debug(f" _feed_update_period_mins pd {update_period} fq {update_frequency} => {ret}")
         return ret
     except BaseException:
@@ -522,10 +522,11 @@ def fetch_and_process_feed(
     # BAIL: server says file hasn't changed (no data returned)
     # treated as success
     if response.status_code == 304:
-        # Maybe set a boolean column (via feed_col_updates)
-        # "sends_not_modified" to note this feed sends 304 responses,
-        # and use that as license use a smaller minimum poll interval?
         logger.info(f"  Feed {feed_id} - skipping, file not modified")
+        # Note if feed has ever sent 304 response.
+        # Maybe allow use to allow polling at higher rate
+        # (or even feed.update_minutes)?
+        feed_col_updates['http_304'] = True
         update_feed(
             session,
             feed_id,
@@ -547,6 +548,11 @@ def fetch_and_process_feed(
     if new_hash == feed['last_fetch_hash']:
         # Maybe clear "sends_not_modified" column mentioned above??
         logger.info(f"  Feed {feed_id} - skipping, same hash")
+        if feed['http_304']:
+            # considering, maybe, clearing http_304, but want to see
+            # how often this happens (could happen because file metadata
+            # has changed, but content has not).
+            logger.info(f"   Feed {feed_id} same hash w/ http_304 set")
         update_feed(
             session,
             feed_id,
