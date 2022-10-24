@@ -145,8 +145,14 @@ def conf_required(name: str) -> property:
     return property(getter)
 
 
+# default value for DEFAULT_INTERVAL_MINS if not configured:
 _DEFAULT_DEFAULT_INTERVAL_MINS = 12 * 60
+
+# default value for MINIMUM_INTERVAL_MINS if not configured:
 _DEFAULT_MINIMUM_INTERVAL_MINS = _DEFAULT_DEFAULT_INTERVAL_MINS
+
+# default value for MINIMUM_INTERVAL_MINS_304 if not configured:
+_DEFAULT_MINIMUM_INTERVAL_MINS_304 = _DEFAULT_DEFAULT_INTERVAL_MINS
 
 
 class _Config:                  # only instantied in this file
@@ -214,14 +220,19 @@ class _Config:                  # only instantied in this file
     # failures before disabling feed
     MAX_FAILURES = conf_int('MAX_FAILURES', 4)
 
-    # feeds to queue before quitting
+    # feeds to queue before quitting (if not looping)
     MAX_FEEDS = conf_int('MAX_FEEDS', 10000)
 
     # minimum requeue interval (used to clamp sy:updatePeriod/Frequency)
     MINIMUM_INTERVAL_MINS = conf_int('MINIMUM_INTERVAL_MINS',
-                                     _DEFAULT_DEFAULT_INTERVAL_MINS)
+                                     _DEFAULT_MINIMUM_INTERVAL_MINS)
 
-    # rq uses only redis for queues
+    # minimum requeue interval (if feed sends 304 "Not Modified" responses)
+    # (allow honoring shorter intervals advertised by feed when cost is lower)
+    MINIMUM_INTERVAL_MINS_304 = conf_int('DEFAULT_INTERVAL_MINS_304',
+                                         _DEFAULT_MINIMUM_INTERVAL_MINS_304)
+
+    # rq uses only redis for queues; use dokku-redis supplied URL
     REDIS_URL = conf_required('REDIS_URL')
 
     # timeout in sec. for fetching an RSS file

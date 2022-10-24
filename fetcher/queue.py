@@ -87,6 +87,8 @@ def worker() -> None:
     run as worker, called by scripts/worker.py
     """
     with Connection(redis_connection()) as conn:
+        # worker can serve multiple queues; could
+        # have a high-priority queue for manual submissions.
         w = SimpleWorker([WORKQ_NAME], connection=conn)
 
         # "The return value indicates whether any jobs were processed."

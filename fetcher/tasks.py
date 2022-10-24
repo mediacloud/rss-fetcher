@@ -26,12 +26,15 @@ import requests
 from setproctitle import setproctitle
 from sqlalchemy import literal
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
+from sqlalchemy.sql.expression import case
+import sqlalchemy.sql.functions as f  # avoid overriding "sum"
 
 # feed fetcher:
 from fetcher import APP, DYNO
 from fetcher.config import conf
 from fetcher.database import Session, SessionType
-import fetcher.database.models as models
+from fetcher.database.functions import greatest
+from fetcher.database.models import Feed, FetchEvent, Story, utc
 import fetcher.path as path
 from fetcher.stats import Stats
 import fetcher.queue
@@ -39,6 +42,7 @@ import fetcher.util as util
 
 
 class Status(Enum):
+    # values used for logging:
     SUCC = 'Success'            # success
     SOFT = 'Soft error'         # soft error (never disable)
     HARD = 'Hard error'         # hard error
@@ -47,9 +51,12 @@ class Status(Enum):
 HTTP_SOFT = set([403, 429])     # http status codes to consider "soft"
 
 # force logging on startup (actual logging deferred)
+# please keep alphabetical:
 DAY_WINDOW = conf.DAY_WINDOW
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
+MAX_FAILURES = conf.MAX_FAILURES
 MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
+MINIMUM_INTERVAL_MINS_304 = conf.MINIMUM_INTERVAL_MINS_304
 RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 
@@ -138,10 +145,10 @@ def normalized_title_exists(session: SessionType,
     # only care if matching rows exist, so doing nested EXISTS query
     with session.begin():
         return session.query(literal(True))\
-                      .filter(session.query(models.Story)
-                              .filter(models.Story.published_at >= earliest_date,
-                                      models.Story.normalized_title_hash == normalized_title_hash,
-                                      models.Story.sources_id == sources_id)
+                      .filter(session.query(Story)
+                              .filter(Story.published_at >= earliest_date,
+                                      Story.normalized_title_hash == normalized_title_hash,
+                                      Story.sources_id == sources_id)
                               .exists())\
                       .scalar() is True
 
@@ -153,11 +160,43 @@ def normalized_url_exists(session: SessionType,
     # only care if matching rows exist, so doing nested EXISTS query
     with session.begin():
         return session.query(literal(True))\
-                      .filter(session.query(models.Story)
-                              .filter(models.Story.normalized_url ==
+                      .filter(session.query(Story)
+                              .filter(Story.normalized_url ==
                                       normalized_url)
                               .exists())\
                       .scalar() is True
+
+
+# used by scripts/queue_feeds.py, but moved here
+# because needs to be kept in sync with queuing policy
+# in update_feed().
+def fetches_per_minute(session: SessionType) -> int:
+    """
+    Return average expected fetches per minute, based on
+    Feed.update_minutes (derived from <sy:updatePeriod> and
+    <sy:updateFrequency>).
+
+    NOTE!! This needs to be kept in sync with the policy in
+    update_feed() (below)
+    """
+    q = Feed._active_filter(
+        session.query(
+            f.sum(
+                1.0 /
+                # never faster than minimum interval
+                # (but allow lower minimum if server sends HTTP 304)
+                greatest(
+                    # use DEFAULT_INTERVAL_MINS if update_minutes is NULL
+                    f.coalesce(
+                        Feed.update_minutes,
+                        DEFAULT_INTERVAL_MINS),
+                    case([(Feed.http_304, MINIMUM_INTERVAL_MINS_304)],
+                         else_=MINIMUM_INTERVAL_MINS)
+                )  # greatest
+            )  # sum
+        )  # query
+    )  # active
+    return int(q.one()[0])
 
 
 def update_feed(session: SessionType,
@@ -177,8 +216,7 @@ def update_feed(session: SessionType,
     so all policy can be centralized here.
 
     ***NOTE!!*** Any changes here in requeue policy
-    need to be reflected in the fetches_per_minite
-    function in scripts/queue_feeds.py!!!!
+    need to be reflected in fetches_per_minite (above)
     """
     # maybe vary message severity based on status??
     logger.info(f"  Feed {feed_id} {status.value}: {note}")
@@ -200,7 +238,7 @@ def update_feed(session: SessionType,
         # Atomic increment IS possible without this,
         # but we need to make choices based on the new value,
         # and to clear queued after those choices.
-        f = session.get(models.Feed, feed_id, with_for_update=True)
+        f = session.get(Feed, feed_id, with_for_update=True)
         if f is None:
             logger.info(f"  Feed {feed_id} not found in update_feed")
             return
@@ -221,17 +259,17 @@ def update_feed(session: SessionType,
         next_minutes = f.update_minutes or DEFAULT_INTERVAL_MINS
 
         if status == Status.SUCC:
-            event = models.FetchEvent.Event.FETCH_SUCCEEDED
+            event = FetchEvent.Event.FETCH_SUCCEEDED
             f.last_fetch_failures = 0
             # many values come in via 'feed_col_updates'
             # PLB: save "working" as system_status??
         else:
-            event = models.FetchEvent.Event.FETCH_FAILED
+            event = FetchEvent.Event.FETCH_FAILED
             failures = f.last_fetch_failures
             if status == Status.HARD:
                 failures = f.last_fetch_failures = f.last_fetch_failures + 1
-                if failures >= conf.MAX_FAILURES:
-                    event = models.FetchEvent.Event.FETCH_FAILED_DISABLED
+                if failures >= MAX_FAILURES:
+                    event = FetchEvent.Event.FETCH_FAILED_DISABLED
                     f.system_enabled = False
                     next_minutes = None  # don't reschedule
                     logger.warning(
@@ -251,8 +289,13 @@ def update_feed(session: SessionType,
                 # (ie; 12h, 1d, 2d, 4d)
                 #next_minutes *= 2 ** (failures - 1)
 
-                # add random minute offset to break up clumps
-                # of 429 (Too Many Requests) errors
+                # add random minute offset to break up clumps of 429
+                # (Too Many Requests) errors.  Zero to 59 minutes is
+                # only twelve five-minute queuing buckets to fall
+                # into, so with a source with a LOT of feeds (eg
+                # huffpo) it's likely multiple feeds from the source
+                # will still occur, and may trigger 429s, but
+                # hopefully, over time the random.
                 next_minutes += random.random() * 60
 
         # PLB: save note as f.system_status??
@@ -260,16 +303,30 @@ def update_feed(session: SessionType,
         # or pass note in two halves: system_status & detail????
 
         if next_minutes is not None:  # reschedule?
-            if next_minutes < conf.MINIMUM_INTERVAL_MINS:
-                next_minutes = conf.MINIMUM_INTERVAL_MINS  # clamp to minimum
-            f.next_fetch_attempt = next_dt = models.utc(next_minutes * 60)
-            logger.debug(f"  Feed {feed_id} rescheduled for {next_dt}")
+            # clamp interval to a minimum value
+            if f.http_304:
+                # Allow different (shorter) interval if server sends
+                # HTTP 304 Not Modified (no data transferred if ETag
+                # or Last-Modified not changed).  Initial observation
+                # is that 304's are most common on feeds that
+                # advertise a one hour update interval!
+                if next_minutes < MINIMUM_INTERVAL_MINS_304:
+                    next_minutes = MINIMUM_INTERVAL_MINS_304
+            else:
+                if next_minutes < MINIMUM_INTERVAL_MINS:
+                    next_minutes = MINIMUM_INTERVAL_MINS
+
+            f.next_fetch_attempt = next_dt = utc(next_minutes * 60)
+            logger.info(
+                f"  Feed {feed_id} rescheduled for {round(next_minutes)} min at {next_dt}")
         elif f.system_enabled:
+            # only reason next_minutes should be None is if
+            # system_enabled set False above.
             logger.error("  Feed {feed_id} enabled but not rescheduled!!!")
 
         # NOTE! created_at will match last_fetch_attempt
         # (and last_fetch_success if a success)
-        session.add(models.FetchEvent.from_info(feed_id, event, now, note))
+        session.add(FetchEvent.from_info(feed_id, event, now, note))
         session.commit()
         session.close()
     # end "with session.begin()"
@@ -387,7 +444,7 @@ def fetch_and_process_feed(
 
     with session.begin():
         # lock row for duration of transaction:
-        f = session.get(models.Feed, feed_id, with_for_update=True)
+        f = session.get(Feed, feed_id, with_for_update=True)
         if f is None:
             feeds_incr('missing')
             logger.info(f"feed_worker: feed {feed_id} not found")
@@ -628,7 +685,7 @@ def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
                 stories_incr('home')
                 skipped_count += 1
                 continue
-            s = models.Story.from_rss_entry(feed['id'], now, entry)
+            s = Story.from_rss_entry(feed['id'], now, entry)
             # skip urls from high-quantity non-news domains
             # we see a lot in feeds
             if s.domain in mcmetadata.urls.NON_NEWS_DOMAINS:

@@ -12,6 +12,7 @@ from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, t
 # SQLAlchemy moves this to sqlalchemy.orm, but available type hints only
 # has it old location:
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm.query import Query
 
 from fetcher.database.engine import engine
 import fetcher.util as util
@@ -65,6 +66,16 @@ class Feed(MyBase):
 
     def __repr__(self) -> str:
         return f"<Feed id={self.id} name={self.name} sources_id={self.sources_id}>"
+
+    @staticmethod
+    def _active_filter(q: Query) -> Query:
+        """
+        Helper for defining queries:
+        filter a feeds query to return only active feeds.
+        This is MEANT to be the only place to define this policy.
+        """
+        return q.filter(Feed.active.is_(True),
+                        Feed.system_enabled.is_(True))
 
 
 class Story(MyBase):
