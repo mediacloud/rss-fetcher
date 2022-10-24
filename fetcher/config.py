@@ -227,8 +227,13 @@ class _Config:                  # only instantied in this file
     MINIMUM_INTERVAL_MINS = conf_int('MINIMUM_INTERVAL_MINS',
                                      _DEFAULT_MINIMUM_INTERVAL_MINS)
 
-    # minimum requeue interval (if feed sends 304 "Not Modified" responses)
-    # (allow honoring shorter intervals advertised by feed when cost is lower)
+    # minimum requeue interval (if feed sends 304 "Not Modified"
+    # responses) (allow honoring shorter intervals advertised by feed
+    # when cost is lower).  An initial look shows that the majority of
+    # feeds on servers returning 304, have update periods that are an
+    # hour or less; It's doubtful we would ever want to poll THAT
+    # often.  CAUTION!  Faster polling could cause more 429 (throttling)
+    # responses!
     MINIMUM_INTERVAL_MINS_304 = conf_int('DEFAULT_INTERVAL_MINS_304',
                                          _DEFAULT_MINIMUM_INTERVAL_MINS_304)
 
