@@ -720,7 +720,12 @@ def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
             logger.debug(f"Bad rss entry {link}: {exc}")
 
             # control via environment var for debug???
-            #logger.exception(f"bad rss entry {link}")
+            # should be less common w/ 'nourl' check
+            # PLB: want to better understand when this happens,
+            # and why, and perhaps add safeguarding to code
+            # so the errors can be narrowed to catch
+            # fewer spurrious errors (from coding errors)
+            logger.exception(f"bad rss entry {link}")
 
             stories_incr('bad')
             skipped_count += 1
