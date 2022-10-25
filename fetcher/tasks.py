@@ -275,23 +275,19 @@ def update_feed(session: SessionType,
                     logger.info(
                         f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
-            if next_minutes is not None and failures > 0:
-                # back off to be kind to servers:
-                # linear backoff (ie; 12h, 1d, 1.5d, 2d)
-                next_minutes *= failures
+            if next_minutes is not None:
+                if failures > 0:
+                    # back off to be kind to servers:
+                    # linear backoff (ie; 12h, 1d, 1.5d, 2d)
+                    next_minutes *= failures
 
-                # exponential backoff:
-                # kinder, but excessive delays with long initial period.
-                # (ie; 12h, 1d, 2d, 4d)
-                #next_minutes *= 2 ** (failures - 1)
+                    # exponential backoff:
+                    # kinder, but excessive delays with long initial period.
+                    # (ie; 12h, 1d, 2d, 4d)
+                    #next_minutes *= 2 ** (failures - 1)
 
                 # add random minute offset to break up clumps of 429
-                # (Too Many Requests) errors.  Zero to 59 minutes is
-                # only twelve five-minute queuing buckets to fall
-                # into, so with a source with a LOT of feeds (eg
-                # huffpo) it's likely multiple feeds from the source
-                # will still occur, and may trigger 429s, but
-                # hopefully, over time the random.
+                # (Too Many Requests) errors.
                 next_minutes += random.random() * 60
 
         # PLB: save note as f.system_status??
