@@ -218,19 +218,15 @@ def update_feed(session: SessionType,
     ***NOTE!!*** Any changes here in requeue policy
     need to be reflected in fetches_per_minite (above)
     """
+    total_td = dt.datetime.utcnow() - now  # fetch + processing
+    total_sec = total_td.total_seconds()
     # maybe vary message severity based on status??
-    logger.info(f"  Feed {feed_id} {status.value}: {note}")
-    try:
-        total_td = dt.datetime.utcnow() - now  # fetch + processing
-        total_sec = total_td.total_seconds()
-        logger.debug(f"  Feed {feed_id} fetch/processing {total_sec:.06f} sec")
-        stats = Stats.get()
-        if stats:
-            # likely to be multi-modal (connection timeouts)
-            stats.timing('total', total_sec,
-                         labels=[('status', status.name)])
-    except BaseException as e:
-        logger.debug(f"total time: {e}")
+    logger.info(f"  Feed {feed_id} {status.value} in {total_sec:.03f} sec: {note}")
+    stats = Stats.get()
+    if stats:
+        # likely to be multi-modal (connection timeouts)
+        stats.timing('total', total_sec,
+                     labels=[('status', status.name)])
 
     # PLB log w/note?? (would duplicate existing logging)
     with session.begin():
@@ -679,12 +675,20 @@ def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
                 stories_incr('relurl')
                 skipped_count += 1
                 continue
-            # and skip very common homepage patterns:
-            if mcmetadata.urls.is_homepage_url(link):
-                logger.debug(f" * skip homepage URL: {link}")
-                stories_incr('home')
+
+            try:
+                # and skip very common homepage patterns:
+                if mcmetadata.urls.is_homepage_url(link):
+                    logger.debug(f" * skip homepage URL: {link}")
+                    stories_incr('home')
+                    skipped_count += 1
+                    continue
+            except BaseException:
+                logger.debug(f" * bad URL: {link}")
+                stories_incr('bad')
                 skipped_count += 1
                 continue
+
             s = Story.from_rss_entry(feed['id'], now, entry)
             # skip urls from high-quantity non-news domains
             # we see a lot in feeds
@@ -720,14 +724,14 @@ def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
             logger.debug(f"Bad rss entry {link}: {exc}")
 
             # control via environment var for debug???
-            # should be less common w/ 'nourl' check
+            # should be less common w/ 'nourl' and 'bad' checks.
             # PLB: want to better understand when this happens,
             # and why, and perhaps add safeguarding to code
             # so the errors can be narrowed to catch
             # fewer spurrious errors (from coding errors)
             logger.exception(f"bad rss entry {link}")
 
-            stories_incr('bad')
+            stories_incr('bad2')
             skipped_count += 1
         except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
             # expected exception - log and ignore
