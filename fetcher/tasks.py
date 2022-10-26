@@ -484,20 +484,20 @@ def fetch_and_process_feed(
         session.commit()
         # end with session.begin() & with_for_update
 
+    start_delay = None
     try:
         if feed['next_fetch_attempt']:
             # delay from when ready to queue to start of processing
-            stats.timing_td('start_delay', now - feed['next_fetch_attempt'])
+            start_delay = now - feed['next_fetch_attempt']
+            stats.timing_td('start_delay', start_delay)
     except BaseException as e:
-        logger.debug(f"start_delay timing: {e}")
+        start_delay = str(e)
 
+    logger.info(f"Working on feed {feed_id}: {feed['url']} start_delay {start_delay}")
     try:
         # first thing is to fetch the content
-        logger.info(f"Working on feed {feed_id}: {feed['url']}")
         response = _fetch_rss_feed(feed)
     except Exception as exc:
-        # now logged in update_feed:
-        #logger.warning(f" Feed {feed_id}: fetch failed {exc}")
         update_feed(session, feed_id, Status.SOFT, f"fetch: {exc}", now)
 
         # NOTE!! try to limit cardinality of status: (eats stats
@@ -572,8 +572,9 @@ def fetch_and_process_feed(
     # treated as success
     if response.status_code == 304:
         # Note if feed has ever sent 304 response.
-        # Maybe allow use to allow polling at higher rate
-        # (or even feed.update_minutes)?
+        # Column defaults to NULL; considering setting it to False
+        # if "same hash" ever seen, in which case overwriting it (again)
+        # should be disabled.
         feed_col_updates['http_304'] = True
         update_feed(
             session,
@@ -595,9 +596,8 @@ def fetch_and_process_feed(
     # treated as success
     if new_hash == feed['last_fetch_hash']:
         if feed['http_304']:
-            # considering, maybe, clearing http_304, but want to see
-            # how often this happens (could happen because file metadata
-            # has changed, but content has not).
+            # considering setting http_304 to 'f'
+            # (disabling faster fetching when both "no change" and "same hash" occur)
             logger.info(f"   Feed {feed_id} same hash w/ http_304 set")
         update_feed(
             session,
