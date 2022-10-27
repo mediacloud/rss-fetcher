@@ -675,7 +675,8 @@ def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
             try:
                 # and skip very common homepage patterns:
                 if mcmetadata.urls.is_homepage_url(link):
-                    logger.debug(f" * skip homepage URL: {link}")
+                    # raised to info 2022-10-27
+                    logger.info(f" * skip homepage URL: {link}")
                     stories_incr('home')
                     skipped_count += 1
                     continue
@@ -705,7 +706,8 @@ def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
                         session.commit()
                     stories_incr('ok')
                 else:
-                    logger.debug(
+                    # raised to info 2022-10-27
+                    logger.info(
                         f" * skip duplicate title URL: {link} | {s.normalized_title_hash} | {s.sources_id}")
                     stories_incr('dup_title')
                     skipped_count += 1
@@ -722,9 +724,7 @@ def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
             # control via environment var for debug???
             # should be less common w/ 'nourl' and 'bad' checks.
             # PLB: want to better understand when this happens,
-            # and why, and perhaps add safeguarding to code
-            # so the errors can be narrowed to catch
-            # fewer spurrious errors (from coding errors)
+            # and why, and perhaps add safeguarding to code.
             logger.exception(f"bad rss entry {link}")
 
             stories_incr('bad2')
