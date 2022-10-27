@@ -34,4 +34,3 @@ def stories_published_counts(days: Optional[int] = None) -> TimeSeriesData:
         [models.Story.recent_fetched_volume(limit=(days or DEFAULT_DAYS))],
         ["stories"]
     )
-

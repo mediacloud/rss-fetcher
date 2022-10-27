@@ -57,7 +57,8 @@ class LogArgumentParser(argparse.ArgumentParser):
         self.add_argument('--version', '-V', action='version',
                           version=f"rss-fetcher {prog} {VERSION}")
 
-    # PLB: wanted to override parse_args, but couldn't get typing right for mypy
+    # PLB: wanted to override parse_args, but couldn't get typing right for
+    # mypy
     def my_parse_args(self) -> argparse.Namespace:
         args = self.parse_args()
 
