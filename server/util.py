@@ -19,11 +19,9 @@ TimeSeriesData = List[Dict[str, object]]
 
 logger = logging.getLogger(__name__)
 
-stats = Stats.get()
-
 
 class ApiResultBase(TypedDict):
-    status: Status
+    status: str
     duration: int               # ms
     version: str
 
@@ -49,9 +47,9 @@ def _error_results(message: str, start_time: float, name: str,
     :param status_code:
     :return:
     """
-    status = Status.ERROR.name
+    status = Status.ERROR
     return {
-        'status': status,
+        'status': status.name,
         'statusCode': status_code,
         'duration': _duration(start_time, status, name),
         'message': message,
@@ -59,14 +57,19 @@ def _error_results(message: str, start_time: float, name: str,
     }
 
 
-def _duration(start_time: float, status: str, name: str) -> int:
+def _duration(start_time: float, status: Status, name: str) -> int:
     """
     return request duration in ms.
     also report stats based on request name & status
     """
     sec = (time.time() - start_time) if start_time else 0
-    stats.incr('api.requests', labels=[('status', status), ('name', name)])
-    stats.timing('duration', sec) # could label, but more expensive
+    stats = Stats.get()
+    stats.incr(
+        'api.requests', labels=[
+            ('status', status.name), ('name', name)])
+    stats.timing('duration', sec)  # could label, but more expensive
+    logger.info(
+        f"endpoint: {name}, status: {status.name}, duration: {sec} sec")
     return int(round(sec * 1000))
 
 
@@ -90,10 +93,10 @@ def api_method(func: Any) -> Any:
         name = f"{func.__module__}.{func.__name__}"
         try:
             results = func(*args, **kwargs)
-            status = Status.OK.name
+            status = Status.OK
             return {            # update ApiResultOK if adding items!
                 'version': VERSION,
-                'status': status,
+                'status': status.name,
                 'duration': _duration(start_time, status, name),
                 'results': results,
             }
