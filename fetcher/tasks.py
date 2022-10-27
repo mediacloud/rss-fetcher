@@ -27,7 +27,7 @@ from setproctitle import setproctitle
 from sqlalchemy import literal
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
 from sqlalchemy.sql.expression import case
-import sqlalchemy.sql.functions as f  # avoid overriding "sum"
+import sqlalchemy.sql.functions as func  # avoid overriding "sum"
 
 # feed fetcher:
 from fetcher import APP, DYNO
@@ -181,13 +181,13 @@ def fetches_per_minute(session: SessionType) -> int:
     """
     q = Feed._active_filter(
         session.query(
-            f.sum(
+            func.sum(
                 1.0 /
                 # never faster than minimum interval
                 # (but allow lower minimum if server sends HTTP 304)
                 greatest(
                     # use DEFAULT_INTERVAL_MINS if update_minutes is NULL
-                    f.coalesce(
+                    func.coalesce(
                         Feed.update_minutes,
                         DEFAULT_INTERVAL_MINS),
                     case([(Feed.http_304, MINIMUM_INTERVAL_MINS_304)],
@@ -201,9 +201,12 @@ def fetches_per_minute(session: SessionType) -> int:
 
 def update_feed(session: SessionType,
                 feed_id: int,
-                status: Status,
-                note: str,
-                now: dt.datetime,
+                status: Status,     # for log, FetchEvent.Event
+                system_status: str,  # for log, Feed.system_status
+                note: str,          # for log, FetchEvent.note
+                # used for fetch/processing time, last_fetch_attempt,
+                # Stories.created_at, FetchEvent.created_at, last_fetch_success
+                start_time: dt.datetime,
                 feed_col_updates: Optional[Dict] = None) -> None:
     """
     Update Feed row and insert FeedEvent row
@@ -218,17 +221,27 @@ def update_feed(session: SessionType,
     ***NOTE!!*** Any changes here in requeue policy
     need to be reflected in fetches_per_minite (above)
     """
-    total_td = dt.datetime.utcnow() - now  # fetch + processing
+    total_td = dt.datetime.utcnow() - start_time  # fetch + processing
     total_sec = total_td.total_seconds()
+
+    # for logging and fetch_event entry:
+    if note:
+        if system_status == "Working":  # also check status == Status.SUCC??
+            status_note = note
+        else:
+            status_note = f"{system_status}; {note}"
+    else:
+        status_node = system_status
+
     # maybe vary message severity based on status??
-    logger.info(f"  Feed {feed_id} {status.value} in {total_sec:.03f} sec: {note}")
+    logger.info(
+        f"  Feed {feed_id} {status.value} in {total_sec:.03f} sec: {status_note}")
     stats = Stats.get()
     if stats:
         # likely to be multi-modal (connection timeouts)
         stats.timing('total', total_sec,
                      labels=[('status', status.name)])
 
-    # PLB log w/note?? (would duplicate existing logging)
     with session.begin():
         # NOTE! locks row, so atomic update of last_fetch_errors.
         # Atomic increment IS possible without this,
@@ -242,10 +255,14 @@ def update_feed(session: SessionType,
         # apply additional updates first to simplify checks
         if feed_col_updates:
             for key, value in feed_col_updates.items():
+                # PLB: maybe log "updating" here (if changed)??
                 setattr(f, key, value)
 
-        f.last_fetch_attempt = now  # match fetch_event & stories
+        f.last_fetch_attempt = start_time  # match fetch_event & stories
+        if status == Status.SUCC:
+            f.last_fetch_success = start_time
         f.queued = False        # safe to requeue
+        f.system_status = system_status
 
         # get normal feed update period in minutes, one of:
         # 1. new value being passed in to update Feed row (from RSS)
@@ -258,7 +275,6 @@ def update_feed(session: SessionType,
             event = FetchEvent.Event.FETCH_SUCCEEDED
             f.last_fetch_failures = 0
             # many values come in via 'feed_col_updates'
-            # PLB: save "working" as system_status??
         else:
             event = FetchEvent.Event.FETCH_FAILED
             failures = f.last_fetch_failures
@@ -270,29 +286,26 @@ def update_feed(session: SessionType,
                     next_minutes = None  # don't reschedule
                     logger.warning(
                         f" Feed {feed_id}: disabled after {failures} failures")
-                    # PLB: save "disabled" as system_status????
                 else:
                     logger.info(
                         f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
             if next_minutes is not None:
+                # XXX have separate "backoff" counter (for soft errors)???
                 if failures > 0:
                     # back off to be kind to servers:
                     # linear backoff (ie; 12h, 1d, 1.5d, 2d)
                     next_minutes *= failures
 
                     # exponential backoff:
-                    # kinder, but excessive delays with long initial period.
+                    # kinder to servers, but excessive delays with long initial period.
                     # (ie; 12h, 1d, 2d, 4d)
                     #next_minutes *= 2 ** (failures - 1)
 
-                # add random minute offset to break up clumps of 429
+                # Take optional "randomize" arg??
+                # Add random minute offset to break up clumps of 429
                 # (Too Many Requests) errors.
                 next_minutes += random.random() * 60
-
-        # PLB: save note as f.system_status??
-        # (split w/ " / " and/or ":" and save front part)???
-        # or pass note in two halves: system_status & detail????
 
         if next_minutes is not None:  # reschedule?
             # clamp interval to a minimum value
@@ -317,10 +330,16 @@ def update_feed(session: SessionType,
             logger.error("  Feed {feed_id} enabled but not rescheduled!!!")
 
         # NOTE! created_at will match last_fetch_attempt
-        # (and last_fetch_success if a success)
-        session.add(FetchEvent.from_info(feed_id, event, now, note))
+        # (and last_fetch_success if a success), Stories.created_at
+        session.add(
+            FetchEvent.from_info(
+                feed_id,
+                event,
+                start_time,
+                status_note))
         session.commit()
         session.close()
+
     # end "with session.begin()"
 
 
@@ -424,7 +443,7 @@ def fetch_and_process_feed(
         """
         stats.incr('feeds', 1, labels=[('stat', status)])
 
-    # used in Feed.last_fetch_success, Story.fetched_at
+    # used in Feed.last_fetch_{attempt,success}, Story.fetched_at
     now = dt.datetime.utcnow()
 
     try:
@@ -443,15 +462,6 @@ def fetch_and_process_feed(
             return
 
         # Sanity clause, in case DB entry modified while in queue:
-        # (including being queued more than once).
-        #     Driftwood (Groucho):
-        #       It's all right. That's, that's in every contract.
-        #       That's, that's what they call a sanity clause.
-        #     Fiorello (Chico):
-        #       Ha-ha-ha-ha-ha! You can't fool me.
-        #       There ain't no Sanity Clause!
-        #     Marx Brothers' "Night at the Opera" (1935)
-
         # reasons for being declared insane:
         # * db entry marked inactive by human
         # * db entry disabled by fetcher
@@ -462,9 +472,15 @@ def fetch_and_process_feed(
         #        of datetime (uses pickle rather than json)
         #        if deemed necessary)
         # * db entry next_fetch_attempt set, and in the future
+        # (including being queued more than once).
 
-        # commonly happens when queue_feeds.py restarted
-        # (setting queued = False, but not fully clearing queue?)
+        #     Driftwood (Groucho):
+        #       It's all right. That's, that's in every contract.
+        #       That's, that's what they call a sanity clause.
+        #     Fiorello (Chico):
+        #       Ha-ha-ha-ha-ha! You can't fool me.
+        #       There ain't no Sanity Clause!
+        #     Marx Brothers' "Night at the Opera" (1935)
 
         if (not f.active or
             not f.system_enabled or
@@ -493,12 +509,19 @@ def fetch_and_process_feed(
     except BaseException as e:
         start_delay = str(e)
 
-    logger.info(f"Working on feed {feed_id}: {feed['url']} start_delay {start_delay}")
+    logger.info(
+        f"Working on feed {feed_id}: {feed['url']} start_delay {start_delay}")
     try:
         # first thing is to fetch the content
         response = _fetch_rss_feed(feed)
     except Exception as exc:
-        update_feed(session, feed_id, Status.SOFT, f"fetch: {exc}", now)
+        update_feed(
+            session,
+            feed_id,
+            Status.SOFT,
+            "fetch error",
+            str(exc),
+            now)
 
         # NOTE!! try to limit cardinality of status: (eats stats
         # storage and graph colors), so not doing detailed breakdown
@@ -524,7 +547,7 @@ def fetch_and_process_feed(
             status = Status.HARD
 
         rurl = response.url
-        update_feed(session, feed_id, status, f"HTTP {rsc} / {rurl}", now)
+        update_feed(session, feed_id, status, f"HTTP {rsc}", rurl, now)
 
         # limiting tag cardinality, only a few, common codes for now.
         # NOTE! 429 is "too many requests"
@@ -553,10 +576,7 @@ def fetch_and_process_feed(
     # and the feed is reenabled.
 
     # responded with data, or "not changed", so update last_fetch_success
-    # XXX mypy infers that all values are datetime?!!!
-    feed_col_updates: Dict[str, Any] = {
-        'last_fetch_success': now  # HTTP fetch succeeded
-    }
+    feed_col_updates: Dict[str, Any] = {}  # XXX use a Feed object????
 
     # https://www.rfc-editor.org/rfc/rfc9110.html#status.304
     # says a 304 response MUST have an ETag if 200 would have.
@@ -581,6 +601,7 @@ def fetch_and_process_feed(
             feed_id,
             Status.SUCC,
             "not modified",
+            "",                 # note
             now,
             feed_col_updates)
         feeds_incr('not_mod')
@@ -604,6 +625,7 @@ def fetch_and_process_feed(
             feed_id,
             Status.SUCC,
             "same hash",
+            "",                 # note
             now,
             feed_col_updates)
         feeds_incr('same_hash')
@@ -618,7 +640,7 @@ def fetch_and_process_feed(
             raise RuntimeError(parsed_feed.bozo_exception)
     except Exception as e:
         # BAIL: couldn't parse it correctly
-        update_feed(session, feed_id, Status.SOFT, f"parse: {e}", now)
+        update_feed(session, feed_id, Status.SOFT, "parse error", str(e), now)
         # split up into different counters if needed/desired
         # (beware label cardinality)
         feeds_incr('parse_err')
@@ -641,7 +663,9 @@ def fetch_and_process_feed(
     except BaseException:
         logger.exception("update period")  # XXX debug only?
 
-    update_feed(session, feed_id, Status.SUCC, f"{skipped} skipped / {saved} added",
+    update_feed(session, feed_id, Status.SUCC,
+                "Working",
+                f"{skipped} skipped / {saved} added",
                 now, feed_col_updates)
 
 
