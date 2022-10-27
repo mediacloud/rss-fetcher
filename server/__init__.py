@@ -10,6 +10,7 @@ import uvicorn
 
 import server.feeds as feeds
 import server.rss as rss
+import server.sources as sources
 import server.stories as stories
 from server.util import api_method
 import fetcher
@@ -31,8 +32,9 @@ app = FastAPI(
     },
 )
 app.include_router(feeds.router)
-app.include_router(stories.router)
 app.include_router(rss.router)
+app.include_router(sources.router)
+app.include_router(stories.router)
 
 if fetcher.sentry.init():
     # make sure some errors we don't care about don't make it to sentry
