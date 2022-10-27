@@ -708,7 +708,7 @@ def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
                 else:
                     # raised to info 2022-10-27
                     logger.info(
-                        f" * skip duplicate title URL: {link} | {s.normalized_title_hash} | {s.sources_id}")
+                        f" * skip duplicate title URL: {link} | {s.normalized_title} | {s.sources_id}")
                     stories_incr('dup_title')
                     skipped_count += 1
             else:
