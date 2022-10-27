@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, TYPE_CHECKING
 from flask import send_from_directory
-from fastapi import Query, APIRouter
+from fastapi import APIRouter
 if TYPE_CHECKING:  # pragma: no cover
     from flask.wrappers import Response
 
@@ -35,9 +35,3 @@ def stories_published_counts(days: Optional[int] = None) -> TimeSeriesData:
         ["stories"]
     )
 
-
-@router.get("/api/rss/<filename>")
-def rss(filename: str = Query(...,
-        description="The full name of the daily RSS file you want to retrieve")) -> "Response":
-    return send_from_directory(
-        directory='static', path='rss', filename=filename)
