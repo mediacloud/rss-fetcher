@@ -21,6 +21,5 @@ def stories_fetched_counts(feed_id: int) -> List[Dict]:
     with Session() as session:
         fetch_events = session.query(FetchEvent)\
                               .filter(FetchEvent.feed_id == feed_id)\
-                              .scalars()\
                               .all()
         return [fe.as_dict() for fe in fetch_events]
