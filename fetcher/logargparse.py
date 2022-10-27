@@ -112,7 +112,7 @@ class LogArgumentParser(argparse.ArgumentParser):
 if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     p = LogArgumentParser('main', 'test program')
-    args = p.parse_args()
+    args = p.my_parse_args()
 
     logger.debug('debug')
     logger.info('info')
