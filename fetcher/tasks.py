@@ -203,10 +203,10 @@ def update_feed(session: SessionType,
                 feed_id: int,
                 status: Status,     # for log, FetchEvent.Event
                 system_status: str,  # for log, Feed.system_status
-                note: str,          # for log, FetchEvent.note
                 # used for fetch/processing time, last_fetch_attempt,
                 # Stories.created_at, FetchEvent.created_at, last_fetch_success
                 start_time: dt.datetime,
+                note: Optional[str] = None,  # for log, FetchEvent.note
                 feed_col_updates: Optional[Dict] = None) -> None:
     """
     Update Feed row and insert FeedEvent row
@@ -520,8 +520,8 @@ def fetch_and_process_feed(
             feed_id,
             Status.SOFT,
             "fetch error",
-            str(exc),
-            now)
+            now,
+            note=str(exc))
 
         # NOTE!! try to limit cardinality of status: (eats stats
         # storage and graph colors), so not doing detailed breakdown
@@ -547,7 +547,7 @@ def fetch_and_process_feed(
             status = Status.HARD
 
         rurl = response.url
-        update_feed(session, feed_id, status, f"HTTP {rsc}", rurl, now)
+        update_feed(session, feed_id, status, f"HTTP {rsc}", now)
 
         # limiting tag cardinality, only a few, common codes for now.
         # NOTE! 429 is "too many requests"
@@ -601,9 +601,8 @@ def fetch_and_process_feed(
             feed_id,
             Status.SUCC,
             "not modified",
-            "",                 # note
             now,
-            feed_col_updates)
+            feed_col_updates=feed_col_updates)
         feeds_incr('not_mod')
         return
 
@@ -625,9 +624,8 @@ def fetch_and_process_feed(
             feed_id,
             Status.SUCC,
             "same hash",
-            "",                 # note
             now,
-            feed_col_updates)
+            feed_col_updates=feed_col_updates)
         feeds_incr('same_hash')
         return
 
@@ -640,7 +638,13 @@ def fetch_and_process_feed(
             raise RuntimeError(parsed_feed.bozo_exception)
     except Exception as e:
         # BAIL: couldn't parse it correctly
-        update_feed(session, feed_id, Status.SOFT, "parse error", str(e), now)
+        update_feed(
+            session,
+            feed_id,
+            Status.SOFT,
+            "parse error",
+            now,
+            note=str(e))
         # split up into different counters if needed/desired
         # (beware label cardinality)
         feeds_incr('parse_err')
@@ -665,8 +669,9 @@ def fetch_and_process_feed(
 
     update_feed(session, feed_id, Status.SUCC,
                 "Working",
-                f"{skipped} skipped / {saved} added",
-                now, feed_col_updates)
+                now,
+                note=f"{skipped} skipped / {saved} added",
+                feed_col_updates=feed_col_updates)
 
 
 def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
