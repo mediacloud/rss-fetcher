@@ -231,7 +231,7 @@ def update_feed(session: SessionType,
         else:
             status_note = f"{system_status}; {note}"
     else:
-        status_node = system_status
+        status_note = system_status
 
     # maybe vary message severity based on status??
     logger.info(
