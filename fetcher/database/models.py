@@ -117,7 +117,7 @@ class Story(MyBase):
         return _run_query(query)
 
     @staticmethod
-    def from_rss_entry(feed_id: int,
+    def from_rss_entry(feed_id: int,  # type: ignore[no-any-unimported]
                        fetched_at: dt.datetime,
                        entry: FeedParserDict,
                        media_name: Optional[str] = None) -> 'Story':

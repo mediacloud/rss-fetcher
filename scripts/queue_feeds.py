@@ -55,7 +55,7 @@ def find_and_queue_feeds(wq: queue.Queue, limit: int) -> int:
 
     # Maybe order by (id % 100) instead of id
     #  to help break up clumps?
-    with Session.begin() as session:
+    with Session.begin() as session:  # type: ignore[attr-defined]
         # NOTE nulls_first is preferred in sqlalchemy 1.4
         #  but not available in sqlalchemy-stubs 0.4
 

@@ -102,14 +102,14 @@ def queue_length(q: Queue) -> int:
     """
     number of jobs in queue; must exclude jobs currently assigned to a worker
     """
-    return q.count
+    return q.count or 0
 
 
 def queue_active(q: Queue) -> int:
     """
     rq "started" jobs ***NOT*** included in queue_length
     """
-    return q.started_job_registry.count
+    return q.started_job_registry.count or 0
 
 
 def queue_workers(q: Queue) -> int:
@@ -120,7 +120,7 @@ def queue_workers(q: Queue) -> int:
 
 
 def clear_queue() -> None:
-    with Session.begin() as session:
+    with Session.begin() as session:  # type: ignore[attr-defined]
         logger.info("Getting feeds table lock.")
         # for duration of transaction:
         session.execute(text("LOCK TABLE feeds"))

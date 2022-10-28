@@ -25,7 +25,7 @@ from psycopg2.errors import UniqueViolation
 import requests
 from setproctitle import setproctitle
 from sqlalchemy import literal
-from sqlalchemy.exc import IntegrityError, PendingRollbackError
+from sqlalchemy.exc import IntegrityError, PendingRollbackError   # type: ignore[attr-defined]
 from sqlalchemy.sql.expression import case
 import sqlalchemy.sql.functions as func  # avoid overriding "sum"
 
@@ -247,7 +247,7 @@ def update_feed(session: SessionType,
         # Atomic increment IS possible without this,
         # but we need to make choices based on the new value,
         # and to clear queued after those choices.
-        f = session.get(Feed, feed_id, with_for_update=True)
+        f = session.get(Feed, feed_id, with_for_update=True)  # type: ignore[attr-defined]
         if f is None:
             logger.info(f"  Feed {feed_id} not found in update_feed")
             return
@@ -343,7 +343,7 @@ def update_feed(session: SessionType,
     # end "with session.begin()"
 
 
-def _feed_update_period_mins(
+def _feed_update_period_mins(   # type: ignore[no-any-unimported]
         parsed_feed: feedparser.FeedParserDict) -> Optional[int]:
     """
     Extract feed update period in minutes, if any from parsed feed.
@@ -455,7 +455,7 @@ def fetch_and_process_feed(
 
     with session.begin():
         # lock row for duration of transaction:
-        f = session.get(Feed, feed_id, with_for_update=True)
+        f = session.get(Feed, feed_id, with_for_update=True) # type: ignore[attr-defined]
         if f is None:
             feeds_incr('missing')
             logger.info(f"feed_worker: feed {feed_id} not found")
@@ -674,7 +674,9 @@ def fetch_and_process_feed(
                 feed_col_updates=feed_col_updates)
 
 
-def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
+def save_stories_from_feed(session: SessionType, # type: ignore[no-any-unimported]
+                           now: dt.datetime,
+                           feed: Dict,
                            parsed_feed: feedparser.FeedParserDict) -> Tuple[int, int]:
     """
     Take parsed feed, so insert all the (valid) entries.
@@ -770,7 +772,7 @@ def save_stories_from_feed(session: SessionType, now: dt.datetime, feed: Dict,
     return saved_count, skipped_count
 
 
-def check_feed_title(feed: Dict,
+def check_feed_title(feed: Dict, # type: ignore[no-any-unimported]
                      parsed_feed: feedparser.FeedParserDict,
                      feed_col_updates: Dict) -> None:
     # update feed title (if it has one and it changed)

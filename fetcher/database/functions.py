@@ -5,7 +5,7 @@ Postgresql functions not (yet?) supplied by SQLAlchemy
 from typing import Any
 
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.sql.compiler import TypeCompiler
+from sqlalchemy.sql.compiler import SQLCompiler
 import sqlalchemy.sql.functions as functions
 from sqlalchemy.sql import expression
 from sqlalchemy.types import Numeric
@@ -24,7 +24,7 @@ else:
 
     @compiles(_greatest)
     def default_greatest(element: _greatest,
-                         compiler: TypeCompiler,
+                         compiler: SQLCompiler,
                          **kw: Any) -> str:
         return compiler.visit_function(element)
 
