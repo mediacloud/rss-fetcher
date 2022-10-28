@@ -25,7 +25,8 @@ from psycopg2.errors import UniqueViolation
 import requests
 from setproctitle import setproctitle
 from sqlalchemy import literal
-from sqlalchemy.exc import IntegrityError, PendingRollbackError   # type: ignore[attr-defined]
+from sqlalchemy.exc import (    # type: ignore[attr-defined]
+    IntegrityError, PendingRollbackError)
 from sqlalchemy.sql.expression import case
 import sqlalchemy.sql.functions as func  # avoid overriding "sum"
 
@@ -247,7 +248,8 @@ def update_feed(session: SessionType,
         # Atomic increment IS possible without this,
         # but we need to make choices based on the new value,
         # and to clear queued after those choices.
-        f = session.get(Feed, feed_id, with_for_update=True)  # type: ignore[attr-defined]
+        f = session.get(        # type: ignore[attr-defined]
+            Feed, feed_id, with_for_update=True)
         if f is None:
             logger.info(f"  Feed {feed_id} not found in update_feed")
             return
@@ -455,7 +457,8 @@ def fetch_and_process_feed(
 
     with session.begin():
         # lock row for duration of transaction:
-        f = session.get(Feed, feed_id, with_for_update=True) # type: ignore[attr-defined]
+        f = session.get(        # type: ignore[attr-defined]
+            Feed, feed_id, with_for_update=True)
         if f is None:
             feeds_incr('missing')
             logger.info(f"feed_worker: feed {feed_id} not found")
@@ -674,7 +677,7 @@ def fetch_and_process_feed(
                 feed_col_updates=feed_col_updates)
 
 
-def save_stories_from_feed(session: SessionType, # type: ignore[no-any-unimported]
+def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimported]
                            now: dt.datetime,
                            feed: Dict,
                            parsed_feed: feedparser.FeedParserDict) -> Tuple[int, int]:
@@ -772,7 +775,7 @@ def save_stories_from_feed(session: SessionType, # type: ignore[no-any-unimporte
     return saved_count, skipped_count
 
 
-def check_feed_title(feed: Dict, # type: ignore[no-any-unimported]
+def check_feed_title(feed: Dict,  # type: ignore[no-any-unimported]
                      parsed_feed: feedparser.FeedParserDict,
                      feed_col_updates: Dict) -> None:
     # update feed title (if it has one and it changed)
