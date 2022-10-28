@@ -1,9 +1,9 @@
-import datetime
-import logging
 import datetime as dt
-import os.path
-from sqlalchemy import text
 import gzip
+import logging
+import os.path
+
+from sqlalchemy import text
 
 from fetcher.database.engine import engine
 from fetcher.logargparse import LogArgumentParser
@@ -29,7 +29,7 @@ def incr_stories(status: str) -> None:
 if __name__ == '__main__':
     p = LogArgumentParser(SCRIPT, 'RSS file generator')
     # XXX include default values in help??
-    p.add_argument('--days', default=14, type=int,
+    p.add_argument('--days', default=conf.RSS_OUTPUT_DAYS, type=int,
                    help="number of days to (try to) output")
     p.add_argument('--output', default=path.OUTPUT_RSS_DIR,
                    help="directory for generated RSS files")
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     # still be running)
     for d in range(1, args.days):
         try:
-            day = today - datetime.timedelta(d)
+            day = today - dt.timedelta(d)
             day_str = day.strftime("%Y-%m-%d")
             logger.info(f" Working on {day_str} (day {d})")
             # only do this day if it doesn't exist already

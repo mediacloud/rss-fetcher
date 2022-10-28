@@ -207,7 +207,7 @@ class _Config:                  # only instantied in this file
     # creates properties acessible in INSTANCES only!
     # (descriptors work with bare class)
 
-    # days to check in DB: only needed until table partitioned by day?
+    # days back to check for duplicate story URLs/titles
     DAY_WINDOW = conf_int('DAY_WINDOW', 7)
 
     # keep this above the number of workers (initially 2x)
@@ -216,6 +216,9 @@ class _Config:                  # only instantied in this file
     # default requeue interval (if Feed.update_minutes not set)
     DEFAULT_INTERVAL_MINS = conf_int('DEFAULT_INTERVAL_MINS',
                                      _DEFAULT_DEFAULT_INTERVAL_MINS)
+
+    # days of fetch_events to keep
+    FETCH_EVENT_DAYS = conf_int('FETCH_EVENT_DAYS', 30)
 
     # failures before disabling feed
     MAX_FAILURES = conf_int('MAX_FAILURES', 4)
@@ -242,6 +245,10 @@ class _Config:                  # only instantied in this file
 
     # timeout in sec. for fetching an RSS file
     RSS_FETCH_TIMEOUT_SECS = conf_int('RSS_FETCH_TIMEOUT_SECS', 30)
+
+    # days of RSS output files to generate
+    # (also retention limit on stories)
+    RSS_OUTPUT_DAYS = conf_int('RSS_OUTPUT_DAYS', 14)
 
     # save input rss files (one per source) plus metadata for debug
     SAVE_RSS_FILES = conf_bool('SAVE_RSS_FILES', False)

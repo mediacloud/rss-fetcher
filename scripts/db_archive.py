@@ -1,0 +1,65 @@
+"""
+top level script to archive and remove old database table entries
+to prevent growth without bounds
+"""
+
+# maybe keep N rows for each feed in fetch_events???
+
+import datetime as dt
+import logging
+import os.path
+import subprocess
+
+from fetcher.config import conf
+from fetcher.logargparse import LogArgumentParser
+import fetcher.path as path
+
+SCRIPT = 'db_archive'
+
+logger = logging.getLogger(SCRIPT)
+#stats = Stats.init(SCRIPT)  # not yet?
+
+SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI
+
+def dump(table: str, col: str, limit: str, now: str, delete: bool) -> bool:
+    path.check_dir(path.DB_ARCHIVE_DIR)
+    fname = os.path.join(path.DB_ARCHIVE_DIR, f"{table}.{now}")
+    with open(fname, "wb") as output:
+        sql = f"SELECT * FROM {table} WHERE {col} < '{limit}';"
+        logger.debug(f"SQL: {sql}")
+        # could create pipeline: psql | gzip > fname
+        ret = subprocess.run(['psql', '--csv', SQLALCHEMY_DATABASE_URI, '-c', sql], stdout=output)
+        # XXX log file size in bytes??
+        logger.debug(f"return code {ret.returncode}")
+        
+    if ret.returncode != 0:
+        return False
+    elif not delete:
+        return True
+
+    sql = f"DELETE FROM {table} WHERE {col} < '{limit}';"
+    logger.debug(f"SQL: {sql}")
+    ret = subprocess.run(['psql', SQLALCHEMY_DATABASE_URI, '-c', sql])
+    logger.debug(f"return code {ret.returncode}")
+    return ret.returncode == 0
+
+
+if __name__ == '__main__':
+    p = LogArgumentParser(SCRIPT, 'import feeds.csv file')
+    p.add_argument('--story-days', type=int, default=conf.RSS_OUTPUT_DAYS)
+    p.add_argument('--event-days', type=int, default=conf.FETCH_EVENT_DAYS)
+    p.add_argument('--delete', action='store_true', default=False)
+    
+    # info logging before this call unlikely to be seen:
+    args = p.my_parse_args()       # parse logging args, output start message
+
+    now = dt.datetime.utcnow()
+    fname = now.strftime('%Y-%m-%d-%H-%M-%S')
+
+    limit = now.date() - dt.timedelta(days=args.event_days)
+    limit_str = limit.isoformat()
+    dump('fetch_events', 'created_at', limit_str, fname, args.delete)
+
+    limit = now.date() - dt.timedelta(days=args.story_days)
+    limit_str = limit.isoformat()
+    dump('stories', 'fetched_at', limit_str, fname, args.delete)
