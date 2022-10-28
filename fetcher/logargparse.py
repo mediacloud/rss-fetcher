@@ -27,16 +27,18 @@ LEVELS = [level.lower() for level in logging._nameToLevel.keys()]
 LOGGER_LEVEL_SEP = ':'
 
 
+LEVEL_DEST = 'log_level'        # keep in sync!
+
 class LogArgumentParser(argparse.ArgumentParser):
     def __init__(self, prog: str, descr: str):
         super().__init__(prog=prog, description=descr)
 
         # all loggers:
         self.add_argument('--verbose', '-v', action='store_const',
-                          const='DEBUG', dest='level',
+                          const='DEBUG', dest=LEVEL_DEST,
                           help="set default logging level to 'DEBUG'")
         self.add_argument('--quiet', '-q', action='store_const',
-                          const='WARNING', dest='level',
+                          const='WARNING', dest=LEVEL_DEST,
                           help="set default logging level to 'WARNING'")
         self.add_argument('--list-loggers', action='store_true',
                           dest='list_loggers',
@@ -45,7 +47,7 @@ class LogArgumentParser(argparse.ArgumentParser):
                           help="configure logging with .json, .yml, or .ini file",
                           metavar='LOG_CONFIG_FILE')
         self.add_argument('--log-level', '-l', action='store', choices=LEVELS,
-                          default=os.getenv('LOG_LEVEL', 'INFO'),
+                          dest=LEVEL_DEST, default=os.getenv('LOG_LEVEL', 'INFO'),
                           help="set default logging level to LEVEL")
 
         # set specific logger verbosity:
@@ -67,7 +69,7 @@ class LogArgumentParser(argparse.ArgumentParser):
                 print(name)
             sys.exit(0)
 
-        level = args.log_level
+        level = getattr(args, LEVEL_DEST)
         if level is None:
             level = 'INFO'
         else:
