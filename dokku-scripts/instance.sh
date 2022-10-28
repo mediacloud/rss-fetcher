@@ -263,6 +263,9 @@ fi
 
 echo installing $CRONTAB
 
+# NOTE!!! LOGDIR outside of app "storage" area;
+# Tempting to have fetcher.logargparse always create
+# a TimedRotatingFileHandler log sink.
 test -d $LOGDIR || mkdir -p $LOGDIR
 
 if grep '^fetcher:.*--loop' Procfile >/dev/null; then
@@ -274,8 +277,10 @@ fi
 cat >$CRONTAB <<EOF
 # runs script specified in Procfile: any args are passed to that script
 $PERIODIC
-# generate RSS output files:
-30 0 * * * root /usr/bin/dokku run $APP generator >> $LOGDIR/generator.log 2>&1
+# generate RSS output files (try multiple times a day, in case of bad code, or downtime)
+30 */6 * * * root /usr/bin/dokku run $APP generator >> $LOGDIR/generator.log 2>&1
+# archive old DB table entries (non-critical)
+45 0 * * * root /usr/bin/dokku run $APP archiver >> $LOGDIR/archiver.log 2>&1
 EOF
 
 cat >$LOGROTATE <<EOF
