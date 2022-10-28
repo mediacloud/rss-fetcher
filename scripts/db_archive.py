@@ -27,12 +27,13 @@ def dump(table: str, col: str, limit: str, now: str, delete: bool) -> bool:
     with open(fname, "wb") as output:
         sql = f"SELECT * FROM {table} WHERE {col} < '{limit}';"
         logger.debug(f"SQL: {sql}")
-        # could create pipeline: psql | gzip > fname
+        # create pipeline: psql | gzip > fname?
         ret = subprocess.run(['psql', '--csv', SQLALCHEMY_DATABASE_URI, '-c', sql], stdout=output)
         # XXX log file size in bytes??
         logger.debug(f"return code {ret.returncode}")
         
     if ret.returncode != 0:
+        logger.error(sql)
         return False
     elif not delete:
         return True
@@ -40,16 +41,19 @@ def dump(table: str, col: str, limit: str, now: str, delete: bool) -> bool:
     sql = f"DELETE FROM {table} WHERE {col} < '{limit}';"
     logger.debug(f"SQL: {sql}")
     ret = subprocess.run(['psql', SQLALCHEMY_DATABASE_URI, '-c', sql])
-    logger.debug(f"return code {ret.returncode}")
+    if ret.returncode != 0:
+        logger.error(sql)
     return ret.returncode == 0
 
 
 if __name__ == '__main__':
-    p = LogArgumentParser(SCRIPT, 'import feeds.csv file')
-    p.add_argument('--story-days', type=int, default=conf.RSS_OUTPUT_DAYS)
-    p.add_argument('--event-days', type=int, default=conf.FETCH_EVENT_DAYS)
-    p.add_argument('--delete', action='store_true', default=False)
-    
+    p = LogArgumentParser(SCRIPT, 'archive stories and fetch_events tables')
+    p.add_argument('--story-days', type=int, default=conf.RSS_OUTPUT_DAYS,
+                   help="number of days of stories table rows to keep")
+    p.add_argument('--event-days', type=int, default=conf.FETCH_EVENT_DAYS,
+                   help="number of days of fetch_events table rows to keep")
+    p.add_argument('--delete', action='store_true', default=False,
+                   help="delete rows after writing files")
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
 
