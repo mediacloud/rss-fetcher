@@ -21,4 +21,4 @@ VERSION = "0.11.12"
 APP = os.environ.get('MC_APP', 'unknown-rss-fetcher')
 
 # Dokku supplies worker.N:..
-DYNO = os.environ.get('DYNO', f"worker.{os.getpid()}")
+DYNO = os.environ.get('DYNO', f"pid.{os.getpid()}")

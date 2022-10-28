@@ -1,12 +1,3 @@
-# PLB ISSUES to be resolved:
-# search for PLB!
-# any times NOT to increment failure count??
-
-# PLB: cleanup WISHES
-# type hints for session objects
-# type hints for void (-> None) functions
-# create NewType for feeds_id?
-
 import datetime as dt
 from enum import Enum
 import hashlib
@@ -87,30 +78,6 @@ UPDATE_PERIODS_MINS = {
 }
 DEFAULT_UPDATE_PERIOD = 'daily'  # specified in Syndication spec
 DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
-
-
-def open_log_file() -> None:
-    """
-    Was once inline (not in function).
-
-    Called from scripts/worker.py so that scripts/queue_feeds.py
-    (which includes this file so it can queue a reference to feed_worker)
-    doesn't create an empty tasks-fetcher.1.log file
-
-    Maybe make a generic function for this
-    (move to logargparse for use from cmd line)?
-    """
-    # why special format? there should be no thread action.
-    logFormatter = logging.Formatter(
-        "[%(levelname)s %(threadName)s] - %(asctime)s - %(name)s - : %(message)s")
-    path.check_dir(path.LOG_DIR)
-
-    # rotate file after midnight (UTC), keep 7 old files
-    fileHandler = logging.handlers.TimedRotatingFileHandler(
-        os.path.join(path.LOG_DIR, f"tasks-{DYNO}.log"),
-        when='midnight', utc=True, backupCount=7)
-    fileHandler.setFormatter(logFormatter)
-    logger.addHandler(fileHandler)
 
 
 def _save_rss_files(feed: Dict, response: requests.Response) -> None:

@@ -15,10 +15,8 @@ import server.stories as stories
 from server.util import api_method
 import fetcher
 import fetcher.sentry
-from fetcher.stats import Stats
 
 logger = logging.getLogger(__name__)
-stats = Stats.init('web')
 
 app = FastAPI(
     title="RSS Fetcher",

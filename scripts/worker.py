@@ -9,16 +9,17 @@ so the number of workers is controlled by
 
 # local
 from fetcher.logargparse import LogArgumentParser
-from fetcher.queue import worker
+import fetcher.queue
 from fetcher.stats import Stats
 import fetcher.tasks
 
+SCRIPT = 'worker'
+
 if __name__ == '__main__':
-    p = LogArgumentParser('worker', 'Queue Worker')
+    p = LogArgumentParser(SCRIPT, 'Queue Worker')
 
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
 
-    Stats.init('worker')
-    fetcher.tasks.open_log_file()
-    worker()
+    Stats.init(SCRIPT)
+    fetcher.queue.worker()

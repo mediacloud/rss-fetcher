@@ -18,20 +18,25 @@ from typing import Optional, Sequence
 import yaml
 
 # local:
-from fetcher import VERSION
+from fetcher import DYNO, VERSION
 from fetcher.config import conf
+import fetcher.path as path
 import fetcher.sentry
 
 LEVELS = [level.lower() for level in logging._nameToLevel.keys()]
 
 LOGGER_LEVEL_SEP = ':'
 
+LEVEL_DEST = 'log_level'        # args entry name!
 
-LEVEL_DEST = 'log_level'        # keep in sync!
+logger = logging.getLogger(__name__)
+
 
 class LogArgumentParser(argparse.ArgumentParser):
     def __init__(self, prog: str, descr: str):
         super().__init__(prog=prog, description=descr)
+
+        default_fname = f"{prog}.{DYNO}.log"  # full path?
 
         # all loggers:
         self.add_argument('--verbose', '-v', action='store_const',
@@ -46,9 +51,16 @@ class LogArgumentParser(argparse.ArgumentParser):
         self.add_argument('--log-config', action='store',
                           help="configure logging with .json, .yml, or .ini file",
                           metavar='LOG_CONFIG_FILE')
+        self.add_argument('--log-file', default=default_fname, dest='log_file',
+                          help=f"log file name (default: {default_fname})")
         self.add_argument('--log-level', '-l', action='store', choices=LEVELS,
-                          dest=LEVEL_DEST, default=os.getenv('LOG_LEVEL', 'INFO'),
+                          dest=LEVEL_DEST, default=os.getenv(
+                              'LOG_LEVEL', 'INFO'),
                           help="set default logging level to LEVEL")
+
+        self.add_argument('--no-log-file', action='store_const',
+                          const=None, dest='log_file',
+                          help="don't log to a file")
 
         # set specific logger verbosity:
         self.add_argument('--logger-level', '-L', action='append',
@@ -75,9 +87,8 @@ class LogArgumentParser(argparse.ArgumentParser):
         else:
             level = level.upper()
 
-        logging.basicConfig(
-            format='%(asctime)s | %(levelname)s | %(name)s | %(message)s',
-            level=level)
+        log_format = '%(asctime)s | %(levelname)s | %(name)s | %(message)s'
+        logging.basicConfig(format=log_format, level=level)
 
         if args.log_config:
             # lifted from uvicorn/config.py:
@@ -104,16 +115,31 @@ class LogArgumentParser(argparse.ArgumentParser):
                 logging.getLogger(
                     logger_name).handlers[0].setLevel(level.upper())
 
+        # was once inline code in fetcher.tasks
+        if args.log_file:
+            path.check_dir(path.LOG_DIR)
+            log_path = os.path.join(path.LOG_DIR, args.log_file)
+
+            # rotate file after midnight (UTC), keep 7 old files
+            fileHandler = logging.handlers.TimedRotatingFileHandler(
+                log_path, when='midnight', utc=True, backupCount=7)
+            fileHandler.setFormatter(logging.Formatter(log_format))
+            logging.getLogger(None).addHandler(
+                fileHandler)  # attach to root logger
+
         # log startup banner and deferred config msgs
         conf.start(self.prog, self.description)
 
         fetcher.sentry.init()
 
+        if args.log_file:       # after startup banner
+            logger.info(f"Logging to {log_path}")
+        else:
+            logger.info("Not logging to a file")
         return args
 
 
 if __name__ == '__main__':
-    logger = logging.getLogger(__name__)
     p = LogArgumentParser('main', 'test program')
     args = p.my_parse_args()
 

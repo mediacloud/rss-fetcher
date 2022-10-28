@@ -17,9 +17,10 @@ import fetcher.path as path
 SCRIPT = 'db_archive'
 
 logger = logging.getLogger(SCRIPT)
-#stats = Stats.init(SCRIPT)  # not yet?
+# stats = Stats.init(SCRIPT)  # not yet?
 
 SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI
+
 
 def dump(table: str, col: str, limit: str, now: str, delete: bool) -> bool:
     path.check_dir(path.DB_ARCHIVE_DIR)
@@ -28,10 +29,11 @@ def dump(table: str, col: str, limit: str, now: str, delete: bool) -> bool:
         sql = f"SELECT * FROM {table} WHERE {col} < '{limit}';"
         logger.debug(f"SQL: {sql}")
         # create pipeline: psql | gzip > fname?
-        ret = subprocess.run(['psql', '--csv', SQLALCHEMY_DATABASE_URI, '-c', sql], stdout=output)
+        ret = subprocess.run(
+            ['psql', '--csv', SQLALCHEMY_DATABASE_URI, '-c', sql], stdout=output)
         # XXX log file size in bytes??
         logger.debug(f"return code {ret.returncode}")
-        
+
     if ret.returncode != 0:
         logger.error(sql)
         return False
