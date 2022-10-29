@@ -281,7 +281,7 @@ $PERIODIC
 # generate RSS output files (try multiple times a day, in case of bad code, or downtime)
 30 */6 * * * root /usr/bin/dokku run $APP generator > $LOGDIR/generator.log 2>&1
 # archive old DB table entries (non-critical); --debug logs SQL
-45 0 * * * root /usr/bin/dokku run $APP archiver --debug --delete > $LOGDIR/archiver.log 2>&1
+45 3 * * * root /usr/bin/dokku run $APP archiver --debug --delete > $LOGDIR/archiver.log 2>&1
 EOF
 
 # no longer needed (only last invokation in each log file)
