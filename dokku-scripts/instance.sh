@@ -280,11 +280,11 @@ cat >$CRONTAB <<EOF
 $PERIODIC
 # generate RSS output files (try multiple times a day, in case of bad code, or downtime)
 30 */6 * * * root /usr/bin/dokku run $APP generator > $LOGDIR/generator.log 2>&1
-# archive old DB table entries (non-critical); --debug logs SQL
-45 3 * * * root /usr/bin/dokku run $APP archiver --debug --delete > $LOGDIR/archiver.log 2>&1
+# archive old DB table entries (non-critical)
+45 3 * * * root /usr/bin/dokku run $APP archiver --verbose --delete > $LOGDIR/archiver.log 2>&1
 EOF
 
-# no longer needed (only last invokation in each log file)
+# no longer needed (only last invocation in each log file)
 #cat >$LOGROTATE <<EOF
 #$LOGDIR/*.log {
 #  rotate 12
