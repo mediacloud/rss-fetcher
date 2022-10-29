@@ -5,6 +5,7 @@ import os.path
 
 from sqlalchemy import text
 
+from fetcher.config import conf
 from fetcher.database.engine import engine
 from fetcher.logargparse import LogArgumentParser
 import fetcher.path as path
