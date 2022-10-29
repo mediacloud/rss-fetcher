@@ -3,7 +3,6 @@ argparser class with logging arguments for rss-fetcher scripts
 """
 
 # NOTE! celery, flask, rq, uvicorn all use "click" for command line parsing (instead of argparse).
-# WISH: add --log-file PREFIX (writes /app/logs/PREFIX-DYNO.N.log); attach to root logger???
 # WISH: add --config VAR=VALUE (overwrite environment)??
 
 import argparse
@@ -36,7 +35,11 @@ class LogArgumentParser(argparse.ArgumentParser):
     def __init__(self, prog: str, descr: str):
         super().__init__(prog=prog, description=descr)
 
-        default_fname = f"{prog}.{DYNO}.log"  # full path?
+        if DYNO.startswith('run.'):
+            dyno = 'run.x'
+        else:
+            dyno = DYNO
+        default_fname = f"{prog}.{dyno}.log"  # full path?
 
         # all loggers:
         self.add_argument('--verbose', '-v', action='store_const',
@@ -68,6 +71,10 @@ class LogArgumentParser(argparse.ArgumentParser):
                           help='set LOGGER (see --list-loggers) verbosity to LEVEL (see --level)',
                           metavar=f"LOGGER{LOGGER_LEVEL_SEP}LEVEL")
 
+        self.add_argument('--set', '-S', action='append',
+                          help='set config/environment variable',
+                          metavar='VAR=VALUE')
+
         self.add_argument('--version', '-V', action='version',
                           version=f"rss-fetcher {prog} {VERSION}")
 
@@ -75,6 +82,12 @@ class LogArgumentParser(argparse.ArgumentParser):
     # mypy
     def my_parse_args(self) -> argparse.Namespace:
         args = self.parse_args()
+
+        if args.set:
+            # sqlalchemy.engine:INFO should log SQL
+            for vv in args.set:
+                var, val = vv.split('=', 1)
+                os.environ[var] = val
 
         if args.list_loggers:
             for name in sorted(logging.root.manager.loggerDict):
