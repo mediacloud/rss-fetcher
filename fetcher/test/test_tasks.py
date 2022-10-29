@@ -8,11 +8,12 @@ import psycopg2.errors
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
+import fetcher.path
 import fetcher.database
 import fetcher.database.models as models
 import fetcher.tasks as tasks
 
-fixture_dir = os.path.join(fetcher.BASE_DIR, 'fetcher', 'test', 'fixtures')
+fixture_dir = os.path.join(fetcher.path.BASE_DIR, 'fetcher', 'test', 'fixtures')
 
 
 class DBTest(unittest.TestCase):
