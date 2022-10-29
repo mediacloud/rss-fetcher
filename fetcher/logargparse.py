@@ -68,11 +68,13 @@ class LogArgumentParser(argparse.ArgumentParser):
         # set specific logger verbosity:
         self.add_argument('--logger-level', '-L', action='append',
                           dest='logger_level',
-                          help='set LOGGER (see --list-loggers) verbosity to LEVEL (see --level)',
+                          help=('set LOGGER (see --list-loggers) '
+                                'verbosity to LEVEL (see --log-level)'),
                           metavar=f"LOGGER{LOGGER_LEVEL_SEP}LEVEL")
 
         self.add_argument('--set', '-S', action='append',
-                          help='set config/environment variable',
+                          help=('set config/environment variable'
+                                ' (may not effect all parameters)'),
                           metavar='VAR=VALUE')
 
         self.add_argument('--version', '-V', action='version',
