@@ -3,7 +3,7 @@
 
 # Script phil uses to run mypy on Ubuntu 20.04 in a venv
 # see also mypy.ini
-# NOTE! psycopg2 install requires postgres client library/dev packages?
+# NOTE! psycopg2 install requires postgres client library libpq-dev
 
 # errors suppressed via "# type: ignore[....]"
 # * available stubs for sqlalchemy are not up to date:
