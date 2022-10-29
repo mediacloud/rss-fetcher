@@ -271,27 +271,29 @@ test -d $LOGDIR || mkdir -p $LOGDIR
 if grep '^fetcher:.*--loop' Procfile >/dev/null; then
     PERIODIC="# running fetcher w/ --loop in Procfile: no crontab entry needed"
 else
-    PERIODIC="*/30 * * * * root /usr/bin/dokku run $APP fetcher >> $LOGDIR/fetcher.log 2>&1"
+    PERIODIC="*/30 * * * * root /usr/bin/dokku run $APP fetcher > $LOGDIR/fetcher.log 2>&1"
 fi
 
 cat >$CRONTAB <<EOF
 # runs script specified in Procfile: any args are passed to that script
+# only saving output from last run; everything logs to /app/storage/logs now
 $PERIODIC
 # generate RSS output files (try multiple times a day, in case of bad code, or downtime)
-30 */6 * * * root /usr/bin/dokku run $APP generator >> $LOGDIR/generator.log 2>&1
-# archive old DB table entries (non-critical)
-45 0 * * * root /usr/bin/dokku run $APP archiver >> $LOGDIR/archiver.log 2>&1
+30 */6 * * * root /usr/bin/dokku run $APP generator > $LOGDIR/generator.log 2>&1
+# archive old DB table entries (non-critical); --debug logs SQL
+45 0 * * * root /usr/bin/dokku run $APP archiver --debug --delete > $LOGDIR/archiver.log 2>&1
 EOF
 
-cat >$LOGROTATE <<EOF
-$LOGDIR/*.log {
-  rotate 12
-  monthly
-  compress
-  missingok
-  notifempty
-}
-EOF
+# no longer needed (only last invokation in each log file)
+#cat >$LOGROTATE <<EOF
+#$LOGDIR/*.log {
+#  rotate 12
+#  monthly
+#  compress
+#  missingok
+#  notifempty
+#}
+#EOF
 
 if [ "x$TYPE" = xprod ]; then
 cat <<EOF
