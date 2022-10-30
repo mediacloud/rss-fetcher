@@ -163,6 +163,7 @@ def loop(wq: queue.Queue, refill_period_mins: int) -> None:
             # (additions, enables, disables) can be seen quickly
             # rather than waiting for the whole queue to drain.
 
+            ohw = hi_water
             with Session() as session:
                 hi_water = tasks.fetches_per_minute(
                     session) * refill_period_mins
@@ -172,6 +173,9 @@ def loop(wq: queue.Queue, refill_period_mins: int) -> None:
                 hi_water = 10
 
             stats.gauge('hi_water', hi_water)
+
+            if hi_water != ohw:
+                logger.info(f"queue goal {hi_water}")
 
             # if queue is below the limit, fill up to the limit.
             if qlen < hi_water:
