@@ -115,7 +115,8 @@ prod|staging)
 	echo "Need $VARS_FILE file w/ SENTRY_DSN" 1>&2
 	exit 1
     fi
-fi
+    ;;
+esac
 
 ################ ssh key management
 
