@@ -24,6 +24,7 @@ logger = logging.getLogger(SCRIPT)
 
 SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI
 
+
 def logsize(fname: str) -> None:
     try:
         st = os.stat(fname)
@@ -31,17 +32,23 @@ def logsize(fname: str) -> None:
     except BaseException as e:
         logger.error(f"stat {fname}: {e}")
 
+
 def runlog(*cmdline) -> bool:
     """
     run command; log stdout/err
     """
     # capture stdout/stderr to one string
     # NOTE! shell=False make safer (args not evaluated by shell)
-    ret = subprocess.run(cmdline, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
+    ret = subprocess.run(
+        cmdline,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        shell=False)
     for line in ret.stdout.decode('utf-8').split('\n'):
         if line:
             logger.info(f"{cmdline[0]}: {line}")
     return ret.returncode == 0
+
 
 def dump(table: str, where: str, now: str, delete: bool) -> bool:
     path.check_dir(path.DB_ARCHIVE_DIR)
@@ -54,7 +61,8 @@ def dump(table: str, where: str, now: str, delete: bool) -> bool:
         # XXX capture stderr & log??
         ret = subprocess.run(
             ['psql', '--csv', SQLALCHEMY_DATABASE_URI, '-c', sql],
-            stdout=output, shell=False)
+            shell=False,        # for safety
+            stdout=output)
         logger.debug(f"return code {ret.returncode}")
         logsize(fname)
 
