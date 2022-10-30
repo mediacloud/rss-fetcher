@@ -13,7 +13,11 @@ import fetcher.database
 import fetcher.database.models as models
 import fetcher.tasks as tasks
 
-fixture_dir = os.path.join(fetcher.path.BASE_DIR, 'fetcher', 'test', 'fixtures')
+fixture_dir = os.path.join(
+    fetcher.path.BASE_DIR,
+    'fetcher',
+    'test',
+    'fixtures')
 
 
 class DBTest(unittest.TestCase):
