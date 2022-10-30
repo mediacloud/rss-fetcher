@@ -24,28 +24,39 @@ logger = logging.getLogger(SCRIPT)
 
 SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI
 
+def logsize(fname: str) -> None:
+    try:
+        st = os.stat(fname)
+        logger.info(f"{fname}: {st.st_size} bytes")
+    except BaseException as e:
+        logger.error(f"stat {fname}: {e}")
+
 def runlog(*cmdline) -> bool:
     """
     run command; log stdout/err
     """
-    ret = subprocess.run(cmdline, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    # capture stdout/stderr to one string
+    # NOTE! shell=False make safer (args not evaluated by shell)
+    ret = subprocess.run(cmdline, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False)
     for line in ret.stdout.decode('utf-8').split('\n'):
         if line:
             logger.info(f"{cmdline[0]}: {line}")
     return ret.returncode == 0
 
-def dump(table: str, col: str, limit: str, now: str, delete: bool) -> bool:
+def dump(table: str, where: str, now: str, delete: bool) -> bool:
     path.check_dir(path.DB_ARCHIVE_DIR)
     fname = os.path.join(path.DB_ARCHIVE_DIR, f"{table}.{now}")
     with open(fname, "wb") as output:
         logger.info(f"output to {fname}")
-        sql = f"SELECT * FROM {table} WHERE {col} < '{limit}';"
+        sql = f"SELECT * FROM {table} WHERE {where};"
         logger.debug(f"SQL: {sql}")
-        # create pipeline: psql | gzip > fname?
+        # XXX create pipeline: psql | gzip > fname?
+        # XXX capture stderr & log??
         ret = subprocess.run(
-            ['psql', '--csv', SQLALCHEMY_DATABASE_URI, '-c', sql], stdout=output)
-        # XXX log file size in bytes??
+            ['psql', '--csv', SQLALCHEMY_DATABASE_URI, '-c', sql],
+            stdout=output, shell=False)
         logger.debug(f"return code {ret.returncode}")
+        logsize(fname)
 
     if ret.returncode != 0:
         logger.error(sql)
@@ -53,11 +64,12 @@ def dump(table: str, col: str, limit: str, now: str, delete: bool) -> bool:
 
     if not runlog('gzip', '-fv', fname):
         return False
+    logsize(fname + '.gz')
 
     if not delete:
         return True
 
-    sql = f"DELETE FROM {table} WHERE {col} < '{limit}';"
+    sql = f"DELETE FROM {table} WHERE {where};"
     logger.debug(f"SQL: {sql}")
     return runlog('psql', SQLALCHEMY_DATABASE_URI, '-c', sql)
 
@@ -78,8 +90,9 @@ if __name__ == '__main__':
 
     limit = now.date() - dt.timedelta(days=args.event_days)
     limit_str = limit.isoformat()
-    dump('fetch_events', 'created_at', limit_str, fname, args.delete)
+    # XXX could archive/delete all but last N rows
+    dump('fetch_events', f"created_at < '{limit_str}'", fname, args.delete)
 
     limit = now.date() - dt.timedelta(days=args.story_days)
     limit_str = limit.isoformat()
-    dump('stories', 'fetched_at', limit_str, fname, args.delete)
+    dump('stories', f"fetched_at < '{limit_str}'", fname, args.delete)
