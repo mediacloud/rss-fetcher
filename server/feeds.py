@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, List, Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from fetcher.database import Session
 from server.util import api_method
@@ -16,14 +16,21 @@ router = APIRouter(
 
 @router.get("/{feed_id}/history")
 @api_method
-def get_feed_history(feed_id: int) -> List[Dict]:
+def get_feed_history(feed_id: int,
+                     limit: Optional[int] = Query(
+                         default=None,
+                         description="max rows to return",
+                         gt=1)) -> List[Dict]:
     with Session() as session:
-        # XXX limit rows returned (by date or count)??
-        fetch_events = session.query(FetchEvent)\
-                              .filter(FetchEvent.feed_id == feed_id)\
-                              .order_by(Feed.id.desc())\
-                              .all()
-        return [fe.as_dict() for fe in fetch_events]
+        query = session.query(FetchEvent)\
+                       .filter(FetchEvent.feed_id == feed_id)
+
+        if limit:
+            # if limit supplied return N most recent
+            query = query.order_by(FetchEvent.id.desc())\
+                         .limit(limit)
+
+        return [event.as_dict() for event in query.all()]
 
 
 @router.get("/{feed_id}")
