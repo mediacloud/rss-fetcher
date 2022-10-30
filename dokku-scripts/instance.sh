@@ -264,7 +264,7 @@ fi
 # from https://www.freecodecamp.org/news/how-to-build-your-on-heroku-with-dokku/
 
 # set a custom domain that you own for your application
-dokku domains:set $APP $APP.$BASTION.$BASTION_DOMAIN
+dokku domains:set $APP $APP.$BASTION.$BASTION_DOMAIN $APP.$HOST
 
 if public_server; then
     # Enable Let's Encrypt
