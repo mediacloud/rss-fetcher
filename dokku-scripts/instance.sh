@@ -7,6 +7,9 @@
 #	(UNAME must be a user in passwd file)
 
 # Phil Budne, September 2022
+# redo using ansible (make idempotent, run on every push)
+# so configuration captured (use ansible vault for sensitive params)??
+# make this a wrapper that invokes ansible??
 
 SCRIPT_DIR=$(dirname $0)
 INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
@@ -24,7 +27,7 @@ NAME="$2"
 HOST=$(hostname -s)
 FQDN=${HOST}.mediacloud.org
 
-TYPE="$OP"
+TYPE="$NAME"
 TYPE_OR_UNAME="$TYPE"
 case "$OP" in
 create|destroy)
@@ -32,6 +35,9 @@ create|destroy)
     prod) PREFIX='';;
     staging) PREFIX='staging-';;
     dev-*) UNAME=$(echo "$NAME" | sed 's/^dev-//')
+	   case "$UNAME" in
+	   prod|staging) echo "bad dev name $UNAME" 1>&2; exit 1;;
+	   esac
 	   PREFIX="${UNAME}-"
 	   TYPE=user
 	   TYPE_OR_UNAME="$UNAME"
@@ -152,20 +158,26 @@ fi
 # check git remotes first
 
 REM=dokku_$TYPE_OR_UNAME
-
 if git remote | grep "^$REM\$"; then
-    echo "found git remote $REM; aborting" 1>&2
+    echo "found git remote $REM; quitting" 1>&2
     exit 1
 fi
 
-################
-
-dokku apps:create $APP
-# XXX check status & exit on failure?
-
 echo adding git remote $REM
 # XXX maybe use FQDN?
-git remote add $REM dokku@$(HOST):$APP
+# XXX maybe auto-fetch (-f flag)
+git remote add $REM dokku@$HOST:$APP
+
+################
+
+echo echo creating app $APP
+if dokku apps:create $APP; then
+    echo OK
+else
+    STATUS=$?
+    echo ERROR: $STATUS
+    exit $STATUS
+fi
 
 ################
 
