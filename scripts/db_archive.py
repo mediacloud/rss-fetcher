@@ -1,6 +1,9 @@
 """
 top level script to archive and remove old database table entries
 to prevent growth without bounds
+
+NOTE! Output filenames contain time of script start;
+does not indicate file contents
 """
 
 # maybe keep N rows for each feed in fetch_events???
@@ -21,11 +24,21 @@ logger = logging.getLogger(SCRIPT)
 
 SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI
 
+def runlog(*cmdline) -> bool:
+    """
+    run command; log stdout/err
+    """
+    ret = subprocess.run(cmdline, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    for line in ret.stdout.decode('utf-8').split('\n'):
+        if line:
+            logger.info(f"{cmdline[0]}: {line}")
+    return ret.returncode == 0
 
 def dump(table: str, col: str, limit: str, now: str, delete: bool) -> bool:
     path.check_dir(path.DB_ARCHIVE_DIR)
     fname = os.path.join(path.DB_ARCHIVE_DIR, f"{table}.{now}")
     with open(fname, "wb") as output:
+        logger.info(f"output to {fname}")
         sql = f"SELECT * FROM {table} WHERE {col} < '{limit}';"
         logger.debug(f"SQL: {sql}")
         # create pipeline: psql | gzip > fname?
@@ -37,15 +50,16 @@ def dump(table: str, col: str, limit: str, now: str, delete: bool) -> bool:
     if ret.returncode != 0:
         logger.error(sql)
         return False
-    elif not delete:
+
+    if not runlog('gzip', '-fv', fname):
+        return False
+
+    if not delete:
         return True
 
     sql = f"DELETE FROM {table} WHERE {col} < '{limit}';"
     logger.debug(f"SQL: {sql}")
-    ret = subprocess.run(['psql', SQLALCHEMY_DATABASE_URI, '-c', sql])
-    if ret.returncode != 0:
-        logger.error(sql)
-    return ret.returncode == 0
+    return runlog('psql', SQLALCHEMY_DATABASE_URI, '-c', sql)
 
 
 if __name__ == '__main__':
