@@ -25,7 +25,8 @@ OP="$1"
 NAME="$2"
 
 HOST=$(hostname -s)
-FQDN=${HOST}.mediacloud.org
+# local access:
+FQDN=$(hostname -f)
 
 TYPE="$NAME"
 TYPE_OR_UNAME="$TYPE"
@@ -264,7 +265,7 @@ fi
 # from https://www.freecodecamp.org/news/how-to-build-your-on-heroku-with-dokku/
 
 # set a custom domain that you own for your application
-dokku domains:set $APP $APP.$BASTION.$BASTION_DOMAIN $APP.$HOST
+dokku domains:set $APP $APP.$BASTION.$BASTION_DOMAIN $APP.$FQDN
 
 if public_server; then
     # Enable Let's Encrypt
