@@ -164,10 +164,7 @@ def fetches_per_minute(session: SessionType) -> int:
             )  # sum
         )  # query
     )  # active
-    result = q.one()
-    if result:
-        return int(result[0])
-    return 0                    # empty db!
+    return int(result[0] or 0)  # handle empty db!
 
 
 def update_feed(session: SessionType,
