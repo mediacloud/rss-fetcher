@@ -26,6 +26,14 @@ class MyBase(Base):
     def as_dict(self) -> Dict[str, Any]:
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
+    def as_dict_public(self) -> Dict[str, Any]:
+        """
+        return dict with only public fields
+        (default to everything).  Could use a class
+        variable with a set to pick those to export.
+        """
+        return self.as_dict()
+
 
 def utc(seconds: float = 0.0) -> dt.datetime:
     """

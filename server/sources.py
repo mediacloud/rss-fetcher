@@ -22,4 +22,4 @@ def sources_feeds(sources_id: int) -> List[Dict]:
         feeds = session.query(Feed)\
                        .filter(Feed.sources_id == sources_id)\
                        .all()
-        return [feed.as_dict() for feed in feeds]
+        return [feed.as_dict_public() for feed in feeds]

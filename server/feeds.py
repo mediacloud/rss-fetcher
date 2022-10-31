@@ -30,7 +30,7 @@ def get_feed_history(feed_id: int,
             query = query.order_by(FetchEvent.id.desc())\
                          .limit(limit)
 
-        return [event.as_dict() for event in query.all()]
+        return [event.as_dict_public() for event in query.all()]
 
 
 @router.get("/{feed_id}")
@@ -39,6 +39,6 @@ def get_feed(feed_id: int) -> Optional[Dict]:
     with Session() as session:
         feed: Optional[Feed] = session.get(Feed, feed_id)
         if feed:
-            return feed.as_dict()
+            return feed.as_dict_public()
         else:
             return None
