@@ -122,12 +122,14 @@ Only one place to change how a script is invoked.
 * API server:
     * New endpoints implemented:
 	+ /api/feeds/N
-	  returns None or dict
+	    returns None or dict
 	+ /api/sources/N/feeds
 	    returns list of dicts
     * Enhanced endpoints:
 	+ /api/version
 	    return data now includes "git_rev"
+	+ /api/feeds/N/history
+	    takes optional `limit=N` query parameter
     * Non-API endpoint for RSS files:
 	+ /rss/FILENAME
 
