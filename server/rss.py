@@ -17,6 +17,7 @@ from fetcher.path import OUTPUT_RSS_DIR
 
 logger = logging.getLogger(__name__)
 
+
 def mount(app: FastAPI) -> None:
     # works _BUT_ logs as "GET /foo HTTP/1.1" 200
     # _TRIED_ to put this under a router, but failed
@@ -32,7 +33,8 @@ def mount(app: FastAPI) -> None:
     # but logging no different.
 
     # This is probably because StaticFiles purpose is to make
-    # static files (in various locations) look like they're in the "server root"
+    # static files (in various locations) look like they're in the "server
+    # root"
     app.mount("/rss", StaticFiles(directory=OUTPUT_RSS_DIR), "rss")
 
 
