@@ -65,6 +65,8 @@ DATABASE_SVC=$APP
 
 # storage for generated RSS files
 STORAGE=${APP}-storage
+# old storage directory name
+OLD_STORAGE=${APP}-daily-files
 # STORAGE mount point inside container:
 STORAGE_MOUNT_POINT=/app/storage
 
@@ -95,29 +97,53 @@ if [ "x$OP" = xdestroy ]; then
     exit 0
 fi
 
-if dokku apps:exists $APP >/dev/null 2>&1; then
-    echo ERROR: app $APP exists 1>&2
-    exit 1
-fi
+################
+# create functions
+
+check_service() {
+    local PLUGIN=$1
+    local SERVICE=$2
+    local APP=$3
+
+    if dokku $PLUGIN:exists $SERVICE >/dev/null 2>&1; then
+	echo "found $PLUGIN service $SERVICE"
+    else
+	echo creating $PLUGIN service $SERVICE
+	dokku $PLUGIN:create $SERVICE
+	# XXX check status & call destroy on failure?
+    fi
+
+    if dokku $PLUGIN:linked $SERVICE $APP >/dev/null 2>&1; then
+	echo "$PLUGIN service $REDIS_SVC already linked"
+    else
+	echo linking $PLUGIN service $REDIS_SVC to app $APP
+	dokku $PLUGIN:link $REDIS_SVC $APP
+	# XXX check status
+    fi
+}
+
+add_vars() {
+    VARS="$VARS $*"
+}
 
 ################
 # before taking any actions:
 
 if public_server; then
     # not in global config on tarbell:
-    VARS="$VARS DOKKU_LETSENCRYPT_EMAIL=$DOKKU_LETSENCRYPT_EMAI"
+    add_vars DOKKU_LETSENCRYPT_EMAIL=$DOKKU_LETSENCRYPT_EMAIL
 fi
 
 # used in fetcher/__init__.py to set APP
 # ('cause I didn't see it available any other way -phil)
-VARS="$VARS MC_APP=$APP"
+add_vars MC_APP=$APP
 
 case "$TYPE" in
 prod|staging)
     # XXX maybe use .$TYPE (.staging vs .prod)???
     VARS_FILE=.prod
     if grep ^SENTRY_DSN $VARS_FILE >/dev/null; then
-	VARS="$VARS $(cat $VARS_FILE)"
+	add_vars $(cat $VARS_FILE)
     else
 	echo "Need $VARS_FILE file w/ SENTRY_DSN" 1>&2
 	exit 1
@@ -158,77 +184,102 @@ fi
 ################
 # check git remotes first
 
+# name of git remote for this dokku app:
 REM=dokku_$TYPE_OR_UNAME
-if git remote | grep "^$REM\$"; then
-    echo "found git remote $REM; quitting" 1>&2
-    exit 1
-fi
 
-echo adding git remote $REM
-# XXX maybe use FQDN?
-# XXX maybe auto-fetch (-f flag)
-git remote add $REM dokku@$HOST:$APP
-
-################
-
-echo echo creating app $APP
-if dokku apps:create $APP; then
-    echo OK
+if git remote | grep "^$REM\$" >/dev/null; then
+    echo "found git remote $REM" 1>&2
 else
-    STATUS=$?
-    echo ERROR: $STATUS
-    exit $STATUS
+    echo adding git remote $REM
+    # XXX maybe use FQDN?
+    # XXX maybe auto-fetch (-f flag)
+    git remote add $REM dokku@$HOST:$APP
 fi
 
 ################
 
-if dokku redis:exists $REDIS_SVC >/dev/null 1>&2; then
-    echo "redis $REDIS_SVC exists? -- not creating"
+if dokku apps:exists $APP >/dev/null 2>&1; then
+    echo found app $APP 1>&2
 else
-    dokku redis:create $REDIS_SVC
-    # XXX check status & call destroy on failure?
+    echo echo creating app $APP
+    if dokku apps:create $APP; then
+	echo OK
+    else
+	STATUS=$?
+	echo ERROR: $STATUS
+	exit $STATUS
+    fi
 fi
-dokku redis:link $REDIS_SVC $APP
+
+################
+
+check_service redis $REDIS_SVC $APP
 
 # parsing automagic REDIS_URL for rq in fetcher/queue.py
 
 ################
 
-if [ "x$TYPE" = xuser ]; then
-    MAX_FEEDS=10
-else
-    MAX_FEEDS=15000
-fi
-
-VARS="$VARS MAX_FEEDS=$MAX_FEEDS"
+add_vars MAX_FEEDS=15000
 
 ################
 
-if dokku postgres:exists $DATABASE_SVC >/dev/null 1>&2; then
-    echo "postgres $DATABASE_SVC exists? -- not creating"
-else
-    dokku postgres:create $DATABASE_SVC
-    # XXX check status & call destroy on failure?
-fi
+check_service postgres $REDIS_SVC $APP
 
 # postgres: URLs deprecated in SQLAlchemy 1.4
 DATABASE_URL=$(dokku postgres:info $DATABASE_SVC --dsn | sed 's@^postgres:@postgresql:@')
-VARS="$VARS DATABASE_URL=$DATABASE_URL"
-
-dokku postgres:link $DATABASE_SVC $APP
+add_vars DATABASE_URL=$DATABASE_URL
 
 ################
 # non-volatile storage
 
-dokku storage:ensure-directory $STORAGE
-dokku storage:mount $APP /var/lib/dokku/data/storage/$STORAGE:$STORAGE_MOUNT_POINT
+# XXX handle old (rss-fetcher-daily-files) and rename
+
+if [ ! -d $STORAGE_HOME/$STORAGE ]; then
+    echo creating $STORAGE storage dir
+    dokku storage:ensure-directory $STORAGE
+fi
+
+STDIR=$STORAGE_HOME/$STORAGE
+OLDSTDIR=$STORAGE_HOME/$OLD_STORAGE
+
+TMP=/tmp/dokku-instance-$$
+trap "rm -f $TMP" 0
+dokku storage:list pbudne-rss-fetcher > $TMP
+
+if [ -d $OLDSTDIR ]; then
+    echo "moving storage files to new directory"
+
+    OWNER=$(ls -lgd $STDIR | awk '{ print $3 ":" $4 }')
+    RSS_DIR=$STDIR/$RSS_OUTPUT_DIR
+    if [ ! -d $RSS_DIR ]; then
+	mkdir $RSS_DIR
+	chown $OWNER $RSS_DIR
+    fi
+    # XXX check if files exist
+    echo moving rss files
+    mv $OLDSTDIR/mc*gz $RSS_DIR
+    # XXX check for remaining files!
+    echo removing $OLDSTDIR
+    rmdir $OLDSTDIR
+fi
+
+if grep "$OLDSTDIR:$STORAGE_MOUNT_POINT" $TMP >/dev/null; then
+    echo removing old storage directory mount
+    dokku storage:unmount $APP $OLDSTDIR:$STORAGE_MOUNT_POINT
+fi
+if grep "$STDIR:$STORAGE_MOUNT_POINT" $TMP >/dev/null; then
+    echo found link to storage directory $STDIR to app $STORAGE_MOUNT_POINT
+else
+    dokku storage:mount $APP $STDIR:$STORAGE_MOUNT_POINT
+fi
 
 ################
 # worker related vars
 
-# XXX put rss files in $STORAGE_MOUNT_POINT/rss ???
-VARS="$VARS RSS_FILE_PATH=$STORAGE_MOUNT_POINT"
-VARS="$VARS SAVE_RSS_FILES=0"
+add_vars SAVE_RSS_FILES=0
+
+# OBSOLETE:
+add_vars RSS_FILE_PATH=$STORAGE_MOUNT_POINT
 
 ################
 
@@ -238,13 +289,31 @@ $SCRIPT_DIR/create-stats.sh $APP
 # using automagic STATSD_URL in fetcher/stats.py
 
 STATSD_PREFIX="mc.${TYPE_OR_UNAME}.rss-fetcher"
-VARS="$VARS MC_STATSD_PREFIX=$STATSD_PREFIX"
+add_vars MC_STATSD_PREFIX=$STATSD_PREFIX
 
 ################
 # set config vars
-# make all changes to VARS before this!!!
+# make all add_vars calls before this!!!
 
-dokku config:set $APP $VARS
+# config:set causes redeployment, so check first
+touch $TMP
+chmod 600 $TMP
+dokku config:show $APP | tail -n +2 | sed 's/: */=/' > $TMP
+NEED=""
+for V in $VARS; do
+    # VE var equals
+    VE=$(echo $V | sed 's/=.*$/=/')
+    # find current value
+    CURR=$(fgrep $VE $TMP)
+    if [ "x$V" != "x$CURR" ]; then
+	NEED="$NEED $V"
+    fi
+done
+
+if [ "x$NEED" != x ]; then
+    echo need to set config: $NEED
+    dokku config:set $APP $NEED
+fi
 
 ################
 
@@ -264,22 +333,37 @@ fi
 ################
 # from https://www.freecodecamp.org/news/how-to-build-your-on-heroku-with-dokku/
 
-# set a custom domain that you own for your application
-dokku domains:set $APP $APP.$BASTION.$BASTION_DOMAIN $APP.$FQDN
+if public_server; then
+    DOMAINS="$APP.$HOST.$BASTION_DOMAIN"
+fi
+DOMAINS="$DOMAINS $APP.$FQDN $APP.$HOST"
+
+# NOTE leading and trailing spaces:
+CURR_DOMAINS=$(dokku domains:report $APP | grep '^ *Domains app vhosts:' | sed -e 's/^.*: */ /' -e 's/$/ /')
+ADD=""
+for DOM in $DOMAINS; do
+    if echo "$CURR_DOMAINS" | fgrep " $DOM " >/dev/null; then
+	echo found domain $DOM
+    else
+	ADD="$ADD $DOM"
+    fi
+done
+if [ "x$ADD" != x ]; then
+    echo "adding domain(s): $ADD"
+    dokku domains:add $APP $ADD
+fi
 
 if public_server; then
     # Enable Let's Encrypt
-    # This requires $APP.$DOMAIN to be visible from Internet:
+    # This requires $APP.$HOST.$BASTION_DOMAIN to be visible from Internet:
     dokku letsencrypt:enable $APP
 fi
-
 ################
 
-echo installing $CRONTAB
+CRONTEMP="/tmp/$APP.cron.tmp"
 
-# NOTE!!! LOGDIR outside of app "storage" area;
-# Tempting to have fetcher.logargparse always create
-# a TimedRotatingFileHandler log sink.
+# NOTE!!! LOGDIR outside of app "storage" area; only saving output of last run
+# all scripts log to /app/storage/logs, w/ daily rotation and 7 day retention
 test -d $LOGDIR || mkdir -p $LOGDIR
 
 if grep '^fetcher:.*--loop' Procfile >/dev/null; then
@@ -288,9 +372,9 @@ else
     PERIODIC="*/30 * * * * root /usr/bin/dokku run $APP fetcher > $LOGDIR/fetcher.log 2>&1"
 fi
 
-cat >$CRONTAB <<EOF
+cat >$CRONTEMP <<EOF
 # runs script specified in Procfile: any args are passed to that script
-# only saving output from last run; everything logs to /app/storage/logs now
+# only saving output from last run; all scripts log to /app/storage/logs now
 $PERIODIC
 # generate RSS output files (try multiple times a day, in case of bad code, or downtime)
 30 */6 * * * root /usr/bin/dokku run $APP generator > $LOGDIR/generator.log 2>&1
@@ -298,16 +382,8 @@ $PERIODIC
 45 3 * * * root /usr/bin/dokku run $APP archiver --verbose --delete > $LOGDIR/archiver.log 2>&1
 EOF
 
-# no longer needed (only last invocation in each log file)
-#cat >$LOGROTATE <<EOF
-#$LOGDIR/*.log {
-#  rotate 12
-#  monthly
-#  compress
-#  missingok
-#  notifempty
-#}
-#EOF
+echo installing $CRONTAB
+mv $CRONTEMP $CRONTAB
 
 if [ "x$TYPE" = xprod ]; then
 cat <<EOF

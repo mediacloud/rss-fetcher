@@ -17,9 +17,7 @@ fi
 
 HOST=$(hostname -s)
 
-if dokku graphite:exists $GRAPHITE_STATS_SVC >/dev/null 1>&2; then
-    echo found dokku-graphite service $GRAPHITE_STATS_SVC
-else
+if ! dokku graphite:exists $GRAPHITE_STATS_SVC; then
     dokku graphite:create $GRAPHITE_STATS_SVC
 
     if [ "x$HOST" = "x$BASTION" ]; then
@@ -31,7 +29,8 @@ else
 	# script not yet tested!!!
 	$SCRIPT_DIR/service_proxy.sh $GRAPHITE_STATS_SVC $STATS_PROXY_APP
     else
-	# use unencrypted service on non-public server:
+	# use unencrypted service on non-public server
+	# (cannot get letsencrypt cert on server that isn't Internet visible)
 
 	# dokku app name to create on BASTION host: ie; stats.OURHOST
 	BASTION_SERVICE=$GRAPHITE_STATS_SVC.$HOST
@@ -45,6 +44,8 @@ else
     fi
 fi
 if [ "x$LINK_TO_APP" != x ]; then
-    echo linking $GRAPHITE_STATS_SVC service to app $LINK_TO_APP
-    dokku graphite:link $GRAPHITE_STATS_SVC $LINK_TO_APP
+    if ! dokku graphite:linked $GRAPHITE_STATS_SVC $LINK_TO_APP; then
+	echo linking $GRAPHITE_STATS_SVC service to app $LINK_TO_APP
+	dokku graphite:link $GRAPHITE_STATS_SVC $LINK_TO_APP
+    fi
 fi
