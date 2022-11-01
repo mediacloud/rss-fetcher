@@ -6,9 +6,12 @@ This is built to deploy via a PaaS host, like Heroku. We deploy via [dokku](http
 If you are debugging locally, copy `.env.template` to `.env` and edit as needed.
 
 To create a dokku instance:
-./dokku-scripts/instance create NAME
+`./dokku-scripts/instance create NAME`
 
 where NAME is one of prod, staging, dev-USERNAME
+
+For prod and staging, you must have a .prod file with
+`SENTRY_DSN=https://xxxxxxxxxxxxx@xxx.ingest.sentry.io/xxxxxx`
 
 ### Setup database backups
 
