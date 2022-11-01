@@ -200,7 +200,7 @@ class FetchEvent(MyBase):
                   note: Optional[str] = None) -> 'FetchEvent':
         fe = FetchEvent()
         fe.feed_id = feed_id
-        fe.event = event.name
+        fe.event = event.value  # shorter, lower case
         fe.note = note
         fe.created_at = created_at
         return fe
