@@ -8,18 +8,21 @@ import logging.handlers
 import os
 import random
 import time
+import warnings
 
 # PyPI
 import feedparser
 import mcmetadata.urls
 from psycopg2.errors import UniqueViolation
 import requests
+import requests.exceptions
 from setproctitle import setproctitle
 from sqlalchemy import literal
 from sqlalchemy.exc import (    # type: ignore[attr-defined]
     IntegrityError, PendingRollbackError)
 from sqlalchemy.sql.expression import case
 import sqlalchemy.sql.functions as func  # avoid overriding "sum"
+from urllib3.exceptions import InsecureRequestWarning
 
 # feed fetcher:
 from fetcher import APP, DYNO
@@ -54,6 +57,8 @@ SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 
+# disable SSL verification warnings w/ requests verify=False
+warnings.simplefilter('ignore', InsecureRequestWarning)
 
 # mediacloud/backend/apps/common/src/python/mediawords/util/web/user_agent/__init__.py has
 #    # HTTP "From:" header
@@ -390,6 +395,39 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     return response
 
 
+def request_exception_to_msg(
+        exc: requests.exceptions.RequestException) -> str:
+    """
+    decode requests.get exceptions
+    """
+    # ConnectionError subclasses:
+    if isinstance(exc, requests.exceptions.ConnectTimeout):
+        return "connect timeout"
+
+    if isinstance(exc, requests.exceptions.SSLError):
+        return "SSL error"
+
+    # catch-all for ConnectionError:
+    if isinstance(exc, requests.exceptions.ConnectionError):
+        s = str(exc)
+        if 'Name or service not known' in s or "[Errno -" in s:
+            return "DNS error"
+        return "connection error" # str(e)??
+
+    # non-connection errors:
+    if isinstance(exc, requests.exceptions.ReadTimeout):
+        return "read timeout"
+
+    if isinstance(exc, requests.exceptions.TooManyRedirects):
+        return "too many redirects"
+
+    # some bad values inherit from RequestsException and ValueError
+    # treat as "bad URL"??
+
+    # catch-all:
+    return str(exc)
+
+
 def fetch_and_process_feed(
         session: SessionType, feed_id: int, ts_iso: str) -> None:
     """
@@ -484,14 +522,15 @@ def fetch_and_process_feed(
     try:
         # first thing is to fetch the content
         response = _fetch_rss_feed(feed)
-    except Exception as exc:
+    except requests.exceptions.RequestException as exc:
+        note = request_exception_to_msg(exc)
         update_feed(
             session,
             feed_id,
             Status.SOFT,
             "fetch error",
             now,
-            note=str(exc))
+            note=note)
 
         # NOTE!! try to limit cardinality of status: (eats stats
         # storage and graph colors), so not doing detailed breakdown
