@@ -44,7 +44,7 @@ HTTP_SOFT = set([403, 429])     # http status codes to consider "soft"
 
 # force logging on startup (actual logging deferred)
 # please keep alphabetical:
-DAY_WINDOW = conf.DAY_WINDOW
+NORMALIZED_TITLE_DAYS = conf.NORMALIZED_TITLE_DAYS
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 MAX_FAILURES = conf.MAX_FAILURES
 MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
@@ -109,7 +109,7 @@ def normalized_title_exists(session: SessionType,
     if normalized_title_hash is None or sources_id is None:
         # err on the side of keeping URLs
         return False
-    earliest_date = dt.date.today() - dt.timedelta(days=DAY_WINDOW)
+    earliest_date = dt.date.today() - dt.timedelta(days=NORMALIZED_TITLE_DAYS)
     # only care if matching rows exist, so doing nested EXISTS query
     with session.begin():
         return session.query(literal(True))\

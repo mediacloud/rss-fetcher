@@ -208,7 +208,7 @@ class _Config:                  # only instantied in this file
     # (descriptors work with bare class)
 
     # days back to check for duplicate story URLs/titles
-    DAY_WINDOW = conf_int('DAY_WINDOW', 7)
+    NORMALIZED_TITLE_DAYS = conf_int('NORMALIZED_TITLE_DAYS', 7)
 
     # keep this above the number of workers (initially 2x)
     DB_POOL_SIZE = conf_int('DB_POOL_SIZE', 32)
