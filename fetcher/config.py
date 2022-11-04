@@ -257,6 +257,18 @@ class _Config:                  # only instantied in this file
 
     SQLALCHEMY_DATABASE_URI = conf_required('DATABASE_URL')
 
+    # required if STATSD_URL set
+    STATSD_PREFIX = conf_optional('STATSD_PREFIX')
+
+    # set by dokku-graphite plugin
+    STATSD_URL = conf_optional('STATSD_URL')
+
+    # rq default is 180 sec (3m), have seen it fire in update_feed() select
+    # for update @180s!
+    TASK_TIMEOUT_SECONDS = conf_int('TASK_TIMEOUT_SECONDS', 5 * 60)
+
+    VERIFY_CERTIFICATES = conf_bool('VERIFY_CERTIFICATES', True)
+
 
 conf = _Config()
 

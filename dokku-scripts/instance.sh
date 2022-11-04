@@ -289,7 +289,7 @@ $SCRIPT_DIR/create-stats.sh $APP
 # using automagic STATSD_URL in fetcher/stats.py
 
 STATSD_PREFIX="mc.${TYPE_OR_UNAME}.rss-fetcher"
-add_vars MC_STATSD_PREFIX=$STATSD_PREFIX
+add_vars STATSD_PREFIX=$STATSD_PREFIX
 
 ################
 # set config vars

@@ -56,7 +56,8 @@ def workq(rconn: Optional[StrictRedis] = None) -> Queue:
 ################
 
 
-def queue_feeds(wq: Queue, feed_ids: List[int], ts_iso: str) -> int:
+def queue_feeds(
+        wq: Queue, feed_ids: List[int], ts_iso: str, timeout: int) -> int:
     """
     Queue feed_ids to work queue
     ts_iso expected to be return from datetime.datetime.isoformat()
@@ -68,7 +69,8 @@ def queue_feeds(wq: Queue, feed_ids: List[int], ts_iso: str) -> int:
                 args=(id, ts_iso),
                 result_ttl=0,  # don't care about result
                 failure_ttl=0,  # don't care about failures
-                # timeout?
+                job_id=f"feed_{id}",
+                timeout=timeout
                 # retry?
             ) for id in feed_ids
         ]

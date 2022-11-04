@@ -21,6 +21,7 @@ from fetcher import DYNO, VERSION
 from fetcher.config import conf
 import fetcher.path as path
 import fetcher.sentry
+import fetcher.stats
 
 LEVELS = [level.lower() for level in logging._nameToLevel.keys()]
 
@@ -151,6 +152,9 @@ class LogArgumentParser(argparse.ArgumentParser):
             logger.info(f"Logging to {log_path}")
         else:
             logger.info("Not logging to a file")
+
+        fetcher.stats.Stats.init(self.prog)
+
         return args
 
 

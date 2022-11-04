@@ -27,14 +27,18 @@ import fetcher.tasks as tasks
 
 SCRIPT = 'queue_feeds'          # NOTE! used for stats!
 logger = logging.getLogger(SCRIPT)
-stats = Stats.init(SCRIPT)
+
+TASK_TIMEOUT_SECONDS = conf.TASK_TIMEOUT_SECONDS
 
 
-def queue_feeds(wq: queue.Queue, feed_ids: List[int], ts_iso: str) -> int:
+def queue_feeds(wq: queue.Queue,
+                feed_ids: List[int], ts_iso: str, timeout: int) -> int:
     """
     Queue feeds, report stats and log.
     """
-    queued = queue.queue_feeds(wq, feed_ids, ts_iso)
+    stats = Stats.get()
+
+    queued = queue.queue_feeds(wq, feed_ids, ts_iso, timeout)
     total = len(feed_ids)
     # XXX report total-queued as separate (labled) counter?
     stats.incr('queued_feeds', queued)
@@ -50,8 +54,6 @@ def find_and_queue_feeds(wq: queue.Queue, limit: int) -> int:
     """
     if limit > conf.MAX_FEEDS:
         limit = conf.MAX_FEEDS
-
-    now = dt.datetime.utcnow()
 
     # Maybe order by (id % 100) instead of id
     #  to help break up clumps?
@@ -71,6 +73,11 @@ def find_and_queue_feeds(wq: queue.Queue, limit: int) -> int:
         if not feed_ids:
             return 0
 
+        now = dt.datetime.utcnow()
+
+        # XXX maybe break into batches (update now in between?)
+        # logging ids (@debug?) [and send stats here????]
+
         # mark as queued first so that workers can never see
         # a feed_id that hasn't been marked as queued.
         session.query(Feed)\
@@ -86,7 +93,7 @@ def find_and_queue_feeds(wq: queue.Queue, limit: int) -> int:
                 FetchEvent.from_info(feed_id,
                                      FetchEvent.Event.QUEUED,
                                      now))
-    return queue_feeds(wq, feed_ids, now.isoformat())
+    return queue_feeds(wq, feed_ids, now.isoformat(), TASK_TIMEOUT_SECONDS)
 
 
 def _active_feed_ids(session: SessionType) -> Query:
@@ -124,6 +131,8 @@ def loop(wq: queue.Queue, refill_period_mins: int) -> None:
     pileups that will take at most MINIMUM_INTERVAL_MINS
     to clear (given enough workers).
     """
+
+    stats = Stats.get()
 
     logger.info(f"Starting loop: refill every {refill_period_mins} min")
     db_ready = hi_water = -1
@@ -270,7 +279,7 @@ if __name__ == '__main__':
         # maybe complain about invalid feeds??
         #   find via set(feed_ids) - set(valid_feeds)
         nowstr = dt.datetime.utcnow().isoformat()
-        queue_feeds(wq, valid_ids, nowstr)
+        queue_feeds(wq, valid_ids, nowstr, TASK_TIMEOUT_SECONDS)
     else:
         # classic behavior (was run from cron every 30 min)
         # to restore, uncomment crontab entry in instance.sh

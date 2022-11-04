@@ -7,12 +7,13 @@ ie; transparently handle statsd (with and without tag support) and prometheus
 
 import datetime as dt
 import logging
-import os
 from typing import Any, List, Optional, Tuple
 
 # PyPi
 import statsd                   # pkg statsd_client
 from sqlalchemy.engine.url import make_url
+
+from fetcher.config import conf
 
 # PLB: I selected statsd_client
 # [https://github.com/gaelen/python-statsd-client]
@@ -67,25 +68,23 @@ class Stats:
         self.host = self.port = self.prefix = None
 
         # STATSD URL set by dokku-graphite plugin
-        e = os.getenv('STATSD_URL')
+        e = conf.STATSD_URL
         if e:
-            url = make_url(e)
+            url = make_url(e)   # sqlalchemy URL parser
             # check if url.database == 'statsd'???
             self.host = url.host
             self.port = url.port
 
-        prefix = os.getenv('MC_STATSD_PREFIX')
-        if not prefix:
-            # XXX could now generate from MC_APP?
-            return
-
-        self.prefix = f"{prefix}.{component}"
+        prefix = conf.STATSD_PREFIX
+        if prefix:
+            self.prefix = f"{prefix}.{component}"
 
         if self.host and self.prefix:
             logger.info(
                 f"sending stats to {self.host} with prefix {self.prefix}")
         else:
             logger.warning("Not sending stats")
+        # connect on demand
 
     def _connect(self) -> bool:
         # return if have statsd, or insufficient config

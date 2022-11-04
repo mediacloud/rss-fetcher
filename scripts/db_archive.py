@@ -20,7 +20,6 @@ import fetcher.path as path
 SCRIPT = 'db_archive'
 
 logger = logging.getLogger(SCRIPT)
-# stats = Stats.init(SCRIPT)  # not yet?
 
 SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI
 

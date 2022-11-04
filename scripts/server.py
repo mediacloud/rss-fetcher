@@ -10,7 +10,6 @@ import uvicorn.config
 
 # local
 from fetcher.logargparse import LEVEL_DEST, LogArgumentParser
-from fetcher.stats import Stats
 import server
 
 SCRIPT = 'server'
@@ -30,8 +29,6 @@ if __name__ == '__main__':
 
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
-
-    Stats.init(SCRIPT)
 
     # disable uvicorn stdio logging:
     # https://github.com/tiangolo/fastapi/issues/1508#issuecomment-723457712

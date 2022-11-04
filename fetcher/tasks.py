@@ -43,7 +43,8 @@ class Status(Enum):
     HARD = 'Hard error'         # hard error
 
 
-HTTP_SOFT = set([403, 429])     # http status codes to consider "soft"
+# XXX should honor Retry-After: !!!
+HTTP_SOFT = set([503, 429])     # http status codes to consider "soft"
 
 # force logging on startup (actual logging deferred)
 # please keep alphabetical:
@@ -54,11 +55,13 @@ MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS_304 = conf.MINIMUM_INTERVAL_MINS_304
 RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
+VERIFY_CERTIFICATES = conf.VERIFY_CERTIFICATES
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 
 # disable SSL verification warnings w/ requests verify=False
-warnings.simplefilter('ignore', InsecureRequestWarning)
+if not VERIFY_CERTIFICATES:
+    warnings.simplefilter('ignore', InsecureRequestWarning)
 
 # mediacloud/backend/apps/common/src/python/mediawords/util/web/user_agent/__init__.py has
 #    # HTTP "From:" header
@@ -236,6 +239,7 @@ def update_feed(session: SessionType,
         if status == Status.SUCC:
             f.last_fetch_success = start_time
         f.queued = False        # safe to requeue
+        prev_system_status = f.system_status
         f.system_status = system_status
 
         # get normal feed update period in minutes, one of:
@@ -243,6 +247,7 @@ def update_feed(session: SessionType,
         # 2. value currently stored in feed row (if fetch or parse failed)
         # 3. default
         # (update_minutes is either a value from feed, or NULL)
+        # XXX need to handle HTTP Retry-After: header!!
         next_minutes = f.update_minutes or DEFAULT_INTERVAL_MINS
 
         if status == Status.SUCC:
@@ -252,7 +257,12 @@ def update_feed(session: SessionType,
         else:
             event = FetchEvent.Event.FETCH_FAILED
             failures = f.last_fetch_failures
-            if status == Status.HARD:
+            # increment last_fetch_failures (and possibly disable) on any of:
+            # 1. HARD error
+            # 2. SOFT error AND
+            #   a. same system_status as last attempt
+            #   b. no previous failures
+            if status == Status.HARD or system_status == prev_system_status or failures == 0:
                 failures = f.last_fetch_failures = f.last_fetch_failures + 1
                 if failures >= MAX_FAILURES:
                     event = FetchEvent.Event.FETCH_FAILED_DISABLED
@@ -265,7 +275,6 @@ def update_feed(session: SessionType,
                         f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
             if next_minutes is not None:
-                # XXX have separate "backoff" counter (for soft errors)???
                 if failures > 0:
                     # back off to be kind to servers:
                     # linear backoff (ie; 12h, 1d, 1.5d, 2d)
@@ -391,14 +400,16 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     response = requests.get(
         feed['url'],
         headers=headers,
-        timeout=RSS_FETCH_TIMEOUT_SECS)
+        timeout=RSS_FETCH_TIMEOUT_SECS,
+        verify=VERIFY_CERTIFICATES)
     return response
 
 
-def request_exception_to_msg(
+def request_exception_to_system_status(
         exc: requests.exceptions.RequestException) -> str:
     """
-    decode requests.get exceptions
+    decode requests.get exceptions.  Try to return something
+    better than "fetch error"
     """
     # ConnectionError subclasses:
     if isinstance(exc, requests.exceptions.ConnectTimeout):
@@ -410,9 +421,10 @@ def request_exception_to_msg(
     # catch-all for ConnectionError:
     if isinstance(exc, requests.exceptions.ConnectionError):
         s = str(exc)
+        # DNS errors appear as negative errno values
         if 'Name or service not known' in s or "[Errno -" in s:
             return "DNS error"
-        return "connection error" # str(e)??
+        return "connection error"
 
     # non-connection errors:
     if isinstance(exc, requests.exceptions.ReadTimeout):
@@ -421,11 +433,11 @@ def request_exception_to_msg(
     if isinstance(exc, requests.exceptions.TooManyRedirects):
         return "too many redirects"
 
-    # some bad values inherit from RequestsException and ValueError
-    # treat as "bad URL"??
+    if isinstance(exc, ValueError):
+        return "bad URL"
 
-    # catch-all:
-    return str(exc)
+    # catch-all (log?? stats counter???)
+    return "fetch error"
 
 
 def fetch_and_process_feed(
@@ -523,14 +535,13 @@ def fetch_and_process_feed(
         # first thing is to fetch the content
         response = _fetch_rss_feed(feed)
     except requests.exceptions.RequestException as exc:
-        note = request_exception_to_msg(exc)
         update_feed(
             session,
             feed_id,
-            Status.SOFT,
-            "fetch error",
+            Status.HARD,
+            request_exception_to_system_status(exc),
             now,
-            note=note)
+            note=str(exc))
 
         # NOTE!! try to limit cardinality of status: (eats stats
         # storage and graph colors), so not doing detailed breakdown
@@ -556,11 +567,24 @@ def fetch_and_process_feed(
             status = Status.HARD
 
         rurl = response.url
-        update_feed(session, feed_id, status, f"HTTP {rsc}", now)
+        reason = response.reason
+        if reason:
+            # include reason (in case of non-standard response code)
+            sys_status = f"HTTP {rsc} {reason}"
+        else:
+            sys_status = f"HTTP {rsc}"
+
+        # Testing: see how often Retry-After is set (and whether seconds or
+        # date)
+        retry_after = response.headers.get('Retry-After', None)
+        if retry_after:
+            logger.info(
+                f"   Feed {feed_id}: Retry-After: {retry_after} w/ {sys_status}")
+
+        update_feed(session, feed_id, status, sys_status, now)
 
         # limiting tag cardinality, only a few, common codes for now.
         # NOTE! 429 is "too many requests"
-        # It's possible 403 (Forbidden) is also used that way???
         if rsc in (403, 404, 429):
             feeds_incr(f"http_{rsc}")
         else:
@@ -600,10 +624,7 @@ def fetch_and_process_feed(
     # BAIL: server says file hasn't changed (no data returned)
     # treated as success
     if response.status_code == 304:
-        # Note if feed has ever sent 304 response.
-        # Column defaults to NULL; considering setting it to False
-        # if "same hash" ever seen, in which case overwriting it (again)
-        # should be disabled.
+        # record if feed has ever sent 304 response.
         feed_col_updates['http_304'] = True
         update_feed(
             session,
@@ -717,7 +738,10 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
                 if mcmetadata.urls.is_homepage_url(link):
                     # raised to info 2022-10-27
                     logger.info(f" * skip homepage URL: {link}")
-                    stories_incr('home')
+                    if '?' in link:  # added 2022-11-04
+                        stories_incr('home_query')
+                    else:
+                        stories_incr('home')
                     skipped_count += 1
                     continue
             except BaseException:

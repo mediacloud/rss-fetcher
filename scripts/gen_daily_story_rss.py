@@ -16,15 +16,6 @@ import fetcher.util as util
 SCRIPT = 'gen_rss'              # NOTE! used for stats!!!
 
 logger = logging.getLogger(SCRIPT)
-stats = Stats.init(SCRIPT)
-
-
-def incr_files(status: str) -> None:
-    stats.incr('files', labels=[('status', status)])
-
-
-def incr_stories(status: str) -> None:
-    stats.incr('stories', labels=[('status', status)])
 
 
 if __name__ == '__main__':
@@ -46,6 +37,14 @@ if __name__ == '__main__':
     today = dt.date.today()
     logger.info(f"Writing daily RSS files since {today}")
     logger.info(f"  writing to {target_dir}")
+
+    stats = Stats.get()
+
+    def incr_files(status: str) -> None:
+        stats.incr('files', labels=[('status', status)])
+
+    def incr_stories(status: str) -> None:
+        stats.incr('stories', labels=[('status', status)])
 
     # generate a file for each of the last N days (skipping today, which might
     # still be running)
