@@ -43,7 +43,6 @@ class Status(Enum):
     HARD = 'Hard error'         # hard error
 
 
-# XXX should honor Retry-After: !!!
 HTTP_SOFT = set([503, 429])     # http status codes to consider "soft"
 
 # force logging on startup (actual logging deferred)
@@ -247,7 +246,6 @@ def update_feed(session: SessionType,
         # 2. value currently stored in feed row (if fetch or parse failed)
         # 3. default
         # (update_minutes is either a value from feed, or NULL)
-        # XXX need to handle HTTP Retry-After: header!!
         next_minutes = f.update_minutes or DEFAULT_INTERVAL_MINS
 
         if status == Status.SUCC:
@@ -285,10 +283,10 @@ def update_feed(session: SessionType,
                     # (ie; 12h, 1d, 2d, 4d)
                     #next_minutes *= 2 ** (failures - 1)
 
-                # Take optional "randomize" arg??
-                # Add random minute offset to break up clumps of 429
-                # (Too Many Requests) errors.
-                next_minutes += random.random() * 60
+                if status == Status.SOFT:
+                    # Add random minute offset to break up clumps of 429
+                    # (Too Many Requests) errors:
+                    next_minutes += random.random() * 60
 
         if next_minutes is not None:  # reschedule?
             # clamp interval to a minimum value
@@ -405,39 +403,55 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     return response
 
 
-def request_exception_to_system_status(
-        exc: requests.exceptions.RequestException) -> str:
+def request_exception_to_status(
+        exc: requests.exceptions.RequestException) -> Tuple[Status, str]:
     """
     decode requests.get exceptions.  Try to return something
     better than "fetch error"
     """
     # ConnectionError subclasses:
     if isinstance(exc, requests.exceptions.ConnectTimeout):
-        return "connect timeout"
+        return Status.SOFT, "connect timeout"
 
     if isinstance(exc, requests.exceptions.SSLError):
-        return "SSL error"
+        return Status.SOFT, "SSL error"
 
     # catch-all for ConnectionError:
     if isinstance(exc, requests.exceptions.ConnectionError):
         s = str(exc)
+        if 'Name or service not known' in s:
+            return Status.HARD, "unknown hostname"
         # DNS errors appear as negative errno values
-        if 'Name or service not known' in s or "[Errno -" in s:
-            return "DNS error"
-        return "connection error"
+        if '[Errno -' in s:
+            return Status.SOFT, "DNS error"
+        return Status.HARD, "connection error"
 
     # non-connection errors:
     if isinstance(exc, requests.exceptions.ReadTimeout):
-        return "read timeout"
+        return Status.SOFT, "read timeout"
 
+    # human/configuration error
     if isinstance(exc, requests.exceptions.TooManyRedirects):
-        return "too many redirects"
+        return Status.SOFT, "too many redirects"
 
+    if isinstance(exc, (requests.exceptions.InvalidURL,
+                        requests.exceptions.MissingSchema,
+                        requests.exceptions.InvalidSchema)):
+        return Status.HARD, "bad URL"
+
+    # covers InvalidHeader (code error??)
     if isinstance(exc, ValueError):
-        return "bad URL"
+        # XXX log?
+        return Status.HARD, "bad value"
 
-    # catch-all (log?? stats counter???)
-    return "fetch error"
+    # if this happens, it would be a local config error:
+    if isinstance(exc, requests.exceptions.ProxyError):
+        # XXX log?
+        return Status.SOFT, "proxy error"
+
+    # catch-all:
+    logger.warning(f"Unknown exception class {type(exc).__name__}: {exc}")
+    return Status.HARD, "fetch error"
 
 
 def fetch_and_process_feed(
@@ -535,11 +549,12 @@ def fetch_and_process_feed(
         # first thing is to fetch the content
         response = _fetch_rss_feed(feed)
     except requests.exceptions.RequestException as exc:
+        status, system_status = request_exception_to_status(exc)
         update_feed(
             session,
             feed_id,
-            Status.HARD,
-            request_exception_to_system_status(exc),
+            status,
+            system_status,
             now,
             note=str(exc))
 
@@ -574,8 +589,7 @@ def fetch_and_process_feed(
         else:
             sys_status = f"HTTP {rsc}"
 
-        # Testing: see how often Retry-After is set (and whether seconds or
-        # date)
+        # Testing: see how often Retry-After is set, and how.
         retry_after = response.headers.get('Retry-After', None)
         if retry_after:
             logger.info(
