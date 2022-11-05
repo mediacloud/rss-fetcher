@@ -1,4 +1,4 @@
-S#!/bin/sh
+#!/bin/sh
 
 # Deploy code by pushing current branch to Dokkku app instance
 # Phil Budne, September 2022
