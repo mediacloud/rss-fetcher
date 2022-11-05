@@ -43,7 +43,8 @@ class Status(Enum):
     HARD = 'Hard error'         # hard error
 
 
-HTTP_SOFT = set([503, 429])     # http status codes to consider "soft"
+# HTTP status codes to consider "soft" errors:
+HTTP_SOFT = set([429, 500, 502, 503])
 
 # force logging on startup (actual logging deferred)
 # please keep alphabetical:
@@ -260,6 +261,8 @@ def update_feed(session: SessionType,
             # 2. SOFT error AND
             #   a. same system_status as last attempt
             #   b. no previous failures
+            # Maybe make f.last_fetch_failures a real, and increment by 0.5 on
+            # soft err?
             if status == Status.HARD or system_status == prev_system_status or failures == 0:
                 failures = f.last_fetch_failures = f.last_fetch_failures + 1
                 if failures >= MAX_FAILURES:
@@ -449,8 +452,14 @@ def request_exception_to_status(
         # XXX log?
         return Status.SOFT, "proxy error"
 
+    if isinstance(exc, (requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError)):
+        return Status.HARD, "MIME error"
+
     # catch-all:
-    logger.warning(f"Unknown exception class {type(exc).__name__}: {exc}")
+    if not isinstance(exc, requests.exceptions.RetryError):
+        logger.warning(f"Unknown exception class {type(exc).__name__}: {exc}")
+
     return Status.HARD, "fetch error"
 
 
