@@ -182,7 +182,7 @@ echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 # (ISTR seeing refs/tags/..../refs/tags/....)
 
 echo stopping processes...
-dokku ps:scale $(echo $PROCS | sed 's/[0-9][0-9]*/0/g')
+dokku ps:scale $APP $(echo $PROCS | sed 's/[0-9][0-9]*/0/g')
 
 if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
     # not first push, safe to push by tag name
@@ -205,4 +205,4 @@ done
 
 # start fetcher/worker procoesses
 # XXX maybe set env var to reduce delay
-dokku ps:scale $PROCS
+dokku ps:scale $APP $PROCS
