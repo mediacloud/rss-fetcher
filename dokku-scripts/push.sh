@@ -1,4 +1,4 @@
-#!/bin/sh
+S#!/bin/sh
 
 # Deploy code by pushing current branch to Dokkku app instance
 # Phil Budne, September 2022
@@ -181,6 +181,9 @@ echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 #	value at that time."
 # (ISTR seeing refs/tags/..../refs/tags/....)
 
+echo stopping processes...
+dokku ps:scale $(echo $PROCS | sed 's/[0-9][0-9]*/0/g')
+
 if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
     # not first push, safe to push by tag name
     git push $DOKKU_GIT_REMOTE $TAG:$DOKKU_GIT_BRANCH
@@ -200,24 +203,6 @@ for REMOTE in $PUSH_TAG_TO; do
     git push $REMOTE $TAG
 done
 
-SCALE=""
-# scale processes
-for CC in $PROCS; do
-    set $(echo $CC | sed 's/=/ /')
-    CONTAINER=$1
-    COUNT=$2
-
-    # only needed once (non-idempotent)
-    CURR=$(dokku ps:report $APP | grep "Status $CONTAINER [1-9]" | wc -l)
-    if [ $COUNT != $CURR ]; then
-	SCALE="$SCALE $CONTAINER=$COUNT"
-    else
-	echo "found $CURR $CONTAINER(s)"
-    fi
-done
-
-if [ "x$SCALE" != x ]; then
-    # here if found processes to scale
-    echo ps:scale $APP $SCALE
-    dokku ps:scale $APP $SCALE
-fi
+# start fetcher/worker procoesses
+# XXX maybe set env var to reduce delay
+dokku ps:scale $PROCS
