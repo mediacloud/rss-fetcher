@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from feedparser.util import FeedParserDict
 import mcmetadata.urls as urls
 import mcmetadata.titles as titles
-from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, text
+from sqlalchemy import Column, BigInteger, DateTime, String, Boolean, Integer, text, Float
 # SQLAlchemy moves this to sqlalchemy.orm, but available type hints only
 # has it old location:
 from sqlalchemy.ext.declarative import declarative_base
@@ -57,7 +57,7 @@ class Feed(MyBase):
     last_fetch_success = Column(DateTime)
     last_fetch_hash = Column(String)
     last_fetch_failures = Column(
-        Integer,
+        Float,
         nullable=False,
         server_default=text('0'))
     created_at = Column(DateTime)

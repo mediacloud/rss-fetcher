@@ -36,6 +36,10 @@ import fetcher.queue
 import fetcher.util as util
 
 
+# take twice as many soft failures to disable feed
+SOFT_FAILURE_INCREMENT = 0.5
+
+
 class Status(Enum):
     # values used for logging:
     SUCC = 'Success'            # success
@@ -254,37 +258,28 @@ def update_feed(session: SessionType,
             f.last_fetch_failures = 0
             # many values come in via 'feed_col_updates'
         else:
-            event = FetchEvent.Event.FETCH_FAILED
-            failures = f.last_fetch_failures
-            # increment last_fetch_failures (and possibly disable) on any of:
-            # 1. HARD error
-            # 2. SOFT error AND
-            #   a. same system_status as last attempt
-            #   b. no previous failures
-            # Maybe make f.last_fetch_failures a real, and increment by 0.5 on
-            # soft err?
-            if status == Status.HARD or system_status == prev_system_status or failures == 0:
-                failures = f.last_fetch_failures = f.last_fetch_failures + 1
-                if failures >= MAX_FAILURES:
-                    event = FetchEvent.Event.FETCH_FAILED_DISABLED
-                    f.system_enabled = False
-                    next_minutes = None  # don't reschedule
-                    logger.warning(
-                        f" Feed {feed_id}: disabled after {failures} failures")
-                else:
-                    logger.info(
-                        f" Feed {feed_id}: upped last_fetch_failures to {failures}")
+            if status == Status.HARD:
+                incr = 1.
+            else:
+                incr = SOFT_FAILURE_INCREMENT
+            failures = f.last_fetch_failures = f.last_fetch_failures + incr
+            if failures >= MAX_FAILURES:
+                event = FetchEvent.Event.FETCH_FAILED_DISABLED
+                f.system_enabled = False  # disable feed
+                next_minutes = None  # don't reschedule
+                logger.warning(
+                    f" Feed {feed_id}: disabled after {failures} failures")
+            else:
+                event = FetchEvent.Event.FETCH_FAILED
+                logger.info(
+                    f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
             if next_minutes is not None:
                 if failures > 0:
                     # back off to be kind to servers:
-                    # linear backoff (ie; 12h, 1d, 1.5d, 2d)
-                    next_minutes *= failures
-
-                    # exponential backoff:
-                    # kinder to servers, but excessive delays with long initial period.
-                    # (ie; 12h, 1d, 2d, 4d)
-                    #next_minutes *= 2 ** (failures - 1)
+                    # with large intervals exponential backoff is extreme
+                    # (12h, 1d, 2d, 4d), so using linear backoff
+                    next_minutes *= int(failures + 0.5)
 
                 if status == Status.SOFT:
                     # Add random minute offset to break up clumps of 429
