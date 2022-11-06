@@ -219,6 +219,9 @@ check_service redis $REDIS_SVC $APP
 
 ################
 
+# display/log in UTC:
+add_vars TZ=UTC
+
 add_vars MAX_FEEDS=15000
 
 ################
