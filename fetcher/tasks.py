@@ -16,6 +16,7 @@ import mcmetadata.urls
 from psycopg2.errors import UniqueViolation
 import requests
 import requests.exceptions
+# NOTE! All references to rq belong in queue.py!
 from setproctitle import setproctitle
 from sqlalchemy import literal
 from sqlalchemy.exc import (    # type: ignore[attr-defined]
@@ -404,8 +405,9 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
 def request_exception_to_status(
         exc: requests.exceptions.RequestException) -> Tuple[Status, str]:
     """
-    decode requests.get exceptions.  Try to return something
-    better than "fetch error"
+    decode RequestException into Status.{HARD,SOFT}
+    and "system status" string.  NOTE! system status used
+    for counter (so return only fixed strings).
     """
     # ConnectionError subclasses:
     if isinstance(exc, requests.exceptions.ConnectTimeout):
@@ -552,6 +554,11 @@ def fetch_and_process_feed(
     try:
         # first thing is to fetch the content
         response = _fetch_rss_feed(feed)
+    except fetcher.queue.JOB_TIMEOUT_EXCEPTION as exc:
+        update_feed(session, feed_id, Status.SOFT, "job timeout", now,
+                    note=str(exc))
+        feeds_incr('job_timeout')
+        return
     except requests.exceptions.RequestException as exc:
         status, system_status = request_exception_to_status(exc)
         update_feed(
@@ -561,17 +568,7 @@ def fetch_and_process_feed(
             system_status,
             now,
             note=str(exc))
-
-        # NOTE!! try to limit cardinality of status: (eats stats
-        # storage and graph colors), so not doing detailed breakdown
-        # for starters (full info available in fetch_event rows).
-
-        # Do this earlier to include more human readable fetch attempt note??
-        es = str(exc)
-        if 'ConnectionPool' in es:  # use isinstance on exc?!
-            feeds_incr('conn_err')
-        else:
-            feeds_incr('fetch_err')
+        feeds_incr(system_status.lower().replace(' ', '_'))
         return
 
     if SAVE_RSS_FILES:

@@ -15,6 +15,7 @@ from typing import List, Optional
 from redis.client import StrictRedis
 from rq import Connection, Queue, SimpleWorker
 from rq.local import LocalStack
+from rq.timeouts import JobTimeoutException
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
@@ -24,6 +25,7 @@ from fetcher.database.models import Feed
 import fetcher.tasks            # for feed_worker
 
 WORKQ_NAME = 'workq'            # make configurable?
+JOB_TIMEOUT_EXCEPTION = JobTimeoutException
 
 logger = logging.getLogger(__name__)
 
