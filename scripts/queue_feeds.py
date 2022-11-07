@@ -18,7 +18,7 @@ import sqlalchemy.sql.functions as f
 
 # app
 from fetcher.config import conf
-from fetcher.database import engine, Session, SessionType
+from fetcher.database import Session, SessionType
 from fetcher.logargparse import LogArgumentParser
 from fetcher.database.models import Feed, FetchEvent, utc
 import fetcher.queue as queue
