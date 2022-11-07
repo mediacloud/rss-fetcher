@@ -3,9 +3,11 @@ used by fetcher/logargparse,py and server/__init__.py
 """
 
 import logging
+import sys
 
 # PyPI:
 import sentry_sdk
+from sentry_sdk.integrations.rq import RqIntegration
 
 from fetcher import APP, VERSION
 from fetcher.config import conf
@@ -29,10 +31,16 @@ def init() -> bool:
             env = 'staging'
         else:
             env = 'production'
+
+        integrations = []
+        if 'rq' in sys.modules:
+            integrations.append(RqIntegration())
+
         # NOTE: Looks like environment defaults to "production"
         # unless passed, or SENTRY_ENVIRONMENT env variable set.
         sentry_sdk.init(dsn=sentry_dsn,
                         environment=env,
+                        integrations=integrations,
                         release=VERSION)
         return True
     else:

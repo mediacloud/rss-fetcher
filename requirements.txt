@@ -1,7 +1,7 @@
 python-dotenv==0.20.*
 pytest==7.1.*
 requests==2.28.*
-sentry-sdk[flask]==1.10.*
+sentry-sdk[fastapi]==1.10.*
 SQLAlchemy==1.4.*
 alembic==1.8.*
 gevent==21.12.*
@@ -10,7 +10,9 @@ blinker==1.5.*
 psycopg2==2.9.*
 python-dateutil==2.8.*
 mediacloud-metadata>=0.7.6
-fastapi==0.78.*
+fastapi==0.79.*
+Flask==2.2.*
+Jinja2==3.1.*
 uvicorn==0.18.*
 redis==4.3.*
 rq==1.11.*
