@@ -1,7 +1,7 @@
 Change Log
 ==========
 
-# v.next
+## v0.12.0
 
 Major raking by Phil Budne
 
@@ -32,31 +32,29 @@ Major raking by Phil Budne
 
 * fetcher.queue abstraction
 
-All queue access abstracted to fetcher.queue; using "rq" for work
-queue (only redis needed, allows length monitoring), saving of
-"result" (ie; celery backend) data is disabled, since we only queue
-jobs "blind" and never check for function results returned (although
-queue_feeds in --loop mode _could_ poll for results).
+   All queue access abstracted to fetcher.queue; using "rq" for work
+   queue (only redis needed, allows length monitoring), saving of
+   "result" (ie; celery backend) data is disabled, since we only queue
+   jobs "blind" and never check for function results returned (although
+   queue_feeds in --loop mode _could_ poll for results).
 
 * All database datetimes stored _without_ timezones.
 
 * "fetcher" module (fetcher/__init__.py) stripped to bare minimum
 
-(version string and fetching a few environment variables)
+      (version string and fetching a few environment variables)
 
 * All config variables in fetcher.config "conf" object
 
-provides mechanisms for specifying optional, boolean, integer params.
+	provides mechanisms for specifying optional, boolean, integer params.
 
 * Script startup logging
 
-All script startup logging includes script name and Dokku deployed git hash, followed by ONLY logging the configuration that
-is referenced.
+	All script startup logging includes script name and Dokku deployed git hash, followed by ONLY logging the configuration that is referenced.
 
 * All scripts log to BASE/storage/logs/APP.DYNO.log
 
-Files are turned over at midnight (to filename.log.YYYY-MM-DD),
-seven files are kept.
+	Files are turned over at midnight (to filename.log.YYYY-MM-DD), seven files are kept.
 
 * All path info in "fetcher.path"
 
@@ -91,7 +89,8 @@ Only one place to change how a script is invoked.
   takes common logging arguments, stats connection init
   runs a single queue worker (need to use dokku ps:scale worker=8).
 
-    * workers set process title when active, visible by ps, top:
+     workers set process title when active, visible by ps, top:
+
      ```
      pbudne@ifill:~$ ps ax | grep pbudne-rss-fetcher
      4121658 ?        Rl    48:13 pbudne-rss-fetcher worker.1 feed 2023073
@@ -132,6 +131,27 @@ Only one place to change how a script is invoked.
 	    takes optional `limit=N` query parameter
     * Non-API endpoint for RSS files:
 	+ /rss/FILENAME
+
+
+* New feeds table columns
+
+	column                | use
+	----------------------|----------------------------
+	`http_etag`           | Saved data from HTTP response `ETag:` header
+	`http_last_modified`  | Saved data from HTTP response `Last-Modified:` header
+	`next_fetch_attempt`  | Next time to attempt to fetch the feed
+	`queued`              | TRUE if the feed is currently in the work queue
+	`system_enabled`      | Set to FALSE by fetcher after excess failures
+	`update_minutes`      | Update period advertised by feed
+	`http_304`            | HTTP 304 (Not Modified) response seen from server
+	`system_status`       | Human readable result of last fetch attempt
+
+	Also: <tt>last_fetch_failures</tt> is now a float, incremented by 0.5
+	for "soft" errors that might resolve given some (more) time.
+
+* Archiver process
+
+	Run from crontab: archives fetch_event and stories rows based on configuration settings.
 
 ## v0.11.12
 
