@@ -12,23 +12,23 @@ Major raking by Phil Budne
 * mypy.sh installs and runs mypy in a virtual env. *RUNS CLEANLY!*
 
 * All scripts take uniform command line arguments for logging, initialization, help and version (in "fetcher.logargparse"):
-```
-  -h, --help            show this help message and exit
-  --verbose, -v         set default logging level to 'DEBUG'
-  --quiet, -q           set default logging level to 'WARNING'
-  --list-loggers        list all logger names and exit
-  --log-config LOG_CONFIG_FILE
-			configure logging with .json, .yml, or .ini file
-  --log-file LOG_FILE   log file name (default: main.pid.310509.log)
-  --log-level {critical,fatal,error,warn,warning,info,debug,notset}, -l {critical,fatal,error,warn,warning,info,debug,notset}
-			set default logging level to LEVEL
-  --no-log-file         don't log to a file
-  --logger-level LOGGER:LEVEL, -L LOGGER:LEVEL
-			set LOGGER (see --list-loggers) verbosity to LEVEL (see --level)
-  --set VAR=VALUE, -S VAR=VALUE
-			set config/environment variable
-  --version, -V         show program's version number and exit
-```
+   ```
+   -h, --help            show this help message and exit
+   --verbose, -v         set default logging level to 'DEBUG'
+   --quiet, -q           set default logging level to 'WARNING'
+   --list-loggers        list all logger names and exit
+   --log-config LOG_CONFIG_FILE
+			 configure logging with .json, .yml, or .ini file
+   --log-file LOG_FILE   log file name (default: main.pid.310509.log)
+   --log-level {critical,fatal,error,warn,warning,info,debug,notset}, -l {critical,fatal,error,warn,warning,info,debug,notset}
+			 set default logging level to LEVEL
+   --no-log-file         don't log to a file
+   --logger-level LOGGER:LEVEL, -L LOGGER:LEVEL
+			 set LOGGER (see --list-loggers) verbosity to LEVEL (see --level)
+   --set VAR=VALUE, -S VAR=VALUE
+			 set config/environment variable
+   --version, -V         show program's version number and exit
+   ```
 
 * fetcher.queue abstraction
 
@@ -56,34 +56,36 @@ Major raking by Phil Budne
 
 	Files are turned over at midnight (to filename.log.YYYY-MM-DD), seven files are kept.
 
-* All path info in "fetcher.path"
+* All file path information in "fetcher.path"
 
 * Common Sentry integration in "fetcher.sentry"
 
-enable passing environment="staging"
+        enable passing environment="staging", enabled fastapi support, rq integration
 
 * SQLAlchemy "Session" factory moved to "fetcher.database"
 
-so db params only logged if db access used/needed
+        so db params only logged if db access used/needed
 
 * All Proctab entries invoke existing ./run-....sh scripts
 
-Only one place to change how a script is invoked.
+        Only one place to change how a script is invoked.
 
 * "fetcher" process (scripts/queue_feeds.py) runs persistently
     (no longer invoked by crontab)
     [enabled by --loop PERIOD in Proctab]
     and: reports statistics (queue length, database counts, etc)
 
-    + queues ready feeds every PERIOD minutes,
-	    putting only the number of feeds necessary
+    + queues ready feeds every PERIOD minutes.
+
+	    queues only the number of feeds necessary
 	    to cover a day's fetch attempts divided into equal
-	    sized batches.
+	    sized batches (based on active enabled feeds advertised update rate, and config)
 
     + Allows any number of feed id's on command line.
 
-    + Operates as before (queues MAX_FEEDS feeds) if invoked
-	     without feed ids or --loop.
+    + Operates as before (queues MAX_FEEDS feeds) if invoked without feed ids or --loop.
+
+    + Clears queue and exits given `--clear`
 
 * Queue "worker" process started by scripts/worker.py
   takes common logging arguments, stats connection init
@@ -99,19 +101,16 @@ Only one place to change how a script is invoked.
      4129593 ?        Sl    49:49 pbudne-rss-fetcher worker.4 feed 459899
      ```
 
-* Fetch errors are divided into "soft" and "hard"
-    Needs refinement.  Only hard errors cause feeds to be disabled,
-    fetches to occur with increasing delay (back-off).
-
 * import_feeds script gives each feed a random "next_fetch_attempt" time
     to (initially) spread workload throughout the minimum requeue time
     interval.
 
     *Reorganized /app/storage for non-volatile storage of logs etc;
     ```
-    /app/storage/logs
-		/rss-output-files
-		/saved-input-files
+	/app/storage/db-archive
+		    /logs
+		    /rss-output-files
+		    /saved-input-files
     ```
 
 * Log files are persistent across container instances, available
@@ -152,6 +151,8 @@ Only one place to change how a script is invoked.
 * Archiver process
 
 	Run from crontab: archives fetch_event and stories rows based on configuration settings.
+
+* Reports statistics via `dokku-graphite` plugin, displayed by grafana.
 
 ## v0.11.12
 
