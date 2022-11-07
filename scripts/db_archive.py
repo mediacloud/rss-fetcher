@@ -6,14 +6,18 @@ NOTE! Output filenames contain time of script start;
 does not indicate file contents
 """
 
-# maybe keep N rows for each feed in fetch_events???
-
+import csv
 import datetime as dt
+import gzip
 import logging
 import os.path
 import subprocess
 
+from sqlalchemy import text
+
 from fetcher.config import conf
+from fetcher.database import engine
+from fetcher.database.models import FetchEvent
 from fetcher.logargparse import LogArgumentParser
 import fetcher.path as path
 
@@ -49,11 +53,48 @@ def runlog(*cmdline) -> bool:
     return ret.returncode == 0
 
 
+def dump_fetch_events(now: str, events: int, delete: bool) -> bool:
+    """
+    Write CSV file of fetch_events table
+    keeping `events` table rows for each feed_id.
+    """
+    with engine.begin() as conn:
+        # create temp table (lasts as long as DB session)
+        # with fetch_event row id and the row rank (n'th row)
+        # within feed_id (older rows have higher rank).
+
+        # This is necessary because:
+        # 1. RANK cannot be used in a where clause
+        # 2. There would be a race between new inserts and copy/delete.
+        conn.execute(text(
+            "SELECT id, RANK() OVER (PARTITION BY feed_id ORDER BY id DESC) AS rank INTO TEMP ttt FROM fetch_events;"))
+
+        # could also delete rows to keep
+        # (rank <= fetch_events) from temp table!
+        where = f"id in (SELECT id FROM ttt WHERE rank > {events})"
+        cursor = conn.execute(text(
+            f"SELECT * FROM fetch_events WHERE {where}"))
+
+        fname = os.path.join(path.DB_ARCHIVE_DIR, f"fetch_events.{now}.gz")
+        fields = [col.name for col in FetchEvent.__mapper__.columns]
+        with gzip.open(fname, 'wt') as f:
+            writer = csv.writer(f)
+            writer.writerow(fields)
+            writer.writerows(cursor)
+
+        if delete:
+            conn.execute(text(f"DELETE FROM fetch_events WHERE {where}"))
+
+    logsize(fname)
+    return True
+
+
 def dump(table: str, where: str, now: str, delete: bool) -> bool:
     path.check_dir(path.DB_ARCHIVE_DIR)
     fname = os.path.join(path.DB_ARCHIVE_DIR, f"{table}.{now}")
     with open(fname, "wb") as output:
         logger.info(f"output to {fname}")
+
         sql = f"SELECT * FROM {table} WHERE {where};"
         logger.debug(f"SQL: {sql}")
         # XXX create pipeline: psql | gzip > fname?
@@ -85,8 +126,8 @@ if __name__ == '__main__':
     p = LogArgumentParser(SCRIPT, 'archive stories and fetch_events tables')
     p.add_argument('--story-days', type=int, default=conf.RSS_OUTPUT_DAYS,
                    help="number of days of stories table rows to keep")
-    p.add_argument('--event-days', type=int, default=conf.FETCH_EVENT_DAYS,
-                   help="number of days of fetch_events table rows to keep")
+    p.add_argument('--fetch-events', type=int, default=conf.FETCH_EVENT_ROWS,
+                   help="number of fetch_events rows to keep for each feed")
     p.add_argument('--delete', action='store_true', default=False,
                    help="delete rows after writing files")
     # info logging before this call unlikely to be seen:
@@ -95,10 +136,7 @@ if __name__ == '__main__':
     now = dt.datetime.utcnow()
     fname = now.strftime('%Y-%m-%d-%H-%M-%S')
 
-    limit = now.date() - dt.timedelta(days=args.event_days)
-    limit_str = limit.isoformat()
-    # XXX could archive/delete all but last N rows
-    dump('fetch_events', f"created_at < '{limit_str}'", fname, args.delete)
+    dump_fetch_events(fname, args.fetch_events, args.delete)
 
     limit = now.date() - dt.timedelta(days=args.story_days)
     limit_str = limit.isoformat()

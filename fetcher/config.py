@@ -217,8 +217,8 @@ class _Config:                  # only instantied in this file
     DEFAULT_INTERVAL_MINS = conf_int('DEFAULT_INTERVAL_MINS',
                                      _DEFAULT_DEFAULT_INTERVAL_MINS)
 
-    # days of fetch_events to keep
-    FETCH_EVENT_DAYS = conf_int('FETCH_EVENT_DAYS', 30)
+    # number of fetch_event rows to keep for each feed
+    FETCH_EVENT_ROWS = conf_int('FETCH_EVENT_ROWS', 30)
 
     # failures before disabling feed
     MAX_FAILURES = conf_int('MAX_FAILURES', 4)
