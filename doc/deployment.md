@@ -1,7 +1,11 @@
 This is built to deploy via a PaaS host, like Heroku. We deploy via [dokku](https://dokku.com).
 
+NOTE!! The top level autopep8.sh and mypy.sh scripts should be run
+before merging to mediacloud/main branch!  (mypy.sh creates a local
+venv, autopep8.sh expects autopep8 be installed)
+
 Development
-==========
+===========
 
 If you are debugging locally, copy `.env.template` to `.env` and edit as needed.
 
