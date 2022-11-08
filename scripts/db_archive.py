@@ -58,6 +58,7 @@ def dump_fetch_events(now: str, events: int, delete: bool) -> bool:
     Write CSV file of fetch_events table
     keeping `events` table rows for each feed_id.
     """
+    logger.info("creating fetch_events temp table for ranking")
     with engine.begin() as conn:
         # create temp table (lasts as long as DB session)
         # with fetch_event row id and the row rank (n'th row)
@@ -67,23 +68,35 @@ def dump_fetch_events(now: str, events: int, delete: bool) -> bool:
         # 1. RANK cannot be used in a where clause
         # 2. There would be a race between new inserts and copy/delete.
         conn.execute(text(
-            "SELECT id, RANK() OVER (PARTITION BY feed_id ORDER BY id DESC) AS rank INTO TEMP ttt FROM fetch_events;"))
+            "SELECT id, RANK() OVER (PARTITION BY feed_id ORDER BY id DESC) AS rank INTO TEMP temp_table FROM fetch_events;"))
 
-        # could also delete rows to keep
-        # (rank <= fetch_events) from temp table!
-        where = f"id in (SELECT id FROM ttt WHERE rank > {events})"
-        cursor = conn.execute(text(
-            f"SELECT * FROM fetch_events WHERE {where} ORDER BY id"))
+        # used for count, extraction, deletion:
+        from_temp_table = f"FROM temp_table WHERE rank > {events}"
 
+        count = conn.execute(
+            text(f"SELECT COUNT(1) {from_temp_table}")).one()[0]
+        logger.info(f"found {count} fetch_events to archive")
+        if count == 0:
+            return True
+
+        # used for extract & deletion:
+        from_where = f"FROM fetch_events WHERE id IN (SELECT id {from_temp_table})"
+
+        cursor = conn.execute(text(f"SELECT * {from_where} ORDER BY id"))
         fname = os.path.join(path.DB_ARCHIVE_DIR, f"fetch_events.{now}.gz")
-        fields = [col.name for col in getattr(FetchEvent, '__mapper__').columns]
+        fields = [
+            col.name for col in getattr(
+                FetchEvent,
+                '__mapper__').columns]
+        logger.info(f"writing {fname}")
         with gzip.open(fname, 'wt') as f:
             writer = csv.writer(f)
             writer.writerow(fields)
             writer.writerows(cursor)
 
         if delete:
-            conn.execute(text(f"DELETE FROM fetch_events WHERE {where}"))
+            logger.info("deleting...")
+            conn.execute(text(f"DELETE {from_where}"))
 
     logsize(fname)
     return True
