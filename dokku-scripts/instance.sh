@@ -93,7 +93,7 @@ if [ "x$OP" = xdestroy ]; then
     dokku redis:destroy $REDIS_SVC
     dokku postgres:destroy $DATABASE_SVC
 
-    rm -f $CRONTAB
+    rm -f $CRONTAB dokku-postgres-$APP
     ## end destroy function
 
     exit 0
@@ -400,8 +400,12 @@ $PERIODIC
 EOF
 
 # maybe do backups for staging as well (to fully test this script)?!
-# would need separate buckets and BACKUP_USERs
-# (or at least credential file profiles) for full separation.
+# would need separate buckets (and keys for those buckets),
+# or at least a different prefix in the same bucket).
+
+DB_BACKUP_POLICY=mediacloud-web-tools-db-backup-get-put-delete
+DB_BACKUP_KEYNAME=mediacloud-webtools-db-backup
+
 if [ "x$TYPE" = xprod ]; then
     if dpkg --list | grep awscli >/dev/null; then
 	echo found awscli
@@ -413,35 +417,49 @@ if [ "x$TYPE" = xprod ]; then
     # use to run aws s3 sync for RSS files and DB backup
     # only requires that user be permenant, and have read access to $STDIR
     BACKUP_USER=root
-    BACKUP_HOME=$(eval echo ~$BACKUP_USER)
-    BACKUP_CREDS=$BACKUP_HOME/.aws/credentials
+    AWS_CREDS_DIR=$(eval echo ~$BACKUP_USER)/.aws
+    AWS_CREDS=$AWS_CREDS_DIR/credentials
 
-    # profile (section) in $BACKUP_CREDS file
-    DB_BACKUP_PROFILE=db
+    # profiles (section) in $AWS_CREDS file
+    DB_BACKUP_PROFILE=${APP}-db-backup
+    RSS_PROFILE=${APP}-rss
+
     DB_BACKUP_BUCKET=mediacloud-rss-fetcher-backup
-    if [ -f $BACKUP_CREDS ]; then
-	echo Found $BACKUP_CREDS file
-	# ansible could get keys from an encrypted "vault" file
-	if ! grep '\[default\]' $BACKUP_CREDS >/dev/null; then
-	    echo "*** Need default profile/section in $BACKUP_CREDS ***" 1>&2
-	    echo ' (requires key with mediacloud-public-get-put-delete policy attached (ie; mediacloud-get-put-delete key)' 1>&2
-	    echo '' 1>&2
+    RSS_BUCKET=mediacloud-public/backup-daily-rss
+
+    BOGUS_DB_BACKUP_CRED="${DB_BACKUP_PROFILE}-key-here"
+    BOGUS_RSS_CRED="${RSS_PROFILE}-key-here"
+
+    test -d $AWS_CREDS_DIR || mkdir $AWS_CREDS_DIR
+    check_aws_creds() {
+	local PROFILE=$1
+	local BOGUS=${PROFILE}-replace-me
+	local POLICY=$2
+	local KEYNAME=$3
+	if ! grep "\[$PROFILE\]" $AWS_CREDS >/dev/null 2>&1; then
+	    (
+		echo "[$PROFILE]"
+		echo "aws_access_key_id = $BOGUS"
+		echo "aws_secret_access_key = xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+	    ) >> $AWS_CREDS
 	fi
-	if ! grep "\[$DB_BACKUP_PROFILE\]" $BACKUP_CREDS >/dev/null; then
-	    echo "*** Need $DB_BACKUP_PROFILE profile/section in $BACKUP_CREDS **" 1>&2
-	    echo ' (requires key with mediacloud-web-tools-db-backup-get-put-delete policy (ie; mediacloud-webtools-db-backup key)' 1>&2
+	if grep $BOGUS $AWS_CREDS >/dev/null; then
 	    echo '' 1>&2
+	    echo "*** Need valid $PROFILE profile/section in $AWS_CREDS ***" 1>&2
+	    echo " (requires key with $POLICY policy attached (ie; $KEYNAME key)" 1>&2
 	fi
-	chmod 600 $BACKUP_CREDS
-	chown $BACKUP_USER $BACKUP_CREDS
-    else
-	echo "*** Need $BACKUP_HOME/.aws/credentials file (with default and $DB sections)!!! ***" 1>&2
-    fi
+    }
+
+    check_aws_creds $DB_BACKUP_PROFILE $DB_BACKUP_POLICY $DB_BACKUP_KEYNAME
+    check_aws_creds $RSS_PROFILE mediacloud-public-get-put-delete mediawords-public-s3
+    chmod 600 $AWS_CREDS
+    chown $BACKUP_USER $AWS_CREDS
+
     # copy generated RSS files to public S3 bucket
-    echo "45 0 * * * $BACKUP_USER aws s3 sync $STDIR/rss-output-files/ s3://mediacloud-public/backup-daily-rss/ > $LOGDIR/rss-fetcher-aws-sync-rss-mc.log 2>&1" > $CRONTEMP
+    echo "45 0 * * * $BACKUP_USER aws s3 --profile $RSS_PROFILE sync $STDIR/rss-output-files/ s3://$RSS_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-rss-mc.log 2>&1" >> $CRONTEMP
 
     # copy archived rows in CSV files to private bucket (NOTE! After "run archiver" entry created above)
-    echo "45 1 * * * $BACKUP_USER aws --profile $BACKUP_PROFILE s3 sync $STDIR/db-archive/ s3://$DB_BACKUP_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-dbarch-mc.log 2>&1" > $CRONTEMP
+    echo "45 1 * * * $BACKUP_USER aws --profile $DB_BACKUP_PROFILE s3 sync $STDIR/db-archive/ s3://$DB_BACKUP_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-dbarch-mc.log 2>&1" >> $CRONTEMP
 fi
 
 if [ -f $CRONTAB ]; then
@@ -469,10 +487,11 @@ if [ "x$TYPE" = xprod ]; then
 	echo found AWS keys for postgres:backup
     else
 	# ansible could get keys from an encrypted "vault" file
-	echo 'AWS keys for DB backup not found!!!' 1>&2
+	echo '' 1>&2
+	echo '*** AWS keys for postgres:backup not found!!!' 1>&2
 	echo "run: dokku postgres:backup-auth $DATABASE_SVC AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY" 1>&2
 	echo ' (where AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY have' 1>&2
-	echo ' mediacloud-web-tools-db-backup-get-put-delete policy (ie; mediacloud-webtools-db-backup key)' 1>&2
+	echo " $DB_BACKUP_POLICY (ie; $DB_BACKUP_KEY)" 1>&2
     fi
 
     # backup-schedule creates creates /etc/cron.d/dokku-postgres-$DATABASE_SVC w/
