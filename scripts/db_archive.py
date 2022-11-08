@@ -73,7 +73,7 @@ def dump_fetch_events(now: str, events: int, delete: bool) -> bool:
         # (rank <= fetch_events) from temp table!
         where = f"id in (SELECT id FROM ttt WHERE rank > {events})"
         cursor = conn.execute(text(
-            f"SELECT * FROM fetch_events WHERE {where}"))
+            f"SELECT * FROM fetch_events WHERE {where} ORDER BY id"))
 
         fname = os.path.join(path.DB_ARCHIVE_DIR, f"fetch_events.{now}.gz")
         fields = [col.name for col in FetchEvent.__mapper__.columns]
