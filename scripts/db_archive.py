@@ -95,7 +95,7 @@ def dump(table: str, where: str, now: str, delete: bool) -> bool:
     with open(fname, "wb") as output:
         logger.info(f"output to {fname}")
 
-        sql = f"SELECT * FROM {table} WHERE {where};"
+        sql = f"SELECT * FROM {table} WHERE {where} ORDER BY id;"
         logger.debug(f"SQL: {sql}")
         # XXX create pipeline: psql | gzip > fname?
         # XXX capture stderr & log??
