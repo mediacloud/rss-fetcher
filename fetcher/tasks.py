@@ -403,7 +403,7 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
 
 
 def request_exception_to_status(
-        feed: Dict[str, any],   # for logging
+        feed: Dict[str, Any],   # for logging
         exc: requests.exceptions.RequestException) -> Tuple[Status, str]:
     """
     decode RequestException into Status.{HARD,SOFT}
