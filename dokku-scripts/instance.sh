@@ -421,7 +421,7 @@ if [ "x$TYPE" = xprod ]; then
     AWS_CREDS=$AWS_CREDS_DIR/credentials
 
     # profiles (section) in $AWS_CREDS file
-    DB_BACKUP_PROFILE=${APP}-db-backup
+    DB_BACKUP_PROFILE=${APP}-backup
     RSS_PROFILE=${APP}-rss
 
     DB_BACKUP_BUCKET=mediacloud-rss-fetcher-backup
