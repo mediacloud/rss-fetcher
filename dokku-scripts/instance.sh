@@ -414,7 +414,7 @@ if [ "x$TYPE" = xprod ]; then
     # only requires that user be permenant, and have read access to $STDIR
     BACKUP_USER=root
     BACKUP_HOME=$(eval echo ~$BACKUP_USER)
-    BACKUP_CREDS=$BACKUP_CREDS
+    BACKUP_CREDS=$BACKUP_HOME/.aws/credentials
 
     # profile (section) in $BACKUP_CREDS file
     DB_BACKUP_PROFILE=db
