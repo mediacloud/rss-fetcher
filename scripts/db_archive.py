@@ -36,7 +36,7 @@ def logsize(fname: str) -> None:
         logger.error(f"stat {fname}: {e}")
 
 
-def runlog(*cmdline) -> bool:
+def runlog(*cmdline: str) -> bool:
     """
     run command; log stdout/err
     """
@@ -76,7 +76,7 @@ def dump_fetch_events(now: str, events: int, delete: bool) -> bool:
             f"SELECT * FROM fetch_events WHERE {where} ORDER BY id"))
 
         fname = os.path.join(path.DB_ARCHIVE_DIR, f"fetch_events.{now}.gz")
-        fields = [col.name for col in FetchEvent.__mapper__.columns]
+        fields = [col.name for col in getattr(FetchEvent, '__mapper__').columns]
         with gzip.open(fname, 'wt') as f:
             writer = csv.writer(f)
             writer.writerow(fields)

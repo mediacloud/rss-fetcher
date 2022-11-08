@@ -64,10 +64,8 @@ done
 #    touch $VENV/.mypy--install-types
 #fi
 
-set -x
-mypy \
-	-mscripts.gen_daily_story_rss \
-	-mscripts.import_feeds \
-	-mscripts.queue_feeds \
-	-mscripts.worker \
-	-mserver
+for X in scripts/[a-z]*.py; do
+    ARGS="$ARGS -m$(echo $X | sed -e 's@/@.@' -e 's/\.py$//')"
+done
+echo running mypy $ARGS
+mypy $ARGS
