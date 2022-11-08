@@ -403,12 +403,19 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
 
 
 def request_exception_to_status(
+        feed: Dict[str, any],   # for logging
         exc: requests.exceptions.RequestException) -> Tuple[Status, str]:
     """
     decode RequestException into Status.{HARD,SOFT}
-    and "system status" string.  NOTE! system status used
-    for counter (so return only fixed strings).
+    and "system status" string.
     """
+    # NOTE! system status used for counter label (so return only fixed strings to limit cardinality)
+    # (probably already returns too many different strings!)
+
+    # NOTE! return Status.SOFT if there is a chance the error is transitory, or due
+    # to human/configuration error, to give a longer time for it to be
+    # corrected.
+
     # ConnectionError subclasses:
     if isinstance(exc, requests.exceptions.ConnectTimeout):
         return Status.SOFT, "connect timeout"
@@ -420,17 +427,18 @@ def request_exception_to_status(
     if isinstance(exc, requests.exceptions.ConnectionError):
         s = str(exc)
         if 'Name or service not known' in s:
+            # _COULD_ be a human DNS screw-up....
             return Status.HARD, "unknown hostname"
         # DNS errors appear as negative errno values
         if '[Errno -' in s:
             return Status.SOFT, "DNS error"
+        logging.warning(f"   Feed {feed['id']} connection error: {exc}")
         return Status.HARD, "connection error"
 
     # non-connection errors:
     if isinstance(exc, requests.exceptions.ReadTimeout):
         return Status.SOFT, "read timeout"
 
-    # human/configuration error
     if isinstance(exc, requests.exceptions.TooManyRedirects):
         return Status.SOFT, "too many redirects"
 
@@ -441,23 +449,20 @@ def request_exception_to_status(
 
     # covers InvalidHeader (code error??)
     if isinstance(exc, ValueError):
-        # XXX log?
         return Status.HARD, "bad value"
 
     # if this happens, it would be a local config error:
     if isinstance(exc, requests.exceptions.ProxyError):
-        # XXX log?
         return Status.SOFT, "proxy error"
 
+    # catch-alls:
     if isinstance(exc, (requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError)):
-        return Status.HARD, "MIME error"
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.RetryError)):
+        return Status.SOFT, "fetch error"
 
-    # catch-all:
-    if not isinstance(exc, requests.exceptions.RetryError):
-        logger.warning(f"Unknown exception class {type(exc).__name__}: {exc}")
-
-    return Status.HARD, "fetch error"
+    logger.exception(f"Feed {feed['id']}: unknown RequestException")
+    return Status.SOFT, "unknown"
 
 
 def fetch_and_process_feed(
@@ -560,7 +565,7 @@ def fetch_and_process_feed(
         feeds_incr('job_timeout')
         return
     except requests.exceptions.RequestException as exc:
-        status, system_status = request_exception_to_status(exc)
+        status, system_status = request_exception_to_status(feed, exc)
         update_feed(
             session,
             feed_id,
