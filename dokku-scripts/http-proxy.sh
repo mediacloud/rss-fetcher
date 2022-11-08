@@ -76,7 +76,7 @@ dokku letsencrypt:enable $PROXY_APP
 
 echo "NOTE!!!! Make sure $PROXY_APP.$DOMAIN is accepted at $REMOTE_HOST!!!"
 # for a dokku app:
-#	dokku domains:set $APP $PROXY_APP.$BASTION.$BASTION_DOMAIN
+#	dokku domains:set $APP $PROXY_APP.$BASTION.$PUBLIC_DOMAIN
 # for a docker-graphite service:
-#	dokku graphite:nginx-expose $PROXY_APP.$BASTION.$BASTION_DOMAIN
+#	dokku graphite:nginx-expose $PROXY_APP.$BASTION.$PUBLIC_DOMAIN
 

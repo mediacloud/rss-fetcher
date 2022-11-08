@@ -23,7 +23,7 @@ if [ ! -f $INSTALL_CONF ]; then
 fi
 . $INSTALL_CONF
 
-DOMAIN=$BASTION.$BASTION_DOMAIN
+DOMAIN=$BASTION.$PUBLIC_DOMAIN
 
 # test for angwin cluster:
 if ! public_server; then

@@ -37,7 +37,7 @@ if ! dokku graphite:exists $GRAPHITE_STATS_SVC; then
 
 	# expose dokku-graphite http service on port 80
 	# and recognize a domain name like stats.OURHOST.tarbell.mediacloud.org
-	dokku graphite:nginx-expose $GRAPHITE_STATS_SVC $BASTION_SERVICE.$BASTION.$BASTION_DOMAIN
+	dokku graphite:nginx-expose $GRAPHITE_STATS_SVC $BASTION_SERVICE.$BASTION.$PUBLIC_DOMAIN
 
 	# give instructions on how set up encrypted proxy on BASTION host:
 	echo "NOTE!!! run '$SCRIPT_DIR/http-proxy.sh $BASTION_SERVICE $HOST 80' on $BASTION"
