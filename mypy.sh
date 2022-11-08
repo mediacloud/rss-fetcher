@@ -64,6 +64,7 @@ done
 #    touch $VENV/.mypy--install-types
 #fi
 
+set -x
 mypy \
 	-mscripts.gen_daily_story_rss \
 	-mscripts.import_feeds \
