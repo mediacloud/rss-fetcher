@@ -27,7 +27,7 @@ if ! dokku graphite:exists $GRAPHITE_STATS_SVC; then
 	STATS_PROXY_APP=$GRAPHITE_STATS_SVC
 
 	# script not yet tested!!!
-	$SCRIPT_DIR/service_proxy.sh $GRAPHITE_STATS_SVC $STATS_PROXY_APP
+	$SCRIPT_DIR/stats-service-proxy.sh $GRAPHITE_STATS_SVC $STATS_PROXY_APP
     else
 	# use unencrypted service on non-public server
 	# (cannot get letsencrypt cert on server that isn't Internet visible)
