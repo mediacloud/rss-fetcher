@@ -69,8 +69,6 @@ DATABASE_SVC=$APP
 if [ "x$NAME" = xprod ] && dokku postgres:exists rss-fetcher-db >/dev/null 2>&1; then
     DATABASE_SVC=rss-fetcher-db
 fi
-echo DATABASE_SVC $DATABASE_SVC
-exit
 
 # storage for generated RSS files, db CSV files, logs
 STORAGE=${APP}-storage
