@@ -140,7 +140,7 @@ if [ "x$BRANCH" = xprod ]; then
 
     echo -n "This is production! Type YES to confirm: "
     read CONFIRM
-    if [ "x$CONFIRM" != 'YES' ]; then
+    if [ "x$CONFIRM" != 'xYES' ]; then
        echo '[cancelled]'
        exit
     fi
