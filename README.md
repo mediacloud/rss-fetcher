@@ -12,7 +12,7 @@ See documentation in [doc/](doc/) for more details.
 Install for Development
 -----------------------
 
-For development using dokku, see [doc/deployment.md](doc/development.md)
+For development using dokku, see [doc/deployment.md](doc/deployment.md)
 
 For development directly on your local machine:
 1. Install postgresql & redis
