@@ -4,6 +4,9 @@ NOTE!! The top level autopep8.sh and mypy.sh scripts should be run
 before merging to mediacloud/main branch!  (mypy.sh creates a local
 venv, autopep8.sh expects autopep8 be installed)
 
+See [../dokku-scripts/README.md](dokku-scripts/README.md) for descriptions
+of all the dokku helper scripts.
+
 Development
 ===========
 
