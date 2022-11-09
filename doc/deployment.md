@@ -1,49 +1,133 @@
-Deploying
-=========
+This is built to deploy via a PaaS host, like Heroku. We deploy via [dokku](https://dokku.com).
 
-This is built to deploy via a PaaS host, like Heroku. We deploy via [dokku](https://dokku.com). Whatever your deploy
-platform, make sure to create environment variables there for each setting in the `.env.template`.
+NOTE!! The top level autopep8.sh and mypy.sh scripts should be run
+before merging to mediacloud/main branch!  (mypy.sh creates a local
+venv, autopep8.sh expects autopep8 be installed)
 
-Setup (Dokku)
--------------
+See [../dokku-scripts/README.md](../dokku-scripts/README.md) for descriptions
+of all the dokku helper scripts.
 
-### Create the Dokku apps
+Development
+===========
 
-1. [install Dokku](http://dokku.viewdocs.io/dokku/getting-started/installation/)
-2. install the [Dokku rabbitmq plugin](https://github.com/dokku/dokku-rabbitmq)
-3. install the [Dokku redis plugin](https://github.com/dokku/dokku-redis)
-4. install the [Dokku postgres plugin](https://github.com/dokku/dokku-postgres)
-5. setup a rabbitmq queue: `dokku rabbitmq:create rss-fetcher-broker-q`
-6. setup a redis queue: `dokku redis:create rss-fetcher-backend-q`
-7. setup a postgres database: `dokku postgres:create rss-fetcher-db`
-12. create an external storage dir for generated RSS files: `dokku storage:ensure-directory rss-fetcher-daily-files`
-8. create an app: `dokku apps:create rss-fetcher`
-9. link the app to the rabbit queue: `dokku rabbitmq:link rss-fetcher-broker-q rss-fetcher`
-10. link the app to the redis database: `dokku redis:link rss-fetcher-backend-q rss-fetcher`
-11. link the app to the postgres database: `dokku postgres:link rss-fetcher-db rss-fetcher`
-13. link the app to the external storage directory: `dokku storage:mount rss-fetcher /var/lib/dokku/data/storage/rss-fetcher-daily-files:/app/storage`
+If you are debugging locally, copy `.env.template` to `.env` and edit as needed.
 
-### Release the worker app
+To install dokku, run `.../dokku-scripts/install-dokku.sh` as root.
 
-1. setup the configuration on the dokku app: `dokku config:set rss-fetcher BROKER_URL=amqp://u:p@dokku-rabbitmq-rss-fetcher-q:5672/rss_fetcher_q BROKER_URL=BACKEND_URL=redis://u:p@dokku-redis-rss-fetcher-backend-q:6379 SENTRY_DSN=https://mydsn@sentry.io/123 DATABASE_URL=postgresql:///rss-fetcher MAX_FEEDS=10000 RSS_FILE_PATH=/app/storage SAVE_RSS_FILES=0`
-2. add a remote: `git remote add prod dokku@prod.server.org:rss-fetcher`
-3. scale it to get a worker (dokku doesn't add one by default): `dokku ps:scale rss-fetcher worker=1` (this might only work after the first deployment)
+To test under dokku, first create a development dokku instance by running (as root)
 
-### Setup the fetcher to run automatically
+   ```
+   .../dokku-scripts/instance.sh create dev-MYUSERNAME
+   ```
 
-1. Add a cron job to fetch during feeds during the day (every 30 mins): `*/30 * * * * /usr/bin/dokku run rss-fetcher fetcher /app/run-fetch-rss-feeds.sh >> /var/log/run-fetch-rss-feeds-cron.log 2>&1`
-2. Add a cron job to generate RSS files once a day: `30 0 * * * /usr/bin/dokku run rss-fetcher generator /app/run-gen-daily-story-rss.sh >> /var/log/run-gen-daily-story-rss-cron.log 2>&1`
+This will also add a git "remote" used later by `push.sh` to deploy the code.
+
+creates an application named `MYUSERNAME-rss-fetcher` and a `dokku-graphite` plugin instance visible
+as `http://stats.SERVERNAME`
+
+Check your code into a git branch (named something other than
+`staging` or `prod`, push to your github `origin`, then run
+
+    ```
+    .../dokku-scripts/push.sh
+    ```
+
+to deploy the code (by doing a git push to the app server git repo).
+`push.sh` will apply and push a tag like `YYYY-MM-DD-HH-MM-SS-HOSTNAME-APPNAME`
+
+The application container `/app/storage` directory
+appears on the host system in `/var/lib/dokku/data/storage/APPNAME`,
+including `logs`, `rss-output-files` and `db-archive` directories.
+
+*TEXT HERE ABOUT POPULATING FEEDS TABLE* (clone from production???)
+
+If your devlopment instance is on a private network, you can make the
+Grafana server created by `instance.sh` on Internet visible server
+`BASTIONSERVER.DO.MA.IN` using `dokku-scripts/http-proxy.sh` which can
+create a proxy application named `stats.YOURSERVER` which should be
+Internet visible service at
+`https://stats.YOURSERVER.BASTIONSERVER.DO.MA.IN` (assuming there is a
+wildcard DNS address record for `*.BASTIONSERVER.DO.MA.IN`.
+
+*TEXT HERE ABOUT POPULATING A GRAFANA DASHBOARD*
+
+*TEXT HERE ABOUT ACCEPTANCE CRITERIA!!*
+
+Your development application can be disposed of by running
+
+    `dokku-scripts/instance.sh destroy dev-MYUSERNAME`
+
+
+Staging
+=======
+
+Once you are ready to deploy your code, and your changes have been
+merged into the github mediacloud account "main" branch, the next step
+is to run the code undisturbed in a staging app instance:
+
+If a staging instance does not exist (or instance.sh has been changed):
+
+   ```
+   ./dokku-scripts/instance.sh create staging
+   ```
+
+Which will create an application named `staging-rss-fetcher`
+(or modify an existing one to current spec).
+
+*TEXT HERE ABOUT FEEDS AND STORIES TABLES* (clone from production???)*
+
+Then merge the state of the mediacloud/main branch into
+mediacloud/staging, either via github PR or `git checkout staging; git
+merge main`
+
+*The staging branch should ONLY be updated by merges/pulls from main.*
+
+You must have a `.prod` file with a line:
+`SENTRY_DSN=https://xxxxxxxxxxxxx@xxx.ingest.sentry.io/xxxxxx`
+pointing to the mediacloud sentry.io URL (events will be sent with
+environment=staging).
+
+Then, with the staging branch checked out (and pushed to both "origin"
+and to the mediacloud account staging branch), again run:
+
+    ```
+    .../dokku-scripts/push.sh
+    ```
+
+again, `push.sh` will apply and push a tag: `YYYY-MM-DD-HH-MM-SS-HOSTNAME-staging-rss-fetcher`
+
+*TEXT HERE ABOUT ACCEPTANCE CRITERIA!!*
+
+Production
+==========
+
+Once the code has been running stably without modification in staging,
+it can be deployed to production.
+
+Once again, `instance.sh` can be used to create a production application instance
+(or modifiy an existing one to current specifications, and install a stats server):
+
+   ```
+   ./dokku-scripts/instance.sh create prod
+   ```
+
+When you are ready to make a release, edit `fetcher/__init__.py` and
+update `VERSION` and update the `CHANGELOG.md` file with a note about
+what changed, and merge the change to the staging branch
+(and test in staging if ANY other changes were made).
+
+*The "prod" branch should ONLY be changed by merging from the "staging" branch.*
+
+Merge the mediacloud account staging branch into the prod branch, and run `push.sh`
+
+`push.sh` should check whether a `vVERSION` tag exists (and exit if it
+does), otherwise it creates and pushes the tag.
 
 ### Setup database backups
 
-The local logging database is useful for future interrogation, so we back it up.
+The production postgres database is backed up to AWS S3:
 
 1. `dokku postgres:backup-auth rss-fetcher-db AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY`
 2. `dokku postgres:backup-schedule rss-fetcher-db "0 1 * * *" mediacloud-rss-fetcher-backup`
 
-Releasing
----------
-
-1. When you make a change, edit `fetcher.VERSION` and update the `CHANGELOG.md` file with a note about what changed.
-2. Commit and tag with the version number - ie "v1.1.1"
-3. push the code to the server: `git push prod main`
+* TEXT HERE ABOUT SETTING UP BACKUP OF db-archive *

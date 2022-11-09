@@ -18,13 +18,13 @@ depends_on = None
 
 def upgrade():
     op.drop_column('feeds', 'mc_feeds_id')
-    op.drop_column('feeds', 'import_round')
+    #op.drop_column('feeds', 'import_round')
     op.alter_column('feeds', 'mc_media_id', new_column_name='media_id')
     op.add_column('feeds', sa.Column('created_at', sa.DateTime, server_default=sa.text('NOW()')))
 
 
 def downgrade():
     op.add_column('feeds', sa.Column('mc_feeds_id', sa.BigInteger))
-    op.add_column('feeds', sa.Column('import_round', sa.Integer))
+    #op.add_column('feeds', sa.Column('import_round', sa.Integer))
     op.alter_column('feeds', 'media_id', new_column_name='mc_media_id')
     op.drop_column('feeds', 'created_at')

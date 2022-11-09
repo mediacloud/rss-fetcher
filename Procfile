@@ -1,4 +1,5 @@
-web: uvicorn server:app --timeout-keep-alive 500 --host 0.0.0.0 --port 8000
-worker: celery -A fetcher worker -l info --concurrency=16
-fetcher: python -m scripts.queue_feeds
-generator: python -m scripts.gen_daily_story_rss
+web: ./run-server.sh
+fetcher: ./run-fetch-rss-feeds.sh --loop 5
+worker: ./run-rss-workers.sh
+generator: ./run-gen-daily-story-rss.sh
+archiver: python -m scripts.db_archive

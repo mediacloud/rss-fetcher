@@ -26,5 +26,5 @@ def upgrade():
 
 
 def downgrade():
-    op.execute("DELETE from feeds WHERE import_round = 4")
+    pass
 

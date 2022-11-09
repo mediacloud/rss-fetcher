@@ -1,4 +1,8 @@
-from sqlalchemy.orm import sessionmaker
-from fetcher import engine
+import sqlalchemy.orm as orm
 
-Session = sessionmaker(bind=engine)
+from fetcher.database.engine import engine
+
+SessionType = orm.Session
+
+# factory for SesionType with presupplied parameters:
+Session = orm.sessionmaker(bind=engine)

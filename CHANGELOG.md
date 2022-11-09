@@ -1,6 +1,159 @@
 Change Log
 ==========
 
+## v0.12.0
+
+Major raking by Phil Budne
+
+* runtime.txt updated to python-3.9.13 (security fixes)
+
+* autopep.sh runs autopep8 -a -i on all files (except fetcher/database/versions/*.py)
+
+* mypy.sh installs and runs mypy in a virtual env. *RUNS CLEANLY!*
+
+* All scripts take uniform command line arguments for logging, initialization, help and version (in "fetcher.logargparse"):
+   ```
+   -h, --help            show this help message and exit
+   --verbose, -v         set default logging level to 'DEBUG'
+   --quiet, -q           set default logging level to 'WARNING'
+   --list-loggers        list all logger names and exit
+   --log-config LOG_CONFIG_FILE
+			 configure logging with .json, .yml, or .ini file
+   --log-file LOG_FILE   log file name (default: main.pid.310509.log)
+   --log-level {critical,fatal,error,warn,warning,info,debug,notset}, -l {critical,fatal,error,warn,warning,info,debug,notset}
+			 set default logging level to LEVEL
+   --no-log-file         don't log to a file
+   --logger-level LOGGER:LEVEL, -L LOGGER:LEVEL
+			 set LOGGER (see --list-loggers) verbosity to LEVEL (see --level)
+   --set VAR=VALUE, -S VAR=VALUE
+			 set config/environment variable
+   --version, -V         show program's version number and exit
+   ```
+
+* fetcher.queue abstraction
+
+   All queue access abstracted to fetcher.queue; using "rq" for work
+   queue (only redis needed, allows length monitoring), saving of
+   "result" (ie; celery backend) data is disabled, since we only queue
+   jobs "blind" and never check for function results returned (although
+   queue_feeds in --loop mode _could_ poll for results).
+
+* All database datetimes stored _without_ timezones.
+
+* "fetcher" module (fetcher/__init__.py) stripped to bare minimum
+
+      (version string and fetching a few environment variables)
+
+* All config variables in fetcher.config "conf" object
+
+	provides mechanisms for specifying optional, boolean, integer params.
+
+* Script startup logging
+
+	All script startup logging includes script name and Dokku deployed git hash, followed by ONLY logging the configuration that is referenced.
+
+* All scripts log to BASE/storage/logs/APP.DYNO.log
+
+	Files are turned over at midnight (to filename.log.YYYY-MM-DD), seven files are kept.
+
+* All file path information in "fetcher.path"
+
+* Common Sentry integration in "fetcher.sentry"
+
+        enable passing environment="staging", enabled fastapi support, rq integration
+
+* SQLAlchemy "Session" factory moved to "fetcher.database"
+
+        so db params only logged if db access used/needed
+
+* All Proctab entries invoke existing ./run-....sh scripts
+
+        Only one place to change how a script is invoked.
+
+* "fetcher" process (scripts/queue_feeds.py) runs persistently
+    (no longer invoked by crontab)
+    [enabled by --loop PERIOD in Proctab]
+    and: reports statistics (queue length, database counts, etc)
+
+    + queues ready feeds every PERIOD minutes.
+
+	    queues only the number of feeds necessary
+	    to cover a day's fetch attempts divided into equal
+	    sized batches (based on active enabled feeds advertised update rate, and config)
+
+    + Allows any number of feed id's on command line.
+
+    + Operates as before (queues MAX_FEEDS feeds) if invoked without feed ids or --loop.
+
+    + Clears queue and exits given `--clear`
+
+* Queue "worker" process started by scripts/worker.py
+  takes common logging arguments, stats connection init
+  runs a single queue worker (need to use dokku ps:scale worker=8).
+
+     workers set process title when active, visible by ps, top:
+
+     ```
+     pbudne@ifill:~$ ps ax | grep pbudne-rss-fetcher
+     4121658 ?        Rl    48:13 pbudne-rss-fetcher worker.1 feed 2023073
+     4124300 ?        Rl    48:25 pbudne-rss-fetcher worker.2 feed 122482
+     4127145 ?        Sl    47:34 pbudne-rss-fetcher worker.3 feed 1461182
+     4129593 ?        Sl    49:49 pbudne-rss-fetcher worker.4 feed 459899
+     ```
+
+* import_feeds script gives each feed a random "next_fetch_attempt" time
+    to (initially) spread workload throughout the minimum requeue time
+    interval.
+
+    *Reorganized /app/storage for non-volatile storage of logs etc;
+    ```
+	/app/storage/db-archive
+		    /logs
+		    /rss-output-files
+		    /saved-input-files
+    ```
+
+* Log files are persistent across container instances, available
+    (eg; for tail) on host without docker shenanigans in
+    /var/lib/dokku/data/storage/....
+
+* API server:
+    * New endpoints implemented:
+	+ /api/feeds/N
+	    returns None or dict
+	+ /api/sources/N/feeds
+	    returns list of dicts
+    * Enhanced endpoints:
+	+ /api/version
+	    return data now includes "git_rev"
+	+ /api/feeds/N/history
+	    takes optional `limit=N` query parameter
+    * Non-API endpoint for RSS files:
+	+ /rss/FILENAME
+
+
+* New feeds table columns
+
+	column                | use
+	----------------------|----------------------------
+	`http_etag`           | Saved data from HTTP response `ETag:` header
+	`http_last_modified`  | Saved data from HTTP response `Last-Modified:` header
+	`next_fetch_attempt`  | Next time to attempt to fetch the feed
+	`queued`              | TRUE if the feed is currently in the work queue
+	`system_enabled`      | Set to FALSE by fetcher after excess failures
+	`update_minutes`      | Update period advertised by feed
+	`http_304`            | HTTP 304 (Not Modified) response seen from server
+	`system_status`       | Human readable result of last fetch attempt
+
+	Also: <tt>last_fetch_failures</tt> is now a float, incremented by 0.5
+	for "soft" errors that might resolve given some (more) time.
+
+* Archiver process
+
+	Run from crontab: archives fetch_event and stories rows based on configuration settings.
+
+* Reports statistics via `dokku-graphite` plugin, displayed by grafana.
+
 ## v0.11.12
 
 Handle some more feed and url parsing errors. Update feed title after fetch. Switch database to merged feeds.

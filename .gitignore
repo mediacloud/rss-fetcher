@@ -116,7 +116,12 @@ __MACOSX
 logs/*.log
 logs/rss-files/*.rss
 logs/rss-files/*.json
+storage
 fetcher/static/*.rss
 fetcher/static/*.gz
 backup/export
 tmp/
+
+# emacs backups, autosaves
+*~
+\#*
