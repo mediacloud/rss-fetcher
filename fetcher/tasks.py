@@ -556,14 +556,25 @@ def fetch_and_process_feed(
 
     logger.info(
         f"Working on feed {feed_id}: {feed['url']} start_delay {start_delay}")
+
+    def job_timeout(where: str) -> None:
+        """
+        Called from fetcher.queue.JOB_TIMEOUT_EXCEPTION handlers.
+        Any database interaction could hang up, (including update_feed),
+        INCLUDING update_feed!!  Maybe pull up handler to feed_worker()??
+        Maybe update_feed should disable dead-person timer???
+        """
+        logger.warning(f"   Feed {feed_id}: job timeout while {where}")
+        # logger.exception("job timeout")
+        feeds_incr('job_timeout')
+        update_feed(session, feed_id, Status.SOFT, "job timeout", now)
+        return
+
     try:
         # first thing is to fetch the content
         response = _fetch_rss_feed(feed)
     except fetcher.queue.JOB_TIMEOUT_EXCEPTION as exc:
-        update_feed(session, feed_id, Status.SOFT, "job timeout", now,
-                    note=str(exc))
-        feeds_incr('job_timeout')
-        return
+        return job_timeout('fetching', exc)
     except requests.exceptions.RequestException as exc:
         status, system_status = request_exception_to_status(feed, exc)
         update_feed(
@@ -686,6 +697,8 @@ def fetch_and_process_feed(
         parsed_feed = feedparser.parse(response.text)
         if parsed_feed.bozo:
             raise RuntimeError(parsed_feed.bozo_exception)
+    except fetcher.queue.JOB_TIMEOUT_EXCEPTION as exc:
+        return job_timeout('parsing feed')
     except Exception as e:
         # BAIL: couldn't parse it correctly
         update_feed(
@@ -702,10 +715,14 @@ def fetch_and_process_feed(
 
     feeds_incr('ok')
 
-    saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
+    try:
+        saved, skipped = save_stories_from_feed(
+            session, now, feed, parsed_feed)
 
-    # may update feed_col_updates dict (add new "name")
-    check_feed_title(feed, parsed_feed, feed_col_updates)
+        # may update feed_col_updates dict (add new "name")
+        check_feed_title(feed, parsed_feed, feed_col_updates)
+    except fetcher.queue.JOB_TIMEOUT_EXCEPTION as exc:
+        return job_timeout('saving stories')
 
     # see if feed indicates update period
     try:                        # paranoia
@@ -860,9 +877,16 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
     :param feed_id: integer Feed id
     :param ts_iso: str datetime.isoformat of time queued (Feed.last_fetch_attempt)
     """
+
     try:
         session = Session()
         setproctitle(f"{APP} {DYNO} feed {feed_id}")
+        # maybe fetch_and_process_feed should return tuple of pos and kw
+        # arguments for update_feed, and handle JOB_TIMEOUT_EXCEPTION here
+        # only??
         fetch_and_process_feed(session, feed_id, ts_iso)
     except BaseException:
         logger.exception("feed_worker")
+
+    # MAYBE: call update_feed here with params returned by
+    # process_feed, or set by exception handler?

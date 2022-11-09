@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+## v0.12.1
+
+* More JobTimeoutException wack-a-mole/patching
+	   (larger solution suggested in feed_worker function comments)
+	   sentry.io issue BACKUP-RSS-FETCHER-67M
+
 ## v0.12.0
 
 Major raking by Phil Budne
