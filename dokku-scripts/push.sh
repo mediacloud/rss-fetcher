@@ -41,6 +41,13 @@ fi
 
 BRANCH=$(git branch --show-current)
 
+# For someone that works on a branch in mediacloud repo,
+# "origin" is the MCREMOTE....
+ORIGIN="origin"
+
+# PUSH_TAG_TO: other remotes to push tag to
+PUSH_TAG_TO="$ORIGIN"
+
 # check if origin (ie; user github fork) not up to date
 # XXX need "git pull" ??
 if git diff --quiet origin/$BRANCH --; then
@@ -52,8 +59,6 @@ else
 fi
 
 # DOKKU_GIT_REMOTE: Name of git remote for Dokku instance
-# PUSH_TAG_TO: other remotes to push tag to
-PUSH_TAG_TO="origin"
 
 git remote -v > $REMOTES
 
@@ -86,8 +91,11 @@ prod|staging)
 	echo "$MCREMOTE $BRANCH branch not up to date.  push first!!"
 	exit 1
     fi
-    # push tag back to github mediacloud branch
-    PUSH_TAG_TO="$PUSH_TAG_TO $MCREMOTE"
+    # Push to MCREMOTE (unless it's the origin remote)
+    if [ "x$MCREMOTE" != "x$ORIGIN" ]; then
+	# push tag back to github mediacloud branch
+	PUSH_TAG_TO="$PUSH_TAG_TO $MCREMOTE"
+    fi
     DOKKU_GIT_REMOTE=dokku_$BRANCH
     ;;
 *)
@@ -138,18 +146,12 @@ if [ "x$BRANCH" = xprod ]; then
     # XXX check if pushed to github/mediacloud/PROJECT prod branch??
     # (for staging too?)
 
-    echo -n "This is production! Type YES to confirm: "
-    read CONFIRM
-    if [ "x$CONFIRM" != 'xYES' ]; then
-       echo '[cancelled]'
-       exit
-    fi
+    TAG=v$(grep '^VERSION' fetcher/__init__.py | sed -e 's/^.*= *//' -e 's/"//g' -e "s/'//g")
+    echo "Found version number: $TAG"
 
-    TAG=v$(grep '^VERSION' fetcher/__init__.py | sed -e 's/^.*=//' -e 's/"//g' -e "s/'//g")
     # NOTE! fgrep -x (-F -x) to match literal whole line (w/o regexps)
     if git tag | grep -F -x "$TAG" >/dev/null; then
 	echo "found local tag $TAG: update fetcher.VERSION?"
-	# XXX need a --force-tag option?
 	exit 1
     fi
 
@@ -160,11 +162,18 @@ if [ "x$BRANCH" = xprod ]; then
 	    exit 1
 	fi
     done
+
+    echo -n "This is production! Type YES to confirm: "
+    read CONFIRM
+    if [ "x$CONFIRM" != 'xYES' ]; then
+       echo '[cancelled]'
+       exit
+    fi
 else
     # XXX use staging or $USER instead of full $APP for brevity?
     TAG=$(date -u '+%F-%H-%M-%S')-$HOSTNAME-$APP
 fi
-echo adding $TAG
+echo adding local tag $TAG
 git tag $TAG
 
 echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
@@ -182,27 +191,35 @@ echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 # (ISTR seeing refs/tags/..../refs/tags/....)
 
 echo stopping processes...
+
+# XXX look at overriding DOKKU_WAIT_TO_RETIRE to less than 60sec?
 dokku ps:scale $APP $(echo $PROCS | sed 's/[0-9][0-9]*/0/g')
 
 if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
     # not first push, safe to push by tag name
+    echo "Pushing $TAG to $DOKKU_GIT_REMOTE $DOKKU_GIT_BRANCH"
     git push $DOKKU_GIT_REMOTE $TAG:$DOKKU_GIT_BRANCH
 else
     # first push for new app.
+    echo "First push to of $BRANCH to $DOKKU_GIT_REMOTE $DOKKU_GIT_BRANCH"
     git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH
+    echo "================"
 
     # will see complaints "WARNING: deploy did not complete, you must push to main."
-    echo "first push: pushing tag $TAG (ignore WARNING)"
+    echo "First push: pushing tag $TAG (ignore WARNING)"
     # just redirect all output???
     git push $DOKKU_GIT_REMOTE $TAG
 fi
+echo "================"
 
 # push tag to upstream repos
 for REMOTE in $PUSH_TAG_TO; do
     echo pushing tag $TAG to $REMOTE
     git push $REMOTE $TAG
+    echo "================"
 done
 
 # start fetcher/worker procoesses
-# XXX maybe set env var to reduce delay
+# XXX try overriding DOKKU_DEFAULT_CHECKS_WAIT (10s)
+echo scaling up
 dokku ps:scale $APP $PROCS
