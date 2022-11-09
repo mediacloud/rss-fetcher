@@ -41,8 +41,8 @@ Various scripts run each separate component:
 Development Docs
 ----------------
 
- * [doc/database-changes.md](database-changes.md) describes how to implement database migrations.
- * [doc/stats.md](stats.md) describes how monitoring is implemented.
+ * [doc/database-changes.md](doc/database-changes.md) describes how to implement database migrations.
+ * [doc/stats.md](doc/stats.md) describes how monitoring is implemented.
 
 Deployment
 ----------
