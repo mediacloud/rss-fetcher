@@ -470,14 +470,14 @@ def fetch_and_process_feed(
     """
     Was fetch_feed_content: this is THE routine called in a worker.
     Made a single routine for clarity/communication.
-    ALL exits from this function should call `update_feed`
+    ALL exits from this function should call `update_feed` to:
     * clear "Feed.queued"
     * create FetchEvent row
     * increment or clear Feed.last_fetch_failures
     * update Feed.next_fetch_attempt (or not) to reschedule
     """
 
-    stats = Stats.get()         # get stats client object
+    stats = Stats.get()         # get stats client singleton object
 
     def feeds_incr(status: str) -> None:
         """
@@ -565,7 +565,6 @@ def fetch_and_process_feed(
         Maybe update_feed should disable dead-person timer???
         """
         logger.warning(f"   Feed {feed_id}: job timeout while {where}")
-        # logger.exception("job timeout")
         feeds_incr('job_timeout')
         update_feed(session, feed_id, Status.SOFT, "job timeout", now)
         return
@@ -574,7 +573,7 @@ def fetch_and_process_feed(
         # first thing is to fetch the content
         response = _fetch_rss_feed(feed)
     except fetcher.queue.JOB_TIMEOUT_EXCEPTION as exc:
-        return job_timeout('fetching', exc)
+        return job_timeout('fetching')
     except requests.exceptions.RequestException as exc:
         status, system_status = request_exception_to_status(feed, exc)
         update_feed(
