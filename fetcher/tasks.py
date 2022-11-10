@@ -1,8 +1,17 @@
+"""
+Code for tasks run in worker processes.
+
+NOTE!! Great effort has been made to avoid catching all
+(Base)Exception because queued tasks can be interrupted by a
+fetcher.queue.JobTimeoutException, and rq also handles SysExit
+exceptions for orderly shutdown.
+"""
+
 import datetime as dt
 from enum import Enum
 import hashlib
 import json
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, NamedTuple, Optional, Tuple
 import logging
 import logging.handlers
 import os
@@ -32,20 +41,44 @@ from fetcher.database import Session, SessionType
 from fetcher.database.functions import greatest
 from fetcher.database.models import Feed, FetchEvent, Story, utc
 import fetcher.path as path
+import fetcher.queue
 from fetcher.stats import Stats
 import fetcher.queue
 import fetcher.util as util
 
 
+# set of field_col_changes fields to log at info (else log at debug)
+LOG_AT_INFO = {'update_minutes', 'name'}
+
+
 # take twice as many soft failures to disable feed
+# to lessen spurrious disabling due to transient/human errors.
 SOFT_FAILURE_INCREMENT = 0.5
 
 
 class Status(Enum):
-    # values used for logging:
+    # .value used for logging:
     SUCC = 'Success'            # success
     SOFT = 'Soft error'         # soft error (never disable)
     HARD = 'Hard error'         # hard error
+    NOUPD = 'No Update'         # don't update Feed
+
+
+class Update(NamedTuple):
+    """data for update_feed (returned by fetch_and_process_feed)"""
+    counter: str
+    status: Status
+    sys_status: str
+    note: Optional[str] = None
+    feed_col_updates: Dict[str, Any] = {}
+
+
+def NoUpdate(counter: str) -> Update:
+    """
+    update_field return value in cases
+    where Field row should NOT be updated
+    """
+    return Update(counter, Status.NOUPD, '')
 
 
 # HTTP status codes to consider "soft" errors:
@@ -180,32 +213,33 @@ def fetches_per_minute(session: SessionType) -> int:
     return int(q.one()[0] or 0)  # handle empty db!
 
 
+# start_time used for fetch/processing time, last_fetch_attempt,
+# Stories.created_at, FetchEvent.created_at, last_fetch_success
 def update_feed(session: SessionType,
                 feed_id: int,
-                status: Status,     # for log, FetchEvent.Event
-                system_status: str,  # for log, Feed.system_status
-                # used for fetch/processing time, last_fetch_attempt,
-                # Stories.created_at, FetchEvent.created_at, last_fetch_success
                 start_time: dt.datetime,
-                note: Optional[str] = None,  # for log, FetchEvent.note
-                feed_col_updates: Optional[Dict] = None) -> None:
+                update: Update) -> None:
     """
-    Update Feed row and insert FeedEvent row
+    Update Feed row, inserts FeedEvent row, increments feeds counter
 
-    MUST be called from all feed_worker code paths
-    (for valud queue entrues) in order to clear "queued"
-    and update "next_fetch_attempt"!!!
+    * updates the Feed row
+      + clearing "Feed.queued"
+      + increment or clear Feed.last_fetch_failures
+      + update Feed.next_fetch_attempt (or not) to reschedule
+    * increment feeds stats counter
 
-    Trying to make this the one place that updates the Feed row,
     so all policy can be centralized here.
 
     ***NOTE!!*** Any changes here in requeue policy
     need to be reflected in fetches_per_minite (above)
     """
-    total_td = dt.datetime.utcnow() - start_time  # fetch + processing
-    total_sec = total_td.total_seconds()
 
-    # for logging and fetch_event entry:
+    status = update.status               # for log, FetchEvent.Event
+    system_status = update.sys_status    # for log, Feed.system_status
+    note = update.note                   # for log, FetchEvent.note
+    feed_col_updates = update.feed_col_updates
+
+    # fetch_event entry (just add system_status to fetch_event?)
     if note:
         if system_status == "Working":  # also check status == Status.SUCC??
             status_note = note
@@ -213,15 +247,6 @@ def update_feed(session: SessionType,
             status_note = f"{system_status}; {note}"
     else:
         status_note = system_status
-
-    # maybe vary message severity based on status??
-    logger.info(
-        f"  Feed {feed_id} {status.value} in {total_sec:.03f} sec: {status_note}")
-    stats = Stats.get()
-    if stats:
-        # likely to be multi-modal (connection timeouts)
-        stats.timing('total', total_sec,
-                     labels=[('status', status.name)])
 
     with session.begin():
         # NOTE! locks row, so atomic update of last_fetch_errors.
@@ -237,7 +262,14 @@ def update_feed(session: SessionType,
         # apply additional updates first to simplify checks
         if feed_col_updates:
             for key, value in feed_col_updates.items():
-                # PLB: maybe log "updating" here (if changed)??
+                curr = getattr(f, key)
+                if value != curr:
+                    # !r (repr) to quote strings
+                    if key in LOG_AT_INFO:
+                        lf = logger.info
+                    else:
+                        lf = logger.debug
+                    lf(f"  Feed {feed_id} updating {key} from {curr!r} to {value!r}")
                 setattr(f, key, value)
 
         f.last_fetch_attempt = start_time  # match fetch_event & stories
@@ -289,12 +321,18 @@ def update_feed(session: SessionType,
 
         if next_minutes is not None:  # reschedule?
             # clamp interval to a minimum value
+
+            # Allow different (shorter) interval if server sends
+            # HTTP 304 Not Modified (no data transferred if ETag
+            # or Last-Modified not changed).  Initial observation
+            # is that 304's are most common on feeds that
+            # advertise a one hour update interval!
+
+            # NOTE!! logic here is replicated (in an SQL query)
+            # in fetches_per_minite() function above, and any
+            # changes need to be reflected there as well!!!
+
             if f.http_304:
-                # Allow different (shorter) interval if server sends
-                # HTTP 304 Not Modified (no data transferred if ETag
-                # or Last-Modified not changed).  Initial observation
-                # is that 304's are most common on feeds that
-                # advertise a one hour update interval!
                 if next_minutes < MINIMUM_INTERVAL_MINS_304:
                     next_minutes = MINIMUM_INTERVAL_MINS_304
             else:
@@ -363,7 +401,7 @@ def _feed_update_period_mins(   # type: ignore[no-any-unimported]
             ret = DEFAULT_INTERVAL_MINS  # XXX maybe return None?
         #logger.debug(f" _feed_update_period_mins pd {update_period} fq {update_frequency} => {ret}")
         return ret
-    except BaseException:
+    except (ValueError, TypeError, ZeroDivisionError):
         # logger.exception("_feed_update_period_mins") # DEBUG
         return None
 
@@ -403,7 +441,7 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
 
 
 def request_exception_to_status(
-        feed: Dict[str, Any],   # for logging
+        feed_id: int,
         exc: requests.exceptions.RequestException) -> Tuple[Status, str]:
     """
     decode RequestException into Status.{HARD,SOFT}
@@ -425,14 +463,14 @@ def request_exception_to_status(
 
     # catch-all for ConnectionError:
     if isinstance(exc, requests.exceptions.ConnectionError):
-        s = str(exc)
+        s = repr(exc)
         if 'Name or service not known' in s:
             # _COULD_ be a human DNS screw-up....
             return Status.HARD, "unknown hostname"
         # DNS errors appear as negative errno values
         if '[Errno -' in s:
             return Status.SOFT, "DNS error"
-        logging.warning(f"   Feed {feed['id']} connection error: {exc}")
+        logger.warning(f"   Feed {feed_id} connection error: {exc}")
         return Status.HARD, "connection error"
 
     # non-connection errors:
@@ -461,39 +499,22 @@ def request_exception_to_status(
                         requests.exceptions.RetryError)):
         return Status.SOFT, "fetch error"
 
-    logger.exception(f"Feed {feed['id']}: unknown RequestException")
+    logger.exception(f"Feed {feed_id}: unknown RequestException")
     return Status.SOFT, "unknown"
 
 
 def fetch_and_process_feed(
-        session: SessionType, feed_id: int, ts_iso: str) -> None:
+        session: SessionType, feed_id: int, now: dt.datetime, queue_ts_iso: str) -> Update:
     """
     Was fetch_feed_content: this is THE routine called in a worker.
     Made a single routine for clarity/communication.
-    ALL exits from this function should call `update_feed` to:
-    * clear "Feed.queued"
-    * create FetchEvent row
-    * increment or clear Feed.last_fetch_failures
-    * update Feed.next_fetch_attempt (or not) to reschedule
     """
 
-    stats = Stats.get()         # get stats client singleton object
-
-    def feeds_incr(status: str) -> None:
-        """
-        call EXACTLY ONCE for each feed processed
-        (sum of all counters should be number of feeds processed,
-        can be displayed as a "stacked" graph)
-        """
-        stats.incr('feeds', 1, labels=[('stat', status)])
-
-    # used in Feed.last_fetch_{attempt,success}, Story.fetched_at
-    now = dt.datetime.utcnow()
-
     try:
-        qtime = dt.datetime.fromisoformat(ts_iso)
+        qtime = dt.datetime.fromisoformat(queue_ts_iso)
+        stats = Stats.get()     # get singleton
         stats.timing_td('time_in_queue', now - qtime)
-    except BaseException as e:
+    except (ValueError, TypeError) as e:
         # not important enough to log w/o rate limiting
         qtime = None
 
@@ -502,9 +523,8 @@ def fetch_and_process_feed(
         f = session.get(        # type: ignore[attr-defined]
             Feed, feed_id, with_for_update=True)
         if f is None:
-            feeds_incr('missing')
             logger.info(f"feed_worker: feed {feed_id} not found")
-            return
+            return NoUpdate('missing')
 
         # Sanity clause, in case DB entry modified while in queue:
         # reasons for being declared insane:
@@ -532,10 +552,9 @@ def fetch_and_process_feed(
             not f.queued or
             (qtime and f.last_fetch_attempt != qtime) or
                 (f.next_fetch_attempt and f.next_fetch_attempt > now)):
-            feeds_incr('insane')
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt} qt {qtime}")
-            return
+            return NoUpdate('insane')
 
         # mark time of actual attempt (start)
         # above `f.last_fetch_attempt != qtime` depends on this
@@ -546,45 +565,16 @@ def fetch_and_process_feed(
         # end with session.begin() & with_for_update
 
     start_delay = None
-    try:
-        if feed['next_fetch_attempt']:
-            # delay from when ready to queue to start of processing
-            start_delay = now - feed['next_fetch_attempt']
-            stats.timing_td('start_delay', start_delay)
-    except BaseException as e:
-        start_delay = str(e)
+    if feed['next_fetch_attempt']:
+        # delay from when ready to queue to start of processing
+        start_delay = now - feed['next_fetch_attempt']
+        stats.timing_td('start_delay', start_delay)
 
     logger.info(
         f"Working on feed {feed_id}: {feed['url']} start_delay {start_delay}")
 
-    def job_timeout(where: str) -> None:
-        """
-        Called from fetcher.queue.JOB_TIMEOUT_EXCEPTION handlers.
-        Any database interaction could hang up, (including update_feed),
-        INCLUDING update_feed!!  Maybe pull up handler to feed_worker()??
-        Maybe update_feed should disable dead-person timer???
-        """
-        logger.warning(f"   Feed {feed_id}: job timeout while {where}")
-        feeds_incr('job_timeout')
-        update_feed(session, feed_id, Status.SOFT, "job timeout", now)
-        return
-
-    try:
-        # first thing is to fetch the content
-        response = _fetch_rss_feed(feed)
-    except fetcher.queue.JOB_TIMEOUT_EXCEPTION as exc:
-        return job_timeout('fetching')
-    except requests.exceptions.RequestException as exc:
-        status, system_status = request_exception_to_status(feed, exc)
-        update_feed(
-            session,
-            feed_id,
-            status,
-            system_status,
-            now,
-            note=str(exc))
-        feeds_incr(system_status.lower().replace(' ', '_'))
-        return
+    # first thing is to fetch the content
+    response = _fetch_rss_feed(feed)
 
     if SAVE_RSS_FILES:
         _save_rss_files(feed, response)
@@ -611,15 +601,13 @@ def fetch_and_process_feed(
             logger.info(
                 f"   Feed {feed_id}: Retry-After: {retry_after} w/ {sys_status}")
 
-        update_feed(session, feed_id, status, sys_status, now)
-
         # limiting tag cardinality, only a few, common codes for now.
         # NOTE! 429 is "too many requests"
         if rsc in (403, 404, 429):
-            feeds_incr(f"http_{rsc}")
+            counter = f"http_{rsc}"
         else:
-            feeds_incr(f"http_{rsc//100}xx")
-        return
+            counter = f"http_{rsc//100}xx"
+        return Update(counter, status, sys_status)
 
     # NOTE! 304 response will not have a body (terminated by end of headers)
     # so the last hash isn't (over)written below
@@ -656,15 +644,8 @@ def fetch_and_process_feed(
     if response.status_code == 304:
         # record if feed has ever sent 304 response.
         feed_col_updates['http_304'] = True
-        update_feed(
-            session,
-            feed_id,
-            Status.SUCC,
-            "not modified",
-            now,
-            feed_col_updates=feed_col_updates)
-        feeds_incr('not_mod')
-        return
+        return Update('not_mod', Status.SUCC, "not modified",
+                      feed_col_updates=feed_col_updates)
 
     # code below this point expects full body w/ RSS
     if response.status_code != 200:
@@ -679,65 +660,31 @@ def fetch_and_process_feed(
             # considering setting http_304 to 'f'
             # (disabling faster fetching when both "no change" and "same hash" occur)
             logger.info(f"   Feed {feed_id} same hash w/ http_304 set")
-        update_feed(
-            session,
-            feed_id,
-            Status.SUCC,
-            "same hash",
-            now,
-            feed_col_updates=feed_col_updates)
-        feeds_incr('same_hash')
-        return
+        return Update('same_hash', Status.SUCC, "same hash",
+                      feed_col_updates=feed_col_updates)
 
     feed_col_updates['last_fetch_hash'] = new_hash
 
     # try to parse the content, parsing all the stories
-    try:
-        parsed_feed = feedparser.parse(response.text)
-        if parsed_feed.bozo:
-            raise RuntimeError(parsed_feed.bozo_exception)
-    except fetcher.queue.JOB_TIMEOUT_EXCEPTION as exc:
-        return job_timeout('parsing feed')
-    except Exception as e:
+    parsed_feed = feedparser.parse(response.text)
+    if parsed_feed.bozo:
         # BAIL: couldn't parse it correctly
-        update_feed(
-            session,
-            feed_id,
-            Status.SOFT,
-            "parse error",
-            now,
-            note=str(e))
-        # split up into different counters if needed/desired
-        # (beware label cardinality)
-        feeds_incr('parse_err')
-        return
+        return Update('parse_err', Status.SOFT, 'parse error',
+                      note=str(parsed_feed.bozo_exception))
 
-    feeds_incr('ok')
+    saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
 
-    try:
-        saved, skipped = save_stories_from_feed(
-            session, now, feed, parsed_feed)
-
-        # may update feed_col_updates dict (add new "name")
-        check_feed_title(feed, parsed_feed, feed_col_updates)
-    except fetcher.queue.JOB_TIMEOUT_EXCEPTION as exc:
-        return job_timeout('saving stories')
+    # may update feed_col_updates dict (add new "name")
+    check_feed_title(feed, parsed_feed, feed_col_updates)
 
     # see if feed indicates update period
-    try:                        # paranoia
-        update_minutes = _feed_update_period_mins(parsed_feed)
-        if feed['update_minutes'] != update_minutes:
-            logger.info(
-                f"  Feed {feed_id} updating update_minutes from {feed['update_minutes']} to {update_minutes}")
-            feed_col_updates['update_minutes'] = update_minutes
-    except BaseException:
-        logger.exception("update period")  # XXX debug only?
+    update_minutes = _feed_update_period_mins(parsed_feed)
+    if feed['update_minutes'] != update_minutes:
+        feed_col_updates['update_minutes'] = update_minutes
 
-    update_feed(session, feed_id, Status.SUCC,
-                "Working",
-                now,
-                note=f"{skipped} skipped / {saved} added",
-                feed_col_updates=feed_col_updates)
+    return Update('ok', Status.SUCC, 'Working',
+                  note=f"{skipped} skipped / {saved} added",
+                  feed_col_updates=feed_col_updates)
 
 
 def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimported]
@@ -748,7 +695,7 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
     Take parsed feed, so insert all the (valid) entries.
     returns (saved_count, skipped_count)
     """
-    stats = Stats.get()
+    stats = Stats.get()         # get singleton
 
     def stories_incr(status: str) -> None:
         """call exactly ONCE for each story processed"""
@@ -780,7 +727,7 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
                         stories_incr('home')
                     skipped_count += 1
                     continue
-            except BaseException:
+            except (ValueError, TypeError):
                 logger.debug(f" * bad URL: {link}")
                 stories_incr('bad')
                 skipped_count += 1
@@ -851,41 +798,67 @@ def check_feed_title(feed: Dict,  # type: ignore[no-any-unimported]
             title = ' '.join(title.split())  # condense whitespace
 
             if title and feed['name'] != title:
-                # use !r (repr) to display strings w/ quotes
-                logger.info(
-                    f"  Feed {feed['id']} updating name from {feed['name']!r} to {title!r}")
                 feed_col_updates['name'] = title
     except AttributeError:
         # if the feed has no title that isn't really an error, just skip safely
         pass
-    except BaseException:
-        # not REALLY worth pulling a fire alarm over, but still
-        # should be fixed!
-        logger.exception("check_feed_title")
 
 ################
-
-# called via rq:
-# MUST be run from rq SimpleWorker to achieve session caching!!!!
 
 
 def feed_worker(feed_id: int, ts_iso: str) -> None:
     """
+    called via rq:
+
+    MUST be run from rq SimpleWorker to achieve session caching!!!!
+
     Fetch a feed, parse out stories, store them
     :param self: this maintains the single session to use for all DB operations
     :param feed_id: integer Feed id
     :param ts_iso: str datetime.isoformat of time queued (Feed.last_fetch_attempt)
     """
 
+    setproctitle(f"{APP} {DYNO} feed {feed_id}")
+    start = dt.datetime.utcnow()
+    session = Session()
     try:
-        session = Session()
-        setproctitle(f"{APP} {DYNO} feed {feed_id}")
-        # maybe fetch_and_process_feed should return tuple of pos and kw
-        # arguments for update_feed, and handle JOB_TIMEOUT_EXCEPTION here
-        # only??
-        fetch_and_process_feed(session, feed_id, ts_iso)
-    except BaseException:
+        # here is where the actual work is done:
+        u = fetch_and_process_feed(session, feed_id, start, ts_iso)
+    except requests.exceptions.RequestException as exc:
+        status, system_status = request_exception_to_status(feed_id, exc)
+        u = Update(system_status.lower().replace(' ', '_'),
+                   status, system_status,
+                   note=repr(exc))
+    except fetcher.queue.JobTimeoutException:
+        u = Update('job_timeout', Status.SOFT, 'job timeout')
+    except SystemExit:          # handle rq cold shutdown
+        raise
+    except BaseException as exc:
+        # this is the ONE place that catches ALL exceptions;
+        # log the backtrace so it can be fixed, and requeue
+        # the job.
         logger.exception("feed_worker")
+        u = Update('exception', Status.SOFT, 'caught exception',
+                   note=repr(exc))
 
-    # MAYBE: call update_feed here with params returned by
-    # process_feed, or set by exception handler?
+    fetcher.queue.cancel_job_timeout()
+    # fetch + processing time:
+    total_td = dt.datetime.utcnow() - start
+    total_sec = total_td.total_seconds()
+
+    # maybe vary message severity based on status??
+    logger.info(
+        f"  Feed {feed_id} {u.status.value} in {total_sec:.03f} sec: {u.sys_status}; {u.note or ''}")
+
+    stats = Stats.get()         # get stats client singleton object
+    stats.incr('feeds', 1, labels=[('stat', u.counter)])
+
+    # total time is multi-modal (connection timeouts), so split by status.
+    # UGH: started w/ upper case (.name, not .value)
+    # NOTE! stats.timers.mc.prod.rss-fetcher.total.status_SUCCESS.count
+    # is a count of all successful fetches.
+    stats.timing('total', total_sec,
+                 labels=[('status', u.status.name)])
+
+    if u.status != Status.NOUPD:
+        update_feed(session, feed_id, start, u)

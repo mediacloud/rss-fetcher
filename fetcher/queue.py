@@ -1,7 +1,7 @@
 """
 worker queue support
 (now using much simpler RQ)
-tries to wrap all aspects of work queuing system in use.
+tries to hide all aspects of work queuing system in use.
 
 Should probably implement a (singleton?) class with methods that wraps the
 queuing system in use (once ops list is settled)
@@ -9,13 +9,14 @@ queuing system in use (once ops list is settled)
 
 import datetime
 import logging
+import signal
 import time
 from typing import List, Optional
 
 from redis.client import StrictRedis
 from rq import Connection, Queue, SimpleWorker
 from rq.local import LocalStack
-from rq.timeouts import JobTimeoutException
+import rq.timeouts
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
 
@@ -25,7 +26,8 @@ from fetcher.database.models import Feed
 import fetcher.tasks            # for feed_worker
 
 WORKQ_NAME = 'workq'            # make configurable?
-JOB_TIMEOUT_EXCEPTION = JobTimeoutException
+
+JobTimeoutException = rq.timeouts.JobTimeoutException
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +95,9 @@ def worker() -> None:
     with Connection(redis_connection()) as conn:
         # worker can serve multiple queues; could
         # have a high-priority queue for manual submissions.
+
+        # NOTE! SimpleWorker reuses same process, so
+        # able to use connection pooling.
         w = SimpleWorker([WORKQ_NAME], connection=conn)
 
         # "The return value indicates whether any jobs were processed."
@@ -149,3 +154,9 @@ def clear_queue() -> None:
         if ql == 0:
             break
         time.sleep(1)
+
+################
+
+
+def cancel_job_timeout() -> None:
+    signal.alarm(0)

@@ -4,8 +4,7 @@ Change Log
 ## v0.12.1
 
 	* fetcher/logargparse.py: fix --logger-level/-L
-	* fetcher/tasks.py: JobTimeoutException wack-a-mole/patching
-	   (larger solution suggested in feed_worker function comments)
+	* fetcher/tasks.py: clean up exception handling
 	   sentry.io issue BACKUP-RSS-FETCHER-67M
 	* push.sh: VERSION extraction; make more verbose; try to handle origin==mediacloud
 	* scripts/db_archive.py: compress stories on the fly, fix headers, add .csv
