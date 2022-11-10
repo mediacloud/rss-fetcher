@@ -831,11 +831,9 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
                    note=repr(exc))
     except fetcher.queue.JobTimeoutException:
         u = Update('job_timeout', Status.SOFT, 'job timeout')
-    except SystemExit:          # handle rq cold shutdown
-        raise
-    except BaseException as exc:
-        # this is the ONE place that catches ALL exceptions;
-        # log the backtrace so it can be fixed, and requeue
+    except Exception as exc:
+        # This is the ONE place that catches ALL exceptions;
+        # log the backtrace so the problem can be fixed, and requeue
         # the job.
         logger.exception("feed_worker")
         u = Update('exception', Status.SOFT, 'caught exception',
