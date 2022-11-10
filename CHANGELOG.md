@@ -3,10 +3,11 @@ Change Log
 
 ## v0.12.1
 
-	* More JobTimeoutException wack-a-mole/patching
+	* fetcher/tasks.py: JobTimeoutException wack-a-mole/patching
 	   (larger solution suggested in feed_worker function comments)
 	   sentry.io issue BACKUP-RSS-FETCHER-67M
-	* Fix push.sh VERSION extraction; make more verbose; try to handle origin==mediacloud
+	* push.sh: VERSION extraction; make more verbose; try to handle origin==mediacloud
+	* scripts/db_archive.py: compress stories on the fly, fix headers, add .csv
 
 ## v0.12.0
 
