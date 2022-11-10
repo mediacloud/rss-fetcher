@@ -123,13 +123,11 @@ class LogArgumentParser(argparse.ArgumentParser):
                                           disable_existing_loggers=False)
 
         if args.logger_level:
-            # sqlalchemy.engine:INFO should log SQL
             for ll in args.logger_level:
                 logger_name, level = ll.split(LOGGER_LEVEL_SEP, 1)
                 # XXX check logger_name in logging.root.manager.loggerDict??
                 # XXX check level.upper() in LEVELS?
-                logging.getLogger(
-                    logger_name).handlers[0].setLevel(level.upper())
+                logging.getLogger(logger_name).setLevel(level.upper())
 
         # was once inline code in fetcher.tasks
         if args.log_file:

@@ -3,6 +3,7 @@ Change Log
 
 ## v0.12.1
 
+	* fetcher/logargparse.py: fix --logger-level/-L
 	* fetcher/tasks.py: JobTimeoutException wack-a-mole/patching
 	   (larger solution suggested in feed_worker function comments)
 	   sentry.io issue BACKUP-RSS-FETCHER-67M
