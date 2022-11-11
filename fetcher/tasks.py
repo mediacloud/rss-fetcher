@@ -250,10 +250,18 @@ def update_feed(session: SessionType,
         status_note = system_status
 
     with session.begin():
-        # NOTE! locks row, so atomic update of last_fetch_errors.
-        # Atomic increment IS possible without this,
-        # but we need to make choices based on the new value,
-        # and to clear queued after those choices.
+        # NOTE! locks row for atomic update of last_fetch_errors
+        # (which is probably excessively paranoid).
+
+        # Atomic increment IS possible without this, but we need to
+        # make choices based on the new value, and to clear queued
+        # after those choices.
+
+        # Throwing an exception in this block is...  to say the least,
+        # less than ideal, and the less and faster code here the
+        # better (and there could be less, but at the cost of added
+        # complexity).
+
         f = session.get(        # type: ignore[attr-defined]
             Feed, feed_id, with_for_update=True)
         if f is None:
@@ -265,11 +273,11 @@ def update_feed(session: SessionType,
             for key, value in feed_col_updates.items():
                 curr = getattr(f, key)
                 if value != curr:
-                    # !r (repr) to quote strings
                     if key in LOG_AT_INFO:
                         lf = logger.info
                     else:
                         lf = logger.debug
+                    # !r (repr) to quote strings
                     lf(f"  Feed {feed_id} updating {key} from {curr!r} to {value!r}")
                 setattr(f, key, value)
 
@@ -524,11 +532,17 @@ def fetch_and_process_feed(
         qtime = None
 
     with session.begin():
-        # lock row for duration of transaction:
+        # lock row for duration of (sanity-check) transaction:
+        # atomically checks if timestamp from queue matches
+        # f.last_fetch_attempt, and if so, updates last_fetch_attempt
+        # to "now".  While this isn't an IRONCLAD guarantee of
+        # exclusive access, it's a bit of added paranoia
+        # (search for "tri-state" below for an alternatve).
+
         f = session.get(        # type: ignore[attr-defined]
             Feed, feed_id, with_for_update=True)
         if f is None:
-            logger.info(f"feed_worker: feed {feed_id} not found")
+            logger.warning(f"feed_worker: feed {feed_id} not found")
             return NoUpdate('missing')
 
         # Sanity clause, in case DB entry modified while in queue:
@@ -540,9 +554,8 @@ def fetch_and_process_feed(
         #       (depends on isoformat/fromisoformat fidelity,
         #        and matching DB dt granularity. rq allows passing
         #        of datetime (uses pickle rather than json)
-        #        if deemed necessary)
-        # * db entry next_fetch_attempt set, and in the future
-        # (including being queued more than once).
+        #        if deemed necessary, but logging is ugly).
+        # * db entry next_fetch_attempt set, and in the future.
 
         #     Driftwood (Groucho):
         #       It's all right. That's, that's in every contract.
@@ -563,7 +576,7 @@ def fetch_and_process_feed(
 
         # mark time of actual attempt (start)
         # above `f.last_fetch_attempt != qtime` depends on this
-        # (could also replace "queued" with a tri-state: idle, queued, active):
+        # (could also replace "queued" with a tri-state: IDLE, QUEUED, ACTIVE):
         f.last_fetch_attempt = now
         feed = f.as_dict()      # code below expects dict
         session.commit()
@@ -671,11 +684,20 @@ def fetch_and_process_feed(
     feed_col_updates['last_fetch_hash'] = new_hash
 
     # try to parse the content, parsing all the stories
-    parsed_feed = feedparser.parse(response.text)
-    if parsed_feed.bozo:
-        # BAIL: couldn't parse it correctly
-        return Update('parse_err', Status.SOFT, 'parse error',
-                      note=str(parsed_feed.bozo_exception))
+    try:
+        parsed_feed = feedparser.parse(response.text)
+        if parsed_feed.bozo:
+            # BAIL: couldn't parse it correctly
+            return Update('parse_err', Status.SOFT, 'parse error',
+                          note=repr(parsed_feed.bozo_exception))
+    except UnicodeError as exc:
+        # w/ feedparser 6.0.10:
+        # feedparser/mixin.py", line 359, in handle_charref:
+        # text = chr(c).encode('utf-8')
+        # UnicodeEncodeError: 'utf-8' codec can't encode character '\ud83d' in
+        # position 0: surrogates not allowed
+        return Update('unicode', Status.SOFT, 'unicode error',
+                      note=repr(exc))
 
     saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
 
@@ -835,11 +857,14 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
                    status, system_status,
                    note=repr(exc))
     except fetcher.queue.JobTimeoutException:
+        # XXX need to abort any db transaction in progress?
         u = Update('job_timeout', Status.SOFT, 'job timeout')
     except Exception as exc:
         # This is the ONE place that catches ALL exceptions;
         # log the backtrace so the problem can be fixed, and requeue
         # the job.
+
+        # XXX need to abort any db transaction in progress?
         logger.exception("feed_worker")
         u = Update('exception', Status.SOFT, 'caught exception',
                    note=repr(exc))
