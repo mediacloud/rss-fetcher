@@ -8,6 +8,8 @@ Change Log
 	   sentry.io issue BACKUP-RSS-FETCHER-67M
 	* push.sh: VERSION extraction; make more verbose; try to handle origin==mediacloud
 	* scripts/db_archive.py: compress stories on the fly, fix headers, add .csv
+	* fetcher/tasks.py: handle 'always' in _feed_update_period_mins, catch KeyErrors,
+	   log exceptions, log unknown period names
 
 ## v0.12.0
 

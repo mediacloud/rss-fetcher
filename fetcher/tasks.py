@@ -116,6 +116,7 @@ USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36
 _DAY_MINS = 24 * 60
 UPDATE_PERIODS_MINS = {
     'hourly': 60,
+    'always': 60,       # treat as hourly (seen at www.baokontum.com.vn)
     'daily': _DAY_MINS,
     'dayly': _DAY_MINS,  # http://cuba.cu/feed & http://tribuna.cu/feed
     'weekly': 7 * _DAY_MINS,
@@ -380,6 +381,9 @@ def _feed_update_period_mins(   # type: ignore[no-any-unimported]
         # translate string to value: empty string (or pure whitespace)
         # is treated as DEFAULT_UPDATE_PERIOD
         update_period = update_period.strip().rstrip() or DEFAULT_UPDATE_PERIOD
+        if update_period not in UPDATE_PERIODS_MINS:
+            logger.warning(f"   Unknown update_period {update_period}")
+            return None
         upm = int(UPDATE_PERIODS_MINS[update_period])
         # *should* get here with a value (unless DEFAULT_UPDATE_PERIOD is bad)
 
@@ -401,7 +405,8 @@ def _feed_update_period_mins(   # type: ignore[no-any-unimported]
             ret = DEFAULT_INTERVAL_MINS  # XXX maybe return None?
         #logger.debug(f" _feed_update_period_mins pd {update_period} fq {update_frequency} => {ret}")
         return ret
-    except (ValueError, TypeError, ZeroDivisionError):
+    except (KeyError, ValueError, TypeError, ZeroDivisionError) as exc:
+        logger.info(f"    _feed_update_period_mins exception: {exc}")
         # logger.exception("_feed_update_period_mins") # DEBUG
         return None
 
