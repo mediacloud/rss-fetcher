@@ -28,41 +28,70 @@ import fetcher.tasks as tasks
 SCRIPT = 'queue_feeds'          # NOTE! used for stats!
 logger = logging.getLogger(SCRIPT)
 
-TASK_TIMEOUT_SECONDS = conf.TASK_TIMEOUT_SECONDS
 
-
-def queue_feeds(wq: queue.Queue,
-                feed_ids: List[int], ts_iso: str, timeout: int) -> int:
+def queue_feeds(session: SessionType,
+                wq: queue.Queue,
+                feed_ids: List[int],
+                timeout: int) -> int:
     """
-    Queue feeds, report stats and log.
+    Queue feeds, create FetchEvent rows, report stats and log.
+    `session` should already be in a transaction!
     """
     stats = Stats.get()
 
-    queued = queue.queue_feeds(wq, feed_ids, ts_iso, timeout)
+    # XXX maybe break into batches (update now for each batch)
+    # logging ids (@debug?) [and stats.incr for each batch?]
+
+    # now timestamp used in:
+    # * feed_worker queued args
+    # * Feed.last_fetch attempt (must match above for sanity test)
+    # * FetchEvent "queued" row
+    now = dt.datetime.utcnow()
+    nowstr = now.isoformat()
+
+    # mark as queued first so that workers can never see
+    # a feed_id that hasn't been marked as queued.
+    session.query(Feed)\
+           .filter(Feed.id.in_(feed_ids))\
+           .update({'last_fetch_attempt': now, 'queued': True},
+                   synchronize_session=False)
+
+    # create a fetch_event row for each feed:
+    for feed_id in feed_ids:
+        # created_at value matches Feed.last_fetch_attempt
+        # (when queued) and queue entry
+        session.add(
+            FetchEvent.from_info(feed_id,
+                                 FetchEvent.Event.QUEUED,
+                                 now))
+
+    queued = queue.queue_feeds(wq, feed_ids, nowstr, timeout)
+
     total = len(feed_ids)
     # XXX report total-queued as separate (labled) counter?
     stats.incr('queued_feeds', queued)
 
     logger.info(f"Queued {queued}/{total} feeds")
+
     return queued
 
 
-def find_and_queue_feeds(wq: queue.Queue, limit: int) -> int:
+def find_and_queue_feeds(wq: queue.Queue, limit: int, timeout: int) -> int:
     """
     Find some active, undisabled, unqueued feeds
     that have not been checked, or are past due for a check (oldest first).
     """
-    if limit > conf.MAX_FEEDS:
-        limit = conf.MAX_FEEDS
-
     # Maybe order by (id % 100) instead of id
     #  to help break up clumps?
+
     with Session.begin() as session:  # type: ignore[attr-defined]
         # NOTE nulls_first is preferred in sqlalchemy 1.4
         #  but not available in sqlalchemy-stubs 0.4
 
         # maybe secondary order by (Feed.id % 1001)?
         #  would require adding adding a column to query
+
+        # XXX lock rows for update?
         rows = \
             _ready_ids(session)\
             .order_by(Feed.next_fetch_attempt.asc().nullsfirst(),
@@ -73,27 +102,7 @@ def find_and_queue_feeds(wq: queue.Queue, limit: int) -> int:
         if not feed_ids:
             return 0
 
-        now = dt.datetime.utcnow()
-
-        # XXX maybe break into batches (update now in between?)
-        # logging ids (@debug?) [and send stats here????]
-
-        # mark as queued first so that workers can never see
-        # a feed_id that hasn't been marked as queued.
-        session.query(Feed)\
-               .filter(Feed.id.in_(feed_ids))\
-               .update({'last_fetch_attempt': now, 'queued': True},
-                       synchronize_session=False)
-
-        # create a fetch_event row for each feed:
-        for feed_id in feed_ids:
-            # created_at value matches Feed.last_fetch_attempt
-            # (when queued) and queue entry
-            session.add(
-                FetchEvent.from_info(feed_id,
-                                     FetchEvent.Event.QUEUED,
-                                     now))
-    return queue_feeds(wq, feed_ids, now.isoformat(), TASK_TIMEOUT_SECONDS)
+        return queue_feeds(session, wq, feed_ids, timeout)
 
 
 def _active_feed_ids(session: SessionType) -> Query:
@@ -120,7 +129,8 @@ def _ready_ids(session: SessionType) -> Query:
     return _ready_filter(_active_feed_ids(session))
 
 
-def loop(wq: queue.Queue, refill_period_mins: int) -> None:
+def loop(wq: queue.Queue, refill_period_mins: int,
+         timeout: int, max_feeds: int) -> None:
     """
     Loop monitoring & reporting queue length to stats server
 
@@ -172,10 +182,19 @@ def loop(wq: queue.Queue, refill_period_mins: int) -> None:
             # (additions, enables, disables) can be seen quickly
             # rather than waiting for the whole queue to drain.
 
+            # When restarting after down time, there will be a backlog
+            # of "ready" feeds, which will slowly go down.
+
+            # There will be natural "slosh" of feeds between
+            # refill_period_mins intervals due to error backoffs and
+            # the hi_water mark going down as feeds are disabled due
+            # to errors.
+
             ohw = hi_water
             with Session() as session:
-                hi_water = tasks.fetches_per_minute(
-                    session) * refill_period_mins
+                hi_water = round(
+                    tasks.fetches_per_minute(session) *
+                    refill_period_mins)
 
             # for dev/debug, on small databases:
             if hi_water < 10:
@@ -188,7 +207,10 @@ def loop(wq: queue.Queue, refill_period_mins: int) -> None:
 
             # if queue is below the limit, fill up to the limit.
             if qlen < hi_water:
-                added = find_and_queue_feeds(wq, hi_water - qlen)
+                limit = hi_water - qlen
+                if limit > max_feeds:
+                    limit = max_feeds
+                added = find_and_queue_feeds(wq, hi_water - qlen, timeout)
 
         # gauges "stick" at last value, so always set:
         stats.gauge('added', added)
@@ -203,8 +225,6 @@ def loop(wq: queue.Queue, refill_period_mins: int) -> None:
         # after find_and_queue_feeds, so does not include "added" entries
         with Session() as session:
             # all entries marked active and enabled.
-            # there is probably a problem if more than a small
-            #  fraction of active entries are ready!
             db_active = count_active(session)
 
             # should be approx (updated) qlen + active
@@ -231,6 +251,12 @@ def loop(wq: queue.Queue, refill_period_mins: int) -> None:
 
 
 if __name__ == '__main__':
+    # XXX maybe make command line arguments??
+    timeout = conf.TASK_TIMEOUT_SECONDS
+    max_feeds = conf.MAX_FEEDS
+
+    # XXX maybe add --monitor (loop monitoring, but not queuing)???
+
     p = LogArgumentParser(SCRIPT, 'Feed Queuing')
     p.add_argument('--clear', action='store_true',
                    help='Clear queue and exit.')
@@ -258,15 +284,15 @@ if __name__ == '__main__':
             logger.error('Cannot loop w/ interval less than 1 minute!')
             sys.exit(1)
 
-        _ = conf.MAX_FEEDS      # force early logging
         logger.info("Clearing Queue")
         queue.clear_queue()
 
-        loop(wq, args.loop)     # should never return
+        loop(wq, args.loop, timeout, max_feeds)  # should never return
         sys.exit(1)             # should not get here
 
     # support passing in one or more feed ids on the command line
     if args.feeds:
+        # (NOTE: no enforcement of max_feeds!)
         feed_ids = [int(feed) for feed in args.feeds]
 
         # validate ids:
@@ -276,12 +302,14 @@ if __name__ == '__main__':
                 .all()
             valid_ids = [row[0] for row in rows]
 
-        # maybe complain about invalid feeds??
+        # maybe complain about invalid feeds
+        # (or at least say how many we're ignoring)?
         #   find via set(feed_ids) - set(valid_feeds)
-        nowstr = dt.datetime.utcnow().isoformat()
-        queue_feeds(wq, valid_ids, nowstr, TASK_TIMEOUT_SECONDS)
+
+        with Session() as session, session.begin():
+            queue_feeds(session, wq, valid_ids, timeout)
     else:
-        # classic behavior (was run from cron every 30 min)
-        # to restore, uncomment crontab entry in instance.sh
-        # and remove --loop from Procfile
-        find_and_queue_feeds(wq, conf.MAX_FEEDS)
+        # classic behavior (run from cron every 30 min)
+        # remove --loop from Procfile
+        # and re-run instance.sh (replacing crontab)
+        find_and_queue_feeds(wq, max_feeds, timeout)

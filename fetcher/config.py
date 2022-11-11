@@ -263,9 +263,8 @@ class _Config:                  # only instantied in this file
     # set by dokku-graphite plugin
     STATSD_URL = conf_optional('STATSD_URL')
 
-    # rq default is 180 sec (3m), have seen it fire in update_feed() select
-    # for update @180s!
-    TASK_TIMEOUT_SECONDS = conf_int('TASK_TIMEOUT_SECONDS', 5 * 60)
+    # rq default is 180 sec (3m)
+    TASK_TIMEOUT_SECONDS = conf_int('TASK_TIMEOUT_SECONDS', 3 * 60)
 
     VERIFY_CERTIFICATES = conf_bool('VERIFY_CERTIFICATES', True)
 

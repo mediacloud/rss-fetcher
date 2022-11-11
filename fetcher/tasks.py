@@ -2,9 +2,9 @@
 Code for tasks run in worker processes.
 
 NOTE!! Great effort has been made to avoid catching all
-(Base)Exception because queued tasks can be interrupted by a
-fetcher.queue.JobTimeoutException, and rq also handles SysExit
-exceptions for orderly shutdown.
+(Base)Exception all over the place because queued tasks can be
+interrupted by a fetcher.queue.JobTimeoutException, and rq also
+handles SystemExit exceptions for orderly (warm) shutdown.
 """
 
 import datetime as dt
@@ -185,7 +185,10 @@ def normalized_url_exists(session: SessionType,
 # used by scripts/queue_feeds.py, but moved here
 # because needs to be kept in sync with queuing policy
 # in update_feed().
-def fetches_per_minute(session: SessionType) -> int:
+
+# NOTE! This returns a maximal value
+# (without trying to account for backoff due to errors).
+def fetches_per_minute(session: SessionType) -> float:
     """
     Return average expected fetches per minute, based on
     Feed.update_minutes (derived from <sy:updatePeriod> and
@@ -211,7 +214,7 @@ def fetches_per_minute(session: SessionType) -> int:
             )  # sum
         )  # query
     )  # active
-    return int(q.one()[0] or 0)  # handle empty db!
+    return q.one()[0] or 0  # handle empty db!
 
 
 # start_time used for fetch/processing time, last_fetch_attempt,
@@ -847,10 +850,10 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
 
     setproctitle(f"{APP} {DYNO} feed {feed_id}")
     start = dt.datetime.utcnow()
-    session = Session()
     try:
         # here is where the actual work is done:
-        u = fetch_and_process_feed(session, feed_id, start, ts_iso)
+        with Session() as session:
+            u = fetch_and_process_feed(session, feed_id, start, ts_iso)
     except requests.exceptions.RequestException as exc:
         status, system_status = request_exception_to_status(feed_id, exc)
         u = Update(system_status.lower().replace(' ', '_'),
@@ -889,4 +892,5 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
                  labels=[('status', u.status.name)])
 
     if u.status != Status.NOUPD:
-        update_feed(session, feed_id, start, u)
+        with Session() as session:
+            update_feed(session, feed_id, start, u)
