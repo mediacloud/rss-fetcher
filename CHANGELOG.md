@@ -16,6 +16,8 @@ Change Log
 * scripts/queue_feeds.py: refactor to allow more command line params and
 	fix command line feeds; move FetchEvent creation & feed update to queue_feeds.
 	multiply fetches_per_minute before rounding (used to truncate then multiply).
+* scripts/db_archive.py: use max(RSS_OUTPUT_DAYS, NORMALIZED_TITLE_DAYS)
+	for story_days default.  Display default values in help message.
 
 ## v0.12.0
 

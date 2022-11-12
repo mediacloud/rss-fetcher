@@ -115,10 +115,12 @@ def dump_stories(now: str, limit: str, delete: bool) -> bool:
 
 if __name__ == '__main__':
     p = LogArgumentParser(SCRIPT, 'archive stories and fetch_events tables')
-    p.add_argument('--story-days', type=int, default=conf.RSS_OUTPUT_DAYS,
-                   help="number of days of stories table rows to keep")
-    p.add_argument('--fetch-events', type=int, default=conf.FETCH_EVENT_ROWS,
-                   help="number of fetch_events rows to keep for each feed")
+    def_sd = max(conf.RSS_OUTPUT_DAYS, conf.NORMALIZED_TITLE_DAYS)
+    p.add_argument('--story-days', type=int, default=def_sd,
+                   help=f"number of days of story rows to keep ({def_sd})")
+    def_fe = conf.FETCH_EVENT_ROWS
+    p.add_argument('--fetch-events', type=int, default=def_fe,
+                   help=f"number of fetch_events to keep per feed ({def_fe})")
     p.add_argument('--delete', action='store_true', default=False,
                    help="delete rows after writing files")
     # info logging before this call unlikely to be seen:
