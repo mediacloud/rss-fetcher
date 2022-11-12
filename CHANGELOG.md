@@ -2,19 +2,20 @@ Change Log
 ==========
 
 ## v0.12.1
-	* fetcher/config.py: drop TASK_TIMEOUT_SECONDS back to 180
-	* fetcher/logargparse.py: fix --logger-level/-L
-	* fetcher/tasks.py: clean up exception handling (pull up to fetch_feed)
-	   use fresh session for update_feeds
-	   sentry.io issue BACKUP-RSS-FETCHER-67M
-	* fetcher/tasks.py: fetches_per_minute returns float
-	* fetcher/tasks.py: handle 'always' in _feed_update_period_mins & catch KeyErrors,
-	   log exceptions, log unknown period names
-	* push.sh: fix VERSION extraction; make more verbose; try to handle origin==mediacloud
-	* scripts/db_archive.py: compress stories on the fly, fix headers, add .csv
-	* scripts/queue_feeds.py: refactor to allow more command line params and
-		fix command line feeds; move FetchEvent creation & feed update to queue_feeds.
-		multiply fetches_per_minute before rounding (used to truncate then multiply).
+
+* fetcher/config.py: drop TASK_TIMEOUT_SECONDS back to 180
+* fetcher/logargparse.py: fix --logger-level/-L
+* fetcher/tasks.py: clean up exception handling (pull up to fetch_feed)
+	use fresh session for update_feeds;
+	sentry.io issue BACKUP-RSS-FETCHER-67M
+* fetcher/tasks.py: fetches_per_minute returns float
+* fetcher/tasks.py: handle 'always' in _feed_update_period_mins & catch KeyErrors,
+	log exceptions, log unknown period names
+* push.sh: fix VERSION extraction; make more verbose; try to handle origin==mediacloud
+* scripts/db_archive.py: compress stories on the fly, fix headers, add .csv
+* scripts/queue_feeds.py: refactor to allow more command line params and
+	fix command line feeds; move FetchEvent creation & feed update to queue_feeds.
+	multiply fetches_per_minute before rounding (used to truncate then multiply).
 
 ## v0.12.0
 
