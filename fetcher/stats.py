@@ -79,10 +79,7 @@ class Stats:
         if prefix:
             self.prefix = f"{prefix}.{component}"
 
-        if self.host and self.prefix:
-            logger.info(
-                f"sending stats to {self.host} with prefix {self.prefix}")
-        else:
+        if not self.host or not self.prefix:
             logger.warning("Not sending stats")
         # connect on demand
 
