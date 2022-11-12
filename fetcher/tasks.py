@@ -486,8 +486,7 @@ def request_exception_to_status(
         # DNS errors appear as negative errno values
         if '[Errno -' in s:
             return Status.SOFT, "DNS error"
-        logger.warning(f"   Feed {feed_id} connection error: {exc}")
-        return Status.HARD, "connection error"
+        return Status.SOFT, "connection error"
 
     # non-connection errors:
     if isinstance(exc, requests.exceptions.ReadTimeout):
@@ -860,14 +859,12 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
                    status, system_status,
                    note=repr(exc))
     except fetcher.queue.JobTimeoutException:
-        # XXX need to abort any db transaction in progress?
         u = Update('job_timeout', Status.SOFT, 'job timeout')
     except Exception as exc:
         # This is the ONE place that catches ALL exceptions;
         # log the backtrace so the problem can be fixed, and requeue
         # the job.
 
-        # XXX need to abort any db transaction in progress?
         logger.exception("feed_worker")
         u = Update('exception', Status.SOFT, 'caught exception',
                    note=repr(exc))
