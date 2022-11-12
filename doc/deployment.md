@@ -102,6 +102,14 @@ wildcard DNS address record for `*.BASTIONSERVER.DO.MA.IN`.
 *TEXT HERE ABOUT ACCEPTANCE CRITERIA!!*
 (including mypy.sh running cleanly, and running autopep8.sh)
 
+NOTE! If you've changed the crontab or config parameters, be sure
+they're reflected in dokku-scripts/instance.sh (and note in
+CHANGELOG.md that instance.sh needs to be re-run before installation).
+
+If you've changed a script that's run from crontab, it would be nice
+if you waited (either here, or in staging) to see that it runs
+correctly in that environment!
+
 When the acceptance criteria have been met, the code can be advanced to staging.
 
 At this point edit `fetcher/__init__.py` and update `VERSION` and
