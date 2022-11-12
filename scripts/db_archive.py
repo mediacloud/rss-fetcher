@@ -38,7 +38,8 @@ def dump_fetch_events(now: str, events: int, delete: bool) -> bool:
     Write CSV file of fetch_events table
     keeping `events` table rows for each feed_id.
     """
-    logger.info("creating fetch_events temp table for ranking")
+    logger.info(f"Keeping {events} fetch_events for each feed")
+    logger.info("creating temp table for ranking fetch_events")
     with engine.begin() as conn:
         # create temp table (lasts as long as DB session)
         # with fetch_event row id and the row rank (n'th row)
@@ -86,6 +87,7 @@ def dump_stories(now: str, limit: str, delete: bool) -> bool:
     Write compressed csv file of stories table with fetched_at
     before `limit`
     """
+    logger.info(f"Keeping {limit} days of stories")
     from_where = f"FROM stories WHERE fetched_at < '{limit}'"
     with engine.begin() as conn:
         logger.info("counting stories")
