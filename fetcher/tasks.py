@@ -574,6 +574,9 @@ def fetch_and_process_feed(
                 (f.next_fetch_attempt and f.next_fetch_attempt > now)):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt} qt {qtime}")
+            if f.queued:
+                f.queued = False  # prevent leakage
+                session.commit()
             return NoUpdate('insane')
 
         # mark time of actual attempt (start)
