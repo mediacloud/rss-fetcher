@@ -234,18 +234,20 @@ def loop(wq: queue.Queue, refill_period_mins: int,
 
             db_ready = _ready_ids(session).count()
 
+            # "stray feed catcher"
+            # (entries marked queued but not in queue)
             if added == 0 and qlen == 0 and db_queued != 0:
                 # queue empty, but db entries marked queued;
-                # clear queued on any entry started more than an hour ago
+                # clear queued on any entry "started" a while ago
                 t_minus_10m = dt.datetime.utcnow() - dt.timedelta(minutes=10)
-                reset = \
+                reset_count = \
                     session.query(Feed)\
                     .filter(Feed.queued.is_(True),
                             Feed.last_fetch_attempt < t_minus_10m)\
                     .update({'queued': False},
                             synchronize_session=False)
                 if reset:
-                    logger.warning(f"qlen = 0; reset {reset} queued feeds")
+                    logger.warning(f"qlen = 0; reset {reset_count} queued feeds")
                 session.commit()
                 db_queued = 0
 

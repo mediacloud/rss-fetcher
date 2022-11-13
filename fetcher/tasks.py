@@ -574,9 +574,9 @@ def fetch_and_process_feed(
                 (f.next_fetch_attempt and f.next_fetch_attempt > now)):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt} qt {qtime}")
-            if f.queued:
-                f.queued = False  # prevent leakage
-                session.commit()
+            # tempting to clear f.queued here if set, but that
+            # increases risk of the queue being queued twice
+            # instead rely on "stray feed catcher" in scripts/queue_feeds.py
             return NoUpdate('insane')
 
         # mark time of actual attempt (start)
