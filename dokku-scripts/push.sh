@@ -190,11 +190,7 @@ echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 
 echo stopping processes...
 
-# try speeding up retirement
-# only works w/o alias dokku=ssh....?
-export DOKKU_WAIT_TO_RETIRE=10
-
-dokku ps:scale $APP $(echo $PROCS | sed 's/[0-9][0-9]*/0/g')
+dokku ps:stop $APP
 
 if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
     # not first push, safe to push by tag name
@@ -227,4 +223,5 @@ echo scaling up
 # only works w/o alias dokku=ssh....?
 export DOKKU_DEFAULT_CHECKS_WAIT=5
 
-dokku ps:scale $APP $PROCS
+dokku ps:scale --skip-deploy $APP $PROCS
+dokku ps:start $APP
