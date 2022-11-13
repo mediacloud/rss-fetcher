@@ -22,6 +22,8 @@ Change Log
 * NEW: dokku-scripts/randomize-feeds.sh: randomize feed.next_fetch_attempt times
 * NEW: dokku-scripts/clone-db.sh: clone production database & randomize
 * doc/deployment.md: update
+* scripts/queue_feeds.py: if qlen==0 but db_queue!=0, clear queued feeds (fix leakage).
+* fetcher/tasks.py: clear queued on insane feeds (stop leakage).
 
 ## v0.12.0
 
