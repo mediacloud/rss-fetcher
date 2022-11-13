@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # Deploy code by pushing current branch to Dokkku app instance
+# (development, staging, or production, depending on branch name)
 # Phil Budne, September 2022
 
 # DOES NOT NEED TO BE RUN AS ROOT!!!
