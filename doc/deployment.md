@@ -15,38 +15,31 @@ of all the dokku helper scripts.
 This document describes an orthodox priestly ritual for the deployment
 of a critical service.
 
-<blockquote>
-  And Saint Attila raised the hand grenade up on high, saying,
-  <blockquote
-    'O Lord, bless this thy hand grenade, that with it thou mayst
-    blow thine enemies to tiny bits, in thy mercy.'
-  </blockquote>
-  <br>
-  ...
-  <br>
-  And the Lord spake, saying:
-    <blockquote>
-    'First shalt thou take out the Holy Pin.
-    <p>
-    Then shalt thou count to three, no more, no less.
-    <p>
-    Three shall be the number thou shalt count,
-    and the number of the counting shall be three.
-    <p>
-    Four shalt thou not count, neither count thou two,
-    excepting that thou then proceed to three.
-    <p>
-    Five is right out.
-    <p>
-    Once the number three, being the third number, be
-    reached, then lobbest thou thy Holy Hand Grenade of
-    Antioch towards thy foe, who, being naughty in My
-    sight, shall snuff it.'
-  </blockquote>
-  <p>
-  Armaments, chapter 2, verses 9-21
-</blockquote>
-Monty Python and the Holy Grail
+	And Saint Attila raised the hand grenade up on high, saying,
+
+		'O Lord, bless this thy hand grenade, that with it thou mayst
+		blow thine enemies to tiny bits, in thy mercy.'
+
+	And the Lord spake, saying:
+		'First shalt thou take out the Holy Pin.
+
+		Then shalt thou count to three, no more, no less.
+
+		Three shall be the number thou shalt count,
+		and the number of the counting shall be three.
+    
+		Four shalt thou not count, neither count thou two,
+		excepting that thou then proceed to three.
+    
+		Five is right out.
+		
+		Once the number three, being the third number, be
+		reached, then lobbest thou thy Holy Hand Grenade of
+		Antioch towards thy foe, who, being naughty in My
+		sight, shall snuff it.'
+    
+	Armaments, chapter 2, verses 9-21
+		Monty Python and the Holy Grail
 
 # Development
 
