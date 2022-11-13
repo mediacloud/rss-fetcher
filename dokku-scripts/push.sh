@@ -48,16 +48,6 @@ ORIGIN="origin"
 # PUSH_TAG_TO: other remotes to push tag to
 PUSH_TAG_TO="$ORIGIN"
 
-# check if origin (ie; user github fork) not up to date
-# XXX need "git pull" ??
-if git diff --quiet origin/$BRANCH --; then
-    echo "origin/$BRANCH up to date"
-else
-    # have an option to override this??
-    echo "origin/$BRANCH not up to date.  push!"
-    exit 1
-fi
-
 # DOKKU_GIT_REMOTE: Name of git remote for Dokku instance
 
 git remote -v > $REMOTES
@@ -97,6 +87,16 @@ prod|staging)
     DOKKU_GIT_REMOTE=dokku_$BRANCH
     ;;
 *)
+    # check if origin (ie; user github fork) not up to date
+    # XXX need "git pull" ??
+    if git diff --quiet origin/$BRANCH --; then
+	echo "origin/$BRANCH up to date"
+    else
+	# have an option to override this??
+	echo "origin/$BRANCH not up to date.  push!"
+	exit 1
+    fi
+
     DOKKU_GIT_REMOTE=dokku_$LOGIN_USER
     ;;
 esac
