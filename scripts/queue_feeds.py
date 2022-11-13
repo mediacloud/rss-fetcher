@@ -234,7 +234,7 @@ def loop(wq: queue.Queue, refill_period_mins: int,
 
             db_ready = _ready_ids(session).count()
 
-            if qlen == 0 and db_queued != 0:
+            if added == 0 and qlen == 0 and db_queued != 0:
                 # queue empty, but db says otherwise; fix db (prevent leakage)
                 logger.warning(f"qlen = 0; restting {db_queued} queued feeds")
                 session.query(Feed)\
