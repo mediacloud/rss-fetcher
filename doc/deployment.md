@@ -212,16 +212,14 @@ Backup user's `~/.aws/credentials` file (which will be pre-populated
 the necessary sections if not already present: the keys must be added
 by hand!):
 
-This is supposed/meant to render as a table!
-
- credentials file section | from /app/storage subdir | to S3 bucket/prefix            | required AWS key policy
- -------------------------|--------------------------|--------------------------------+-----------------------------------------
- `rss-fetcher-backup`     | `db-archive`             | `...-rss-fetcher-backup`       | `...-web-tools-db-backup-get-put-delete`
- `rss-fetcher-rss`        | `/rss-output-files`      | `...-public/backup-daily/rss`  | `...-public-get-put-delete`
-
+<table>
+<tr><th>credentials file section<th>from /app/storage subdir<th>to S3 bucket/prefix<th>required AWS key policy
+<tr><td><pre>rss-fetcher-backup</pre><td><pre>db-archive</pre><td><pre>...-rss-fetcher-backup</pre><td><pre>...-web-tools-db-backup-get-put-delete</pre>
+<tr><td><pre>rss-fetcher-rss</pre><td><pre>/rss-output-files</pre><td><pre>...-public/backup-daily/rss</pre><td><pre>...-public-get-put-delete</pre>
+</table>
 
 The key used for the `rss-fetcher-backup` section above also needs to be incanted as follows:
 
     dokku postgres:backup-auth rss-fetcher-db AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY`
 
-to authorize the deposit of postgres backups.
+to authorize the deposit of postgres backups to S3.
