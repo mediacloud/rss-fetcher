@@ -214,8 +214,8 @@ by hand!):
 
 <table>
 <tr><th>credentials file section<th>from /app/storage subdir<th>to S3 bucket/prefix<th>required AWS key policy
-<tr><td><pre>rss-fetcher-backup</pre><td><pre>db-archive</pre><td><pre>...-rss-fetcher-backup</pre><td><pre>...-web-tools-db-backup-get-put-delete</pre>
-<tr><td><pre>rss-fetcher-rss</pre><td><pre>/rss-output-files</pre><td><pre>...-public/backup-daily/rss</pre><td><pre>...-public-get-put-delete</pre>
+<tr><td>rss-fetcher-backup<td>db-archive<td>...-rss-fetcher-backup<td>...-web-tools-db-backup-get-put-delete
+<tr><td>rss-fetcher-rss<td>/rss-output-files<td>...-public/backup-daily/rss<td>...-public-get-put-delete
 </table>
 
 The key used for the `rss-fetcher-backup` section above also needs to be incanted as follows:
