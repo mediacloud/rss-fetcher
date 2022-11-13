@@ -246,8 +246,9 @@ def loop(wq: queue.Queue, refill_period_mins: int,
                             Feed.last_fetch_attempt < t_minus_10m)\
                     .update({'queued': False},
                             synchronize_session=False)
-                if reset:
-                    logger.warning(f"qlen = 0; reset {reset_count} queued feeds")
+                if reset_count:
+                    logger.warning(
+                        f"qlen = 0; reset {reset_count} queued feeds")
                 session.commit()
                 db_queued = 0
 
