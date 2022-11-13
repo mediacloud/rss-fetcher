@@ -124,7 +124,7 @@ the version change commit into "staging"
 
 Your development application can be disposed of by running
 
-    `dokku-scripts/instance.sh destroy dev-MYUSERNAME`
+    dokku-scripts/instance.sh destroy dev-MYUSERNAME
 
 
 # Staging
@@ -221,6 +221,6 @@ by hand!):
 
 The key used for the `rss-fetcher-backup` section above also needs to be incanted as follows:
 
-    dokku postgres:backup-auth rss-fetcher-db AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY`
+    dokku postgres:backup-auth rss-fetcher-db AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 
 to authorize the deposit of postgres backups to S3.
