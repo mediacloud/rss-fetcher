@@ -190,7 +190,8 @@ echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 
 echo stopping processes...
 
-# try to speed clearing of old containers:
+# try speeding up retirement
+# only works w/o alias dokku=ssh....?
 export DOKKU_WAIT_TO_RETIRE=10
 
 dokku ps:scale $APP $(echo $PROCS | sed 's/[0-9][0-9]*/0/g')
@@ -223,6 +224,7 @@ done
 echo scaling up
 
 # try speeding up deployment
+# only works w/o alias dokku=ssh....?
 export DOKKU_DEFAULT_CHECKS_WAIT=5
 
 dokku ps:scale $APP $PROCS
