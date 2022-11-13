@@ -6,7 +6,7 @@
 # DOES NOT NEED TO BE RUN AS ROOT!!!
 
 APP=rss-fetcher
-PROCS="fetcher=1 worker=8"
+PROCS="fetcher=1 worker=8 web=1"
 
 SCRIPT_DIR=$(dirname $0)
 INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
