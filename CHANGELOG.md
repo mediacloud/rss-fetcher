@@ -11,13 +11,17 @@ Change Log
 * fetcher/tasks.py: fetches_per_minute returns float
 * fetcher/tasks.py: handle 'always' in _feed_update_period_mins & catch KeyErrors,
 	log exceptions, log unknown period names
-* push.sh: fix VERSION extraction; make more verbose; try to handle origin==mediacloud
+* dokku-scripts/push.sh: fix VERSION extraction; make more verbose
+	require staging & prod to be pushed only to mediacloud
 * scripts/db_archive.py: compress stories on the fly, fix headers, add .csv
 * scripts/queue_feeds.py: refactor to allow more command line params and
 	fix command line feeds; move FetchEvent creation & feed update to queue_feeds.
 	multiply fetches_per_minute before rounding (used to truncate then multiply).
 * scripts/db_archive.py: use max(RSS_OUTPUT_DAYS, NORMALIZED_TITLE_DAYS)
 	for story_days default.  Display default values in help message.
+* NEW: dokku-scripts/randomize-feeds.sh: randomize feed.next_fetch_attempt times
+* NEW: dokku-scripts/clone-db.sh: clone production database & randomize
+* doc/deployment.md: update
 
 ## v0.12.0
 

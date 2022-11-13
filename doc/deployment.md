@@ -10,84 +10,90 @@ to run mypy, and to run the code).  autopep8.sh expects autopep8 be installed.
 See [../dokku-scripts/README.md](../dokku-scripts/README.md) for descriptions
 of all the dokku helper scripts.
 
-Rationale
-=========
+# Rationale
 
 This document describes an orthodox priestly ritual for the deployment
 of a critical service.
 
-	And Saint Attila raised the hand grenade up on high, saying,
-	  'O Lord, bless this thy hand grenade, that with it thou mayst
-	  blow thine enemies to tiny bits, in thy mercy.'
-	...
+<blockquote>
+  And Saint Attila raised the hand grenade up on high, saying,
+  <blockquote
+    'O Lord, bless this thy hand grenade, that with it thou mayst
+    blow thine enemies to tiny bits, in thy mercy.'
+  </blockquote>
+  <br>
+  ...
+  <br>
+  And the Lord spake, saying:
+    <blockquote>
+    'First shalt thou take out the Holy Pin.
+    <p>
+    Then shalt thou count to three, no more, no less.
+    <p>
+    Three shall be the number thou shalt count,
+    and the number of the counting shall be three.
+    <p>
+    Four shalt thou not count, neither count thou two,
+    excepting that thou then proceed to three.
+    <p>
+    Five is right out.
+    <p>
+    Once the number three, being the third number, be
+    reached, then lobbest thou thy Holy Hand Grenade of
+    Antioch towards thy foe, who, being naughty in My
+    sight, shall snuff it.'
+  </blockquote>
+  <p>
+  Armaments, chapter 2, verses 9-21
+</blockquote>
+Monty Python and the Holy Grail
 
-	And the Lord spake, saying:
-
-		'First shalt thou take out the Holy Pin.
-
-		Then shalt thou count to three, no more, no less.
-
-		Three shall be the number thou shalt count,
-		and the number of the counting shall be three.
-
-		Four shalt thou not count, neither count thou two,
-		excepting that thou then proceed to three.
-
-		Five is right out.
-
-		Once the number three, being the third number, be
-		reached, then lobbest thou thy Holy Hand Grenade of
-		Antioch towards thy foe, who, being naughty in My
-		sight, shall snuff it.'
-
-	Armaments, chapter 2, verses 9-21
-		Monty Python and the Holy Grail
-
-
-Development
-===========
+# Development
 
 DO YOUR DEVELOPMENT ON A GIT BRANCH!
 
+## local development
+
 If you are debugging locally, copy `.env.template` to `.env` and edit as needed.
 
-To install dokku, run `.../dokku-scripts/install-dokku.sh` as root.
+Running ./mypy.sh will construct a virtual environment with all necessary
+components.  After running mypy.sh, type `. ./venv/bin/activate`
+
+## development/test under Dokku
+
+To install dokku on a mediacloud server (on Ubuntu 22.04),
+run `.../dokku-scripts/install-dokku.sh` as root.
 
 To test under dokku, first create a development dokku instance by running (as root)
 
    .../dokku-scripts/instance.sh create dev-USERNAME
 
-Creates an application named `USERNAME-rss-fetcher` and a
-`dokku-graphite` plugin visible as `http://stats.SERVERNAME`.
+Creates an application named `USERNAME-rss-fetcher`, and
+dokku-postgres and dokku-redis services with the same name.
+And if there isn't already a local dokku-graphite service
+running, it creates one visible as `http://stats.SERVERNAME`.
 
-It will also add USERNAME's ssh public key to the dokku user, so
-they can do `alias dokku=ssh dokku@$(hostname)` to their `.bashrc` file.
+instance.sh also adds a git remote named dokku_USERNAME to the
+repository, for use by push.sh.
+
+It also checks if USERNAME's ssh public key is installed for the dokku
+user, so they can add `alias dokku=ssh dokku@$(hostname)` to their
+`.bashrc` file.
+
+You can duplicate the production database into your Dokku development
+environment by running `./dokku-scripts/clone-db.sh USERNAME-rss-fetcher`
 
 Check your code into a git branch (named something other than
-`staging` or `prod`, push to your github `origin`, then run
+`staging` or `prod`,  push to your github `origin`, then run:
 
     .../dokku-scripts/push.sh
 
-To deploy the code (by doing a git push, adding a remote named
-`dokku_USERNAME` if not present).  `push.sh` will apply and push a tag
+To deploy the code. `push.sh` will apply and push a tag
 like `YYYY-MM-DD-HH-MM-SS-HOSTNAME-USERNAME-rss-fetcher`
 
 The application container `/app/storage` directory
 appears on the host system in `/var/lib/dokku/data/storage/APPNAME`,
-including `logs`, `rss-output-files` and `db-archive` directories.
-
-You can populate your postgres instance with:
-
-You can duplicate the production database into your staging
-environment by:
-
-   ssh dokku@tarbell postgres:export rss-fetcher | dokku postgres:import staging-rss-fetcher
-
-(ALTHOUGH, this will put you in sync with production, hitting the same
-RSS servers in the same order).
-
-An alternative would be to dump a CSV of the feeds table from production
-in the format expected by the import_feeds script.
+including `logs`, `rss-output-files` and `db-archive` subdirectories.
 
 If your devlopment instance is on a private network, you can make the
 Grafana server created by `instance.sh` on Internet visible server
@@ -123,15 +129,12 @@ If "main" and "staging" are otherwise identical, merge main into
 staging.  If "staging" is the result of cherry-picking, cherry-pick
 the version change commit into "staging"
 
-
-
 Your development application can be disposed of by running
 
     `dokku-scripts/instance.sh destroy dev-MYUSERNAME`
 
 
-Staging
-=======
+# Staging
 
 The purpose of the staging branch is to test deployment of the code
 EXACTLY as it will be deployed in production.
@@ -149,17 +152,10 @@ modify an existing one to current spec).  A staging environment can be
 run on any server.
 
 You can duplicate the production database into your staging
-environment by:
-
-   ssh dokku@tarbell postgres:export rss-fetcher | dokku postgres:import staging-rss-fetcher
-
-If staging is being done on tarbell, the command will be more efficient
-(no ssh/network/encryption involved) if executed as root, without ssh:
-
-   dokku postgres:export rss-fetcher | dokku postgres:import staging-rss-fetcher
+environment by running `./dokku-scripts/clone-db.sh staging-rss-fetcher`
 
 This is best done while there are no active staging-rss-fetcher
-containers running (before pushing code).
+containers running (ie; before pushing code).
 
 Then merge the state of the mediacloud/main branch into
 mediacloud/staging, either via github PR or `git checkout staging; git
@@ -192,8 +188,7 @@ If ANY problems are discovered in staging, fixes MUST be committed to
 "main", pulled or picked to staging and tested.
 
 
-Production
-==========
+# Production
 
 Once the code has been running stably without modification in staging,
 it can be deployed to production.
@@ -234,7 +229,6 @@ This is supposed/meant to render as a table!
 
 The key used for the `rss-fetcher-backup` section above also needs to be incanted as follows:
 
-   dokku postgres:backup-auth rss-fetcher-db AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY`
-
+    dokku postgres:backup-auth rss-fetcher-db AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY`
 
 to authorize the deposit of postgres backups.
