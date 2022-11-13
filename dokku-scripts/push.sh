@@ -70,7 +70,7 @@ prod|staging)
     # ONLY match ssh remote, since will want to push tag.
     MCREMOTE=$(awk '/github\.com:mediacloud\// { print $1; exit }' $REMOTES)
     if [ "x$MCREMOTE" = x ]; then
-	echo could not find a git remote for mediacloud org repo
+	echo could not find an ssh git remote for mediacloud org repo
 	exit 1
     fi
 
@@ -91,11 +91,9 @@ prod|staging)
 	echo "$MCREMOTE $BRANCH branch not up to date.  push first!!"
 	exit 1
     fi
-    # Push to MCREMOTE (unless it's the origin remote)
-    if [ "x$MCREMOTE" != "x$ORIGIN" ]; then
-	# push tag back to github mediacloud branch
-	PUSH_TAG_TO="$PUSH_TAG_TO $MCREMOTE"
-    fi
+    # push tag back to JUST github mediacloud branch
+    # (might be "origin", might not)
+    PUSH_TAG_TO="$MCREMOTE"
     DOKKU_GIT_REMOTE=dokku_$BRANCH
     ;;
 *)
