@@ -234,6 +234,15 @@ def loop(wq: queue.Queue, refill_period_mins: int,
 
             db_ready = _ready_ids(session).count()
 
+            if qlen == 0 and db_queued != 0:
+                # queue empty, but db says otherwise; fix db (prevent leakage)
+                logger.warning(f"qlen = 0; restting {db_queued} queued feeds")
+                session.query(Feed)\
+                    .filter(Feed.queued.is_(True))\
+                    .update({'queued': False},
+                            synchronize_session=False)
+                db_queued = 0
+
         stats.gauge('db.active', db_active)
         stats.gauge('db.queued', db_queued)
         stats.gauge('db.ready', db_ready)
