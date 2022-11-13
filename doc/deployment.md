@@ -157,9 +157,9 @@ deployed, you can cherry-pick them into the staging branch.
 
 **The staging branch should ONLY be updated by merges/pulls/cherry-picks from main.**
 
-Thou shalt not commit changes directly to the staging branch, and only
+*Thou shalt not commit changes directly to the staging branch, and only
 changes in the main branch shall be advanced to staging.  This ensures
-that no "last minute fixes" escape capture.
+that no "last minute fixes" escape capture.*
 
 You must have a `.prod` file with a line:
 `SENTRY_DSN=https://xxxxxxxxxxxxx@xxx.ingest.sentry.io/xxxxxx`
@@ -194,12 +194,13 @@ Once again, `instance.sh` can be used to create a production application instanc
 (and re-test in staging if ANY other changes were made).
 
 **The "prod" branch should ONLY be changed by merging from the "staging" branch.**
-(Thou shalt not commit changes directly to the prod or staging branches).
+
+*(Thou shalt not commit changes directly to the prod or staging branches).*
 
 Merge the mediacloud account staging branch into the prod branch, and run `push.sh`
 
-`push.sh` should check whether a `vVERSION` tag exists (and exit if it
-does), otherwise it creates and pushes the tag.
+`push.sh` checks whether a `vVERSION` tag already exists (and exits if it
+does), otherwise it applies and pushes the tag.
 
 ### Setup database backups
 
@@ -215,7 +216,7 @@ by hand!):
 <table>
 <tr><th>credentials file section<th>from /app/storage subdir<th>to S3 bucket/prefix<th>required AWS key policy
 <tr><td>rss-fetcher-backup<td>db-archive<td>...-rss-fetcher-backup<td>...-web-tools-db-backup-get-put-delete
-<tr><td>rss-fetcher-rss<td>/rss-output-files<td>...-public/backup-daily/rss<td>...-public-get-put-delete
+<tr><td>rss-fetcher-rss<td>rss-output-files<td>...-public/backup-daily/rss<td>...-public-get-put-delete
 </table>
 
 The key used for the `rss-fetcher-backup` section above also needs to be incanted as follows:
