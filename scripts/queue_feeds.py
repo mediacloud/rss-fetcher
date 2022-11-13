@@ -28,6 +28,8 @@ import fetcher.tasks as tasks
 SCRIPT = 'queue_feeds'          # NOTE! used for stats!
 logger = logging.getLogger(SCRIPT)
 
+RESCUE_STRAYS = False
+
 
 def queue_feeds(session: SessionType,
                 wq: queue.Queue,
@@ -234,7 +236,12 @@ def loop(wq: queue.Queue, refill_period_mins: int,
 
             db_ready = _ready_ids(session).count()
 
-            if added == 0 and qlen == 0 and db_queued != 0:
+            # This could keep feed entries from ended up stranded
+            # (marked queued, but not in the queue), BUT at the risk
+            # of doing so spuriously (clearing queued on feeds
+            # currently being processed, causing double processing),
+            # so leaving it disabled.
+            if RESCUE_STRAYS and added == 0 and qlen == 0 and db_queued != 0:
                 # queue empty, but db says otherwise; fix db (prevent leakage)
                 logger.warning(f"qlen = 0; resetting {db_queued} queued feeds")
                 session.query(Feed)\
