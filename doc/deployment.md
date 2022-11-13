@@ -52,6 +52,23 @@ If you are debugging locally, copy `.env.template` to `.env` and edit as needed.
 Running ./mypy.sh will construct a virtual environment with all necessary
 components.  After running mypy.sh, type `. ./venv/bin/activate`
 
+You will also need a postgres server, and a redis server.
+
+### postgres setup notes
+
+After installing the postgresql server package(s):
+
+To add yourself as a postgres user:
+
+	sudo -u postgres createuser -s MY_USER_NAME
+
+Then, to create an rss-fetcher database:
+
+	createdb rss-fetcher
+
+NOTE!  Installing the psycopg2 DBI may require postgres client
+libraries to be installed on some platforms!
+
 ## development/test under Dokku
 
 To install dokku on a mediacloud server (on Ubuntu 22.04),
