@@ -284,9 +284,6 @@ fi
 
 add_vars SAVE_RSS_FILES=0
 
-# OBSOLETE:
-add_vars RSS_FILE_PATH=$STORAGE_MOUNT_POINT
-
 ################
 
 # check for, or create stats service, and link to our app
