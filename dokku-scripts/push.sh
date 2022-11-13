@@ -190,7 +190,9 @@ echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 
 echo stopping processes...
 
-# XXX look at overriding DOKKU_WAIT_TO_RETIRE to less than 60sec?
+# try to speed clearing of old containers:
+export DOKKU_WAIT_TO_RETIRE=10
+
 dokku ps:scale $APP $(echo $PROCS | sed 's/[0-9][0-9]*/0/g')
 
 if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
@@ -218,6 +220,9 @@ for REMOTE in $PUSH_TAG_TO; do
 done
 
 # start fetcher/worker procoesses
-# XXX try overriding DOKKU_DEFAULT_CHECKS_WAIT (10s)
 echo scaling up
+
+# try speeding up deployment
+export DOKKU_DEFAULT_CHECKS_WAIT=5
+
 dokku ps:scale $APP $PROCS
