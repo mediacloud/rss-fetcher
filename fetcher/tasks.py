@@ -296,6 +296,14 @@ def update_feed(session: SessionType,
         # 2. value currently stored in feed row (if fetch or parse failed)
         # 3. default
         # (update_minutes is either a value from feed, or NULL)
+
+        # On error, next_minutes is multipled by last_fetch_failures.
+
+        # NOTE! fetches_per_minute depends on retries NEVER being less
+        # than MINIMUM_INTERVALS_MINS[_304].  Any changes here to
+        # nex_minutes MUST be reflected in fetches_per_minute function
+        # database query.
+
         next_minutes = f.update_minutes or DEFAULT_INTERVAL_MINS
 
         if status == Status.SUCC:
