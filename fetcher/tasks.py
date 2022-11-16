@@ -82,7 +82,7 @@ def NoUpdate(counter: str) -> Update:
 
 
 # HTTP status codes to consider "soft" errors:
-HTTP_SOFT = set([429, 500, 502, 503])
+HTTP_SOFT = set([429, 500, 502, 503, 504])
 
 # force logging on startup (actual logging deferred)
 # please keep alphabetical:
