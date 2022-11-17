@@ -308,6 +308,9 @@ def update_feed(session: SessionType,
 
         if status == Status.SUCC:
             event = FetchEvent.Event.FETCH_SUCCEEDED
+            if f.last_fetch_failures > 0:
+                logger.info(
+                    f" Feed {feed_id}: clearing failure count (was {f.last_fetch_failures})")
             f.last_fetch_failures = 0
             # many values come in via 'feed_col_updates'
         else:
