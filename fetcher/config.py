@@ -155,7 +155,7 @@ _DEFAULT_MINIMUM_INTERVAL_MINS = _DEFAULT_DEFAULT_INTERVAL_MINS
 _DEFAULT_MINIMUM_INTERVAL_MINS_304 = _DEFAULT_DEFAULT_INTERVAL_MINS
 
 
-class _Config:                  # only instantied in this file
+class _Config:                  # only instantiated in this file
     """
     Configuration with logging on first access.
 
@@ -186,9 +186,8 @@ class _Config:                  # only instantied in this file
 
     def start(self, prog: Optional[str], descr: Optional[str]) -> None:
         """
-        optionally log start message with any saved messages
-        called from LogArgumentParser.parse_args
-        after logger setup
+        Optionally log start message with any saved messages.
+        Called from LogArgumentParser.parse_args after logger setup.
         """
         if prog:
             # GIT_REV set by Dokku
