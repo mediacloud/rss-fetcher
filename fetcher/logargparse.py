@@ -136,7 +136,8 @@ class LogArgumentParser(argparse.ArgumentParser):
 
             # rotate file after midnight (UTC), keep 7 old files
             fileHandler = logging.handlers.TimedRotatingFileHandler(
-                log_path, when='midnight', utc=True, backupCount=7)
+                log_path, when='midnight', utc=True,
+                backupCount=conf.LOG_BACKUP_COUNT)
             fileHandler.setFormatter(logging.Formatter(log_format))
             logging.getLogger(None).addHandler(
                 fileHandler)  # attach to root logger
