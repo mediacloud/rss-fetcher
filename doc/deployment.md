@@ -47,14 +47,26 @@ DO YOUR DEVELOPMENT ON A GIT BRANCH!
 
 ## local development
 
-If you are debugging locally, copy `.env.template` to `.env` and edit as needed.
+If you are debugging locally, copy `.env.template` to `.env`
+(you may not need to edit it).
 
 Running ./mypy.sh will construct a virtual environment with all necessary
-components.  After running mypy.sh, type `. ./venv/bin/activate`
+components.
+
+NOTE!  Installing the psycopg2 DBI may require postgres client
+libraries (ubuntu package name here) to be installed.
+
+After running `mypy.sh`, type `. ./venv/bin/activate`
 
 You will also need a postgres server, and a redis server.
 
-### postgres setup notes
+Various `run-....` scripts are in the top level directory, see
+`Procfile` for how/when they're invoked.
+
+All python scripts take uniform logging command line options,
+and append to a log file `storage/logs/SCRIPTNAME.pid.NNNN.log`
+
+### local postgres setup notes
 
 After installing the postgresql server package(s):
 
@@ -62,12 +74,9 @@ To add yourself as a postgres user:
 
 	sudo -u postgres createuser -s MY_USER_NAME
 
-Then, to create an rss-fetcher database:
+Then, (as yourself) to create an rss-fetcher database:
 
 	createdb rss-fetcher
-
-NOTE!  Installing the psycopg2 DBI may require postgres client
-libraries to be installed on some platforms!
 
 ## development/test under Dokku
 
@@ -79,52 +88,61 @@ To test under dokku, first create a development dokku instance by running (as ro
    .../dokku-scripts/instance.sh create dev-USERNAME
 
 Creates an application named `USERNAME-rss-fetcher`, and
-dokku-postgres and dokku-redis services with the same name.
-And if there isn't already a local dokku-graphite service
-running, it creates one visible as `http://stats.SERVERNAME`.
-
-instance.sh also adds a git remote named dokku_USERNAME to the
-repository, for use by push.sh.
+dokku-postgres and dokku-redis services with the same name, and
+installs a crontab as /etc/cron.d/APPNAME.  If there isn't already a
+local dokku-graphite service running, it creates one visible as
+`http://stats.SERVERNAME`.
 
 It also checks if USERNAME's ssh public key is installed for the dokku
 user, so they can add `alias dokku=ssh dokku@$(hostname)` to their
 `.bashrc` file.
 
+instance.sh also adds a git remote named dokku_USERNAME (pointing to
+the local dokku account) to the repository, for use by push.sh.
+
 You can duplicate the production database into your Dokku development
 environment by running `./dokku-scripts/clone-db.sh USERNAME-rss-fetcher`
 
 Check your code into a git branch (named something other than
-`staging` or `prod`,  push to your github `origin`, then run:
+`staging` or `prod`, push to your github `origin` (eg a github clone
+of the project under your account, or a branch in the mediacloud
+account) then run:
 
-    .../dokku-scripts/push.sh
+    ./dokku-scripts/push.sh
 
-To deploy the code. `push.sh` will apply and push a tag
-like `YYYY-MM-DD-HH-MM-SS-HOSTNAME-USERNAME-rss-fetcher`
+to deploy the code. `push.sh` will apply and push a tag
+like `YYYY-MM-DD-HH-MM-SS-HOSTNAME-USERNAME-rss-fetcher`.
+
+NOTE: push.sh is run as a regular user (no sudo required).
 
 The application container `/app/storage` directory
 appears on the host system in `/var/lib/dokku/data/storage/APPNAME`,
-including `logs`, `rss-output-files` and `db-archive` subdirectories.
+and includes `logs`, `rss-output-files` and `db-archive` subdirectories.
 
-If your devlopment instance is on a private network, you can make the
-Grafana server created by `instance.sh` on Internet visible server
-`BASTIONSERVER.DO.MA.IN` using `dokku-scripts/http-proxy.sh` which can
-create a proxy application named `stats.YOURSERVER` which should be
-Internet visible service at
-`https://stats.YOURSERVER.BASTIONSERVER.DO.MA.IN` (assuming there is a
-wildcard DNS address record for `*.BASTIONSERVER.DO.MA.IN`.
+Under dokku, All top level scripts append to a log file
+`storage/logs/SCRIPTNAME.DYNO.log` (where DYNO is PROGRAM.N).
+
+If your devlopment instance is on a private network (ie; an internal
+system in the angwin cluster), you can make the Grafana server created
+by `instance.sh` on Internet visible server `BASTIONSERVER.DO.MA.IN`
+using `dokku-scripts/http-proxy.sh` which can create a proxy
+application named `stats.YOURSERVER` which should be Internet visible
+service at `https://stats.YOURSERVER.BASTIONSERVER.DO.MA.IN` (assuming
+there is a wildcard DNS address record for `*.BASTIONSERVER.DO.MA.IN`.
 
 *TEXT HERE ABOUT POPULATING A GRAFANA DASHBOARD*
 
 *TEXT HERE ABOUT ACCEPTANCE CRITERIA!!*
 (including mypy.sh running cleanly, and running autopep8.sh)
+Talk about pytest tests???
 
-NOTE! If you've changed the crontab or config parameters, be sure
-they're reflected in dokku-scripts/instance.sh (and note in
-CHANGELOG.md that instance.sh needs to be re-run before installation).
+NOTE! If you've changed the crontab or changed or added any config
+parameters, be sure they're reflected in `dokku-scripts/instance.sh`
+(and note in CHANGELOG.md that instance.sh needs to be re-run before
+installation).
 
-If you've changed a script that's run from crontab, it would be nice
-if you waited (either here, or in staging) to see that it runs
-correctly in that environment!
+If you've changed a script that's run from the crontab, it's good to wait
+(either here, or in staging) to see that it runs correctly from a crontab.
 
 When the acceptance criteria have been met, the code can be advanced to staging.
 
@@ -143,29 +161,30 @@ Your development application can be disposed of by running
 
     dokku-scripts/instance.sh destroy dev-MYUSERNAME
 
-
 # Staging
 
-The purpose of the staging branch is to test deployment of the code
+The purpose of the staging step is to test deployment of the code
 EXACTLY as it will be deployed in production.
 
 Once you are ready to deploy your code, and your changes have been
 merged into the github mediacloud account "main" branch, the next step
 is to run the code undisturbed in a staging app instance:
 
-If a staging instance does not exist (or instance.sh has been changed):
+If a staging instance does not exist (or instance.sh has been changed),
+as root, run:
 
    ./dokku-scripts/instance.sh create staging
 
-Which will create an application named `staging-rss-fetcher` (or
+Which will create a Dokku application named `staging-rss-fetcher` (or
 modify an existing one to current spec).  A staging environment can be
-run on any server.
+run on ANY server.
 
 You can duplicate the production database into your staging
 environment by running `./dokku-scripts/clone-db.sh staging-rss-fetcher`
 
 This is best done while there are no active staging-rss-fetcher
-containers running (ie; before pushing code).
+containers running (ie; before pushing code, or after executing
+`dokku ps:stop staging-rss-fetcher`)
 
 Then merge the state of the mediacloud/main branch into
 mediacloud/staging, either via github PR or `git checkout staging; git
@@ -184,24 +203,23 @@ pointing to the mediacloud sentry.io URL (events will be sent with
 environment=staging).
 
 Then, with the staging branch checked out (and pushed to the
-mediacloud account staging branch, (and "origin" they differ), run:
+mediacloud account staging branch), run:
 
-    .../dokku-scripts/push.sh
+    ./dokku-scripts/push.sh
 
 Again, `push.sh` will apply and push a tag: `YYYY-MM-DD-HH-MM-SS-HOSTNAME-staging-rss-fetcher`
 
 *TEXT HERE ABOUT ACCEPTANCE CRITERIA!!*
 
-When the acceptance criteria have been met, the code can be moved to production.
-
-If ANY problems are discovered in staging, fixes MUST be committed to
-"main", pulled or picked to staging and tested.
-
+When the acceptance criteria have been met, the code can be moved to
+production.  If ANY problems are discovered in staging, fixes MUST be
+committed to "main", pulled or picked to staging and tested first.
 
 # Production
 
 Once the code has been running stably without modification in staging,
-it can be deployed to production.
+it can be deployed to production (ANY changes must be made first in
+main, then tested in staging before moving to production).
 
 Once again, `instance.sh` can be used to create a production application instance
 (or modifiy an existing one to current specifications, and install a stats server):
@@ -214,7 +232,8 @@ Once again, `instance.sh` can be used to create a production application instanc
 
 *(Thou shalt not commit changes directly to the prod or staging branches).*
 
-Merge the mediacloud account staging branch into the prod branch, and run `push.sh`
+Merge the mediacloud account staging branch into the prod branch, and
+with the prod branch checked out, run `push.sh`
 
 `push.sh` checks whether a `vVERSION` tag already exists (and exits if it
 does), otherwise it applies and pushes the tag.
@@ -223,7 +242,7 @@ does), otherwise it applies and pushes the tag.
 
 When the `./dokku-scripts/instance.sh create prod` command above is
 run it will schedule backups of postgres (via `dokku
-postgres:backup-schedule` which writes `dokku-postgres-rss-fetcher`),
+postgres:backup-schedule` which writes `/etc/cron.d/dokku-postgres-rss-fetcher`),
 and other directories to AWS S3 (via `/etc/cron.d/rss-fetcher`).
 
 Backup user's `~/.aws/credentials` file (which will be pre-populated
