@@ -1,6 +1,16 @@
 Change Log
 ==========
 
+## v0.12.2
+
+* fetcher/config.py: fix comments
+* doc/deployment.md: update
+* add/use conf.LOG_BACKUP_COUNT
+* fetcher/tasks.py: add "clearing failure count" log message
+* treat HTTP 504 (gateway timeout) as a soft error
+* scripts/db_archive.py: fix log message
+* dokku-scripts/instance.sh: remove obsolete RSS_FILE_PATH variable
+
 ## v0.12.1
 
 * fetcher/config.py: drop TASK_TIMEOUT_SECONDS back to 180
