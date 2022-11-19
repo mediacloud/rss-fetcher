@@ -156,7 +156,7 @@ if [ "x$BRANCH" = xprod ]; then
 
     # https://stackoverflow.com/questions/5549479/git-check-if-commit-xyz-in-remote-repo
     for REMOTE in origin $DOKKU_GIT_REMOTE $MCREMOTE; do
-	if git fetch $REMOTE $TAG >/dev/null; then
+	if git fetch $REMOTE $TAG >/dev/null 2>&1; then
 	    echo "found $REMOTE tag $TAG: update fetcher.VERSION?"
 	    exit 1
 	fi
