@@ -104,22 +104,26 @@ fi
 
 check_service() {
     local PLUGIN=$1
-    local SERVICE=$2
-    local APP=$3
+    shift
+    local SERVICE=$1
+    shift
+    local APP=$1
+    shift
+    local CREATE_OPTIONS="$*"
 
     if dokku $PLUGIN:exists $SERVICE >/dev/null 2>&1; then
 	echo "found $PLUGIN service $SERVICE"
     else
-	echo creating $PLUGIN service $SERVICE
-	dokku $PLUGIN:create $SERVICE
+	echo creating $PLUGIN service $SERVICE w/ options $CREATE_OPTIONS
+	dokku $PLUGIN:create $SERVICE $CREATE_OPTIONS
 	# XXX check status & call destroy on failure?
     fi
 
     if dokku $PLUGIN:linked $SERVICE $APP >/dev/null 2>&1; then
-	echo "$PLUGIN service $REDIS_SVC already linked"
+	echo "$PLUGIN service $SERVICE already linked to app $APP"
     else
-	echo linking $PLUGIN service $REDIS_SVC to app $APP
-	dokku $PLUGIN:link $REDIS_SVC $APP
+	echo linking $PLUGIN service $SERVICE to app $APP
+	dokku $PLUGIN:link $SERVICE $APP
 	# XXX check status
     fi
 }
@@ -229,7 +233,8 @@ add_vars MAX_FEEDS=15000
 
 ################
 
-check_service postgres $REDIS_SVC $APP
+# consider passing larger than default --shm-size???
+check_service postgres $DATABASE_SVC $APP
 
 # postgres: URLs deprecated in SQLAlchemy 1.4
 DATABASE_URL=$(dokku postgres:info $DATABASE_SVC --dsn | sed 's@^postgres:@postgresql:@')
