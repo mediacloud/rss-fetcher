@@ -31,6 +31,12 @@ FQDN=$(hostname -f)
 
 TYPE="$NAME"
 TYPE_OR_UNAME="$TYPE"
+
+TMP=/tmp/dokku-instance-$$
+trap "rm -f $TMP" 0
+touch $TMP
+chmod 600 $TMP
+
 case "$OP" in
 create|destroy)
     case "$NAME" in
@@ -65,12 +71,12 @@ APP=${PREFIX}rss-fetcher
 REDIS_SVC=$APP
 DATABASE_SVC=$APP
 
-# storage for generated RSS files, db CSV files, logs
+# non-volatile storage mount for generated RSS files, db CSV files, logs
 STORAGE=${APP}-storage
-# old storage directory name
-OLD_STORAGE=${APP}-daily-files
-# STORAGE mount point inside container (both old and new schemes)
+# STORAGE mount point inside container
 STORAGE_MOUNT_POINT=/app/storage
+# Location of storage dir from outside container:
+STDIR=$STORAGE_HOME/$STORAGE
 
 # filename must use letters and dashes only!!!:
 CRONTAB=/etc/cron.d/$APP
@@ -149,12 +155,13 @@ prod|staging)
     # XXX maybe use .$TYPE (.staging vs .prod)???
     # could get from ansible "vault" file
     VARS_FILE=.prod
-    if grep ^SENTRY_DSN $VARS_FILE >/dev/null; then
-	add_vars $(cat $VARS_FILE)
-    else
-	echo "Need $VARS_FILE file w/ SENTRY_DSN" 1>&2
+    # get vars for count, and to ignore comment lines!
+    egrep '^(SENTRY_DSN|RSS_FETCHER_(USER|PASS))=' $VARS_FILE > $TMP
+    if [ $(wc -l < $TMP) != 3 ]; then
+	echo "Need $VARS_FILE file w/ SENTRY_DSN RSS_FETCHER_{USER,PASS}" 1>&2
 	exit 1
     fi
+    add_vars $(cat $TMP)
     ;;
 esac
 
@@ -243,42 +250,12 @@ add_vars DATABASE_URL=$DATABASE_URL
 ################
 # non-volatile storage
 
-# XXX handle old (rss-fetcher-daily-files) and rename
-
-STDIR=$STORAGE_HOME/$STORAGE
 if [ ! -d $STDIR ]; then
     echo creating $STORAGE storage dir $STDIR
     dokku storage:ensure-directory $STORAGE
 fi
 
-OLDSTDIR=$STORAGE_HOME/$OLD_STORAGE
-
-TMP=/tmp/dokku-instance-$$
-trap "rm -f $TMP" 0
-dokku storage:list pbudne-rss-fetcher > $TMP
-
-if [ -d $OLDSTDIR ]; then
-    echo "moving storage files to new directory"
-
-    OWNER=$(ls -lgd $STDIR | awk '{ print $3 ":" $4 }')
-    RSS_DIR=$STDIR/$RSS_OUTPUT_DIR
-    if [ ! -d $RSS_DIR ]; then
-	mkdir $RSS_DIR
-	chown $OWNER $RSS_DIR
-    fi
-    # XXX check if files exist
-    echo moving rss files
-    mv $OLDSTDIR/mc*gz $RSS_DIR
-    # XXX check for remaining files!
-    echo removing $OLDSTDIR
-    rmdir $OLDSTDIR
-fi
-
-if grep "$OLDSTDIR:$STORAGE_MOUNT_POINT" $TMP >/dev/null; then
-    echo removing old storage directory mount
-    dokku storage:unmount $APP $OLDSTDIR:$STORAGE_MOUNT_POINT
-fi
-if grep "$STDIR:$STORAGE_MOUNT_POINT" $TMP >/dev/null; then
+if dokku storage:list $APP | fgrep "$STDIR:$STORAGE_MOUNT_POINT" >/dev/null; then
     echo found link to storage directory $STDIR to app $STORAGE_MOUNT_POINT
 else
     dokku storage:mount $APP $STDIR:$STORAGE_MOUNT_POINT
@@ -304,17 +281,16 @@ add_vars STATSD_PREFIX=$STATSD_PREFIX
 # make all add_vars calls before this!!!
 
 # config:set causes redeployment, so check first
-touch $TMP
-chmod 600 $TMP
 dokku config:show $APP | tail -n +2 | sed 's/: */=/' > $TMP
 NEED=""
-for V in $VARS; do
+# loop for var=val pairs
+for VV in $VARS; do
     # VE var equals
-    VE=$(echo $V | sed 's/=.*$/=/')
+    VE=$(echo $VV | sed 's/=.*$/=/')
     # find current value
-    CURR=$(fgrep $VE $TMP)
-    if [ "x$V" != "x$CURR" ]; then
-	NEED="$NEED $V"
+    CURR=$(fgrep "$VE" $TMP)
+    if [ "x$VV" != "x$CURR" ]; then
+	NEED="$NEED $VV"
     fi
 done
 

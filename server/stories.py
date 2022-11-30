@@ -1,12 +1,15 @@
 import logging
 from typing import Optional, TYPE_CHECKING
+
+from fastapi import APIRouter, Depends
 from flask import send_from_directory
-from fastapi import APIRouter
 if TYPE_CHECKING:  # pragma: no cover
     from flask.wrappers import Response
 
-from server.util import as_timeseries_data, api_method, TimeSeriesData
 from fetcher.database import models
+
+import server.auth as auth
+from server.util import as_timeseries_data, api_method, TimeSeriesData
 
 DEFAULT_DAYS = 30
 
@@ -18,7 +21,7 @@ router = APIRouter(
 )
 
 
-@router.get("/fetched-by-day")
+@router.get("/fetched-by-day", dependencies=[Depends(auth.read_access)])
 @api_method
 def stories_fetched_counts(days: Optional[int] = None) -> TimeSeriesData:
     return as_timeseries_data(
@@ -27,7 +30,7 @@ def stories_fetched_counts(days: Optional[int] = None) -> TimeSeriesData:
     )
 
 
-@router.get("/published-by-day")
+@router.get("/published-by-day", dependencies=[Depends(auth.read_access)])
 @api_method
 def stories_published_counts(days: Optional[int] = None) -> TimeSeriesData:
     return as_timeseries_data(

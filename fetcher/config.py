@@ -107,7 +107,7 @@ def conf_int(name: str, defval: int) -> property:
     return property(getter)
 
 
-def conf_optional(name: str) -> property:
+def conf_optional(name: str, hidden: bool = False) -> property:
     """
     return property function for
     optional configuration variable (returns None if not set, does not log)
@@ -121,7 +121,7 @@ def conf_optional(name: str) -> property:
             if value is None:   # optional: log only if set
                 confobj._set(name, value)
             else:
-                confobj._log(name, value)  # log first time only
+                confobj._log(name, value, hidden)  # log first time only
         return value
     return property(getter)
 
@@ -173,11 +173,13 @@ class _Config:                  # only instantiated in this file
     def _set(self, name: str, value: Any) -> None:
         self.values[name] = value
 
-    def _log(self, name: str, value: Any) -> None:
+    def _log(self, name: str, value: Any, hidden: bool = False) -> None:
         """
         set and log name & value
         """
         self._set(name, value)
+        if hidden:
+            value = '(hidden)'
         msg = f"{name}: {value}"
         if self.logging:
             logger.info(msg)
@@ -247,6 +249,10 @@ class _Config:                  # only instantiated in this file
 
     # timeout in sec. for fetching an RSS file
     RSS_FETCH_TIMEOUT_SECS = conf_int('RSS_FETCH_TIMEOUT_SECS', 30)
+
+    # user/password for Basic Authentication between rss-fetcher and web-search
+    RSS_FETCHER_USER = conf_optional('RSS_FETCHER_USER', hidden=True)
+    RSS_FETCHER_PASS = conf_optional('RSS_FETCHER_PASS', hidden=True)
 
     # days of RSS output files to generate
     # (also retention limit on stories)

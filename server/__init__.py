@@ -4,17 +4,19 @@ from typing import Dict
 
 # PyPI:
 from fastapi import FastAPI
+from fastapi.routing import Mount
+from fastapi.staticfiles import StaticFiles
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 # from sentry_sdk.integrations.logging import ignore_logger
 
+import fetcher
+from fetcher.path import OUTPUT_RSS_DIR
+import fetcher.sentry
+
 import server.feeds as feeds
-import server.rss as rss
 import server.sources as sources
 import server.stories as stories
 from server.util import api_method
-
-import fetcher
-import fetcher.sentry
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +32,15 @@ app = FastAPI(
         "email": "r.bhargava@northeastern.edu",
         "url": "https://mediacloud.org"
     },
+    routes=[
+        # works _BUT_ logs as "GET /foo HTTP/1.1" 200
+        Mount("/api/rss", StaticFiles(directory=OUTPUT_RSS_DIR)),
+        Mount("/rss", StaticFiles(directory=OUTPUT_RSS_DIR))
+    ]
 )
 app.include_router(feeds.router)
-app.include_router(rss.router)
 app.include_router(sources.router)
 app.include_router(stories.router)
-rss.mount(app)
 
 if fetcher.sentry.init():
     # make sure some errors we don't care about don't make it to sentry
@@ -47,7 +52,7 @@ if fetcher.sentry.init():
         pass
 
 
-@app.get("/api/version")
+@app.get("/api/version")        # NOTE! NOT protected!
 @api_method
 def version() -> Dict:
     return {'GIT_REV': os.environ.get('GIT_REV')}

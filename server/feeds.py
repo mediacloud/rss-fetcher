@@ -1,10 +1,13 @@
 import logging
 from typing import Dict, List, Optional
-from fastapi import APIRouter, Query
+
+from fastapi import APIRouter, Depends, Query
 
 from fetcher.database import Session
-from server.util import api_method
 from fetcher.database.models import Feed, FetchEvent
+
+import server.auth as auth
+from server.util import api_method
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +17,7 @@ router = APIRouter(
 )
 
 
-@router.get("/{feed_id}/history")
+@router.get("/{feed_id}/history", dependencies=[Depends(auth.read_access)])
 @api_method
 def get_feed_history(feed_id: int,
                      limit: Optional[int] = Query(
@@ -33,7 +36,7 @@ def get_feed_history(feed_id: int,
         return [event.as_dict_public() for event in query.all()]
 
 
-@router.get("/{feed_id}")
+@router.get("/{feed_id}", dependencies=[Depends(auth.read_access)])
 @api_method
 def get_feed(feed_id: int) -> Optional[Dict]:
     with Session() as session:
