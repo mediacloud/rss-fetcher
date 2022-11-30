@@ -120,7 +120,11 @@ check_service() {
     if dokku $PLUGIN:exists $SERVICE >/dev/null 2>&1; then
 	echo "found $PLUGIN service $SERVICE"
     else
-	echo creating $PLUGIN service $SERVICE w/ options $CREATE_OPTIONS
+	if [ "x$CREATE_OPTIONS" != x ]; then
+	    echo creating $PLUGIN service $SERVICE w/ options $CREATE_OPTIONS
+	else
+	    echo creating $PLUGIN service $SERVICE
+	fi
 	dokku $PLUGIN:create $SERVICE $CREATE_OPTIONS
 	# XXX check status & call destroy on failure?
     fi
@@ -155,15 +159,30 @@ prod|staging)
     # XXX maybe use .$TYPE (.staging vs .prod)???
     # could get from ansible "vault" file
     VARS_FILE=.prod
+    VF=$TMP
     # get vars for count, and to ignore comment lines!
-    egrep '^(SENTRY_DSN|RSS_FETCHER_(USER|PASS))=' $VARS_FILE > $TMP
-    if [ $(wc -l < $TMP) != 3 ]; then
+    egrep '^(SENTRY_DSN|RSS_FETCHER_(USER|PASS))=' $VARS_FILE > $VF
+    if [ $(wc -l < $VF) != 3 ]; then
 	echo "Need $VARS_FILE file w/ SENTRY_DSN RSS_FETCHER_{USER,PASS}" 1>&2
 	exit 1
     fi
-    add_vars $(cat $TMP)
+    ;;
+*)
+    VF=.pw.$UNAME
+    if [ -f $VF ]; then
+	echo using user/password in $VF
+    else
+	# XXX _could_ check .env file,
+	# creating from .env.template
+	# and adding vars if needed.
+	echo generating user/password, saving in $VF
+	echo RSS_FETCHER_USER=$UNAME$$ > $VF
+	echo RSS_FETCHER_PASS=$(openssl rand -base64 15) >> $VF
+    fi
+    chown $UNAME $VF
     ;;
 esac
+add_vars $(cat $VF)
 
 ################ ssh key management
 
@@ -202,13 +221,12 @@ fi
 REM=dokku_$TYPE_OR_UNAME
 
 if git remote | grep "^$REM\$" >/dev/null; then
-    echo "found git remote $REM" 1>&2
-else
-    echo adding git remote $REM
-    # XXX maybe use FQDN?
-    # XXX maybe auto-fetch (-f flag)
-    git remote add $REM dokku@$HOST:$APP
+    echo removing git remote $REM
+    git remote remove $REM
 fi
+echo adding git remote $REM
+git remote add $REM dokku@$HOST:$APP
+git fetch $REM
 
 ################
 
@@ -250,14 +268,17 @@ add_vars DATABASE_URL=$DATABASE_URL
 ################
 # non-volatile storage
 
-if [ ! -d $STDIR ]; then
+if [ -d $STDIR ]; then
+    echo using $STORAGE dir $STDIR
+else
     echo creating $STORAGE storage dir $STDIR
     dokku storage:ensure-directory $STORAGE
 fi
 
 if dokku storage:list $APP | fgrep "$STDIR:$STORAGE_MOUNT_POINT" >/dev/null; then
-    echo found link to storage directory $STDIR to app $STORAGE_MOUNT_POINT
+    echo storage directory $STDIR linked to app dir $STORAGE_MOUNT_POINT
 else
+    echo linking storage directory $STDIR to app dir $STORAGE_MOUNT_POINT
     dokku storage:mount $APP $STDIR:$STORAGE_MOUNT_POINT
 fi
 
@@ -269,7 +290,9 @@ add_vars SAVE_RSS_FILES=0
 ################
 
 # check for, or create stats service, and link to our app
+echo checking for stats service...
 $SCRIPT_DIR/create-stats.sh $APP
+echo ''
 
 # using automagic STATSD_URL in fetcher/stats.py
 
