@@ -50,9 +50,6 @@ def access(credentials: HTTPBasicCredentials, type: Access) -> None:
     """
     raises HTTPException if access denied
     """
-    # XXX TEMP:
-    logger.info(f"{credentials.username} {credentials.password} {type.value}")
-
     # Use compare_digest, and run twice REGARDLESS, to thawt timing attacks
     # (especially easy, since we report runtime in response).
     # NOTE! compare_digest cannot handle non-ASCII strings,
@@ -75,11 +72,6 @@ def read_access(credentials: HTTPBasicCredentials = Depends(security)) -> None:
     called via:
     @app.get('/api/a/protected', dependencies=[Depends(read_access)])
     raises HTTPException on error.
-
-    _could_ also be called via:
-    @app.get("/api/foo")
-    def foo(val Type = Depends(read_access)):
-    [and it could return a value]
     """
     return access(credentials, Access.READ)
 
