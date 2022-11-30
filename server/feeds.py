@@ -29,13 +29,14 @@ def post_feed_fetch_soon(feed_id: int) -> int:
 
     # MAYBE move scripts.queue_feeds.queue_feeds() into its own file
     # and call it here?  Need to lock row and make sure not queued first??
+    # NOTE! isnot(True) may not work in DB's w/o bool type (eg MySQL)??
     with Session() as session:
-        ret = session.query(Feed)\
-                     .filter(Feed.id == int,
-                             Feed.queued.isnot(True))\
-                     .update({'next_fetch_attempt': None})
+        count = session.query(Feed)\
+                       .filter(Feed.id == feed_id,
+                               Feed.queued.isnot(True))\
+                       .update({'next_fetch_attempt': None})
         session.commit()
-    return ret
+    return int(count)
 
 
 @router.get("/{feed_id}/history", dependencies=[Depends(auth.read_access)])
@@ -63,10 +64,13 @@ def get_feed_history(feed_id: int,
 def post_feed_reset_failures(feed_id: int) -> int:
     with Session() as session:
         # NOTE! no "queued" test
-        ret = session.query(Feed)\
-                     .filter(Feed.id == int)\
-                     .update({'last_fetch_failures': 0})
+        count = session.query(Feed)\
+                       .filter(Feed.id == feed_id)\
+                       .update({'last_fetch_failures': 0,
+                                'system_enabled': True})
         session.commit()
+    return int(count)
+
 
 @router.get("/{feed_id}", dependencies=[Depends(auth.read_access)])
 @api_method
