@@ -18,10 +18,11 @@ fi
 HOST=$(hostname -s)
 
 if dokku graphite:exists $GRAPHITE_STATS_SVC >/dev/null 2>&1; then
-    echo found  graphite service $GRAPHITE_STATS_SVC
+    echo found graphite service $GRAPHITE_STATS_SVC
 else
     echo creating graphite service $GRAPHITE_STATS_SVC
     dokku graphite:create $GRAPHITE_STATS_SVC
+    CREATED=1
 fi
 
 if public_server; then
@@ -44,16 +45,25 @@ else
     # expose dokku-graphite http service on port 80
     # and recognize a domain name like stats.OURHOST.tarbell.mediacloud.org
     FULLNAME=$BASTION_SERVICE.$BASTION.$PUBLIC_DOMAIN
-    dokku graphite:nginx-expose $GRAPHITE_STATS_SVC $FULLNAME
 
-    # give instructions on how set up encrypted proxy on BASTION host:
-    echo "NOTE!!! run '$SCRIPT_DIR/http-proxy.sh $BASTION_SERVICE $HOST 80' on $BASTION"
+    NGCONF=/etc/nginx/conf.d/grafana-${GRAPHITE_STATS_SVC}.conf
+    if grep -F "$FULLNAME" $NGCONF >/dev/null 2>&1; then
+	echo found $FULLNAME in $NGCONF
+    else
+	echo exposing $GRAPHITE_STATS_SVC as $FULLNAME
+	dokku graphite:nginx-expose $GRAPHITE_STATS_SVC $FULLNAME
+
+	# give instructions on how set up encrypted proxy on BASTION host:
+	echo "run '$SCRIPT_DIR/http-proxy.sh $BASTION_SERVICE $HOST 80' on $BASTION to make stats server public"
+    fi
 fi
 if [ "x$LINK_TO_APP" != x ]; then
-    if ! dokku graphite:linked $GRAPHITE_STATS_SVC $LINK_TO_APP; then
+    if ! dokku graphite:linked $GRAPHITE_STATS_SVC $LINK_TO_APP >/dev/null 2>&1; then
 	echo linking $GRAPHITE_STATS_SVC service to app $LINK_TO_APP
 	dokku graphite:link $GRAPHITE_STATS_SVC $LINK_TO_APP
     fi
 fi
 
-echo "**** connect to https://$FULLNAME user admin password admin to reset admin password ****"
+if [ "x$CREATED" != x ]; then
+    echo "**** connect to https://$FULLNAME user admin password admin to reset admin password ****"
+fi
