@@ -24,7 +24,7 @@ def post_feed_fetch_soon(feed_id: int) -> int:
     """
     Mark feed to be fetched ASAP.
     Only contends with feeds that have never been attempted
-    (and other that come thru this path).
+    (and others that come thru this path).
     """
 
     # MAYBE move scripts.queue_feeds.queue_feeds() into its own file
@@ -34,7 +34,9 @@ def post_feed_fetch_soon(feed_id: int) -> int:
         count = session.query(Feed)\
                        .filter(Feed.id == feed_id,
                                Feed.queued.isnot(True))\
-                       .update({'next_fetch_attempt': None})
+                       .update({'next_fetch_attempt': None
+                                'last_fetch_failures': 0,
+                                'system_enabled': True})
         session.commit()
     return int(count)
 
@@ -56,20 +58,6 @@ def get_feed_history(feed_id: int,
                          .limit(limit)
 
         return [event.as_dict_public() for event in query.all()]
-
-
-@router.post("/{feed_id}/reset-failures",
-             dependencies=[Depends(auth.write_access)])
-@api_method
-def post_feed_reset_failures(feed_id: int) -> int:
-    with Session() as session:
-        # NOTE! no "queued" test
-        count = session.query(Feed)\
-                       .filter(Feed.id == feed_id)\
-                       .update({'last_fetch_failures': 0,
-                                'system_enabled': True})
-        session.commit()
-    return int(count)
 
 
 @router.get("/{feed_id}", dependencies=[Depends(auth.read_access)])
