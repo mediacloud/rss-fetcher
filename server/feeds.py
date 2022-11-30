@@ -34,7 +34,7 @@ def post_feed_fetch_soon(feed_id: int) -> int:
         count = session.query(Feed)\
                        .filter(Feed.id == feed_id,
                                Feed.queued.isnot(True))\
-                       .update({'next_fetch_attempt': None
+                       .update({'next_fetch_attempt': None,
                                 'last_fetch_failures': 0,
                                 'system_enabled': True})
         session.commit()
