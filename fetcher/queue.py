@@ -15,7 +15,6 @@ from typing import List, Optional
 
 from redis.client import StrictRedis
 from rq import Connection, Queue, SimpleWorker
-from rq.local import LocalStack
 import rq.timeouts
 from sqlalchemy import text
 from sqlalchemy.engine.url import make_url
@@ -65,6 +64,12 @@ def queue_feeds(
     """
     Queue feed_ids to work queue
     ts_iso expected to be return from datetime.datetime.isoformat()
+
+    NOTE!!!
+
+    The ONLY place this should be called is the queue_feeds
+    function (currently in scripts/queue_feeds.py), which performs
+    book-keeping tasks!!!
     """
     try:
         job_datas = [

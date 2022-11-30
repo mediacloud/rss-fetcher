@@ -23,17 +23,17 @@ router = APIRouter(
 
 @router.get("/fetched-by-day", dependencies=[Depends(auth.read_access)])
 @api_method
-def stories_fetched_counts(days: Optional[int] = None) -> TimeSeriesData:
+def stories_fetched_counts() -> TimeSeriesData:
     return as_timeseries_data(
-        [models.Story.recent_published_volume(limit=(days or DEFAULT_DAYS))],
+        [models.Story.recent_published_volume(limit=DEFAULT_DAYS)],
         ["stories"]
     )
 
 
 @router.get("/published-by-day", dependencies=[Depends(auth.read_access)])
 @api_method
-def stories_published_counts(days: Optional[int] = None) -> TimeSeriesData:
+def stories_published_counts() -> TimeSeriesData:
     return as_timeseries_data(
-        [models.Story.recent_fetched_volume(limit=(days or DEFAULT_DAYS))],
+        [models.Story.recent_fetched_volume(limit=DEFAULT_DAYS)],
         ["stories"]
     )

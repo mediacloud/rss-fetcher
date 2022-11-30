@@ -17,6 +17,27 @@ router = APIRouter(
 )
 
 
+@router.post("/{feed_id}/fetch-soon",
+             dependencies=[Depends(auth.write_access)])
+@api_method
+def post_feed_fetch_soon(feed_id: int) -> int:
+    """
+    Mark feed to be fetched ASAP.
+    Only contends with feeds that have never been attempted
+    (and other that come thru this path).
+    """
+
+    # MAYBE move scripts.queue_feeds.queue_feeds() into its own file
+    # and call it here?  Need to lock row and make sure not queued first??
+    with Session() as session:
+        ret = session.query(Feed)\
+                     .filter(Feed.id == int,
+                             Feed.queued.isnot(True))\
+                     .update({'next_fetch_attempt': None})
+        session.commit()
+    return ret
+
+
 @router.get("/{feed_id}/history", dependencies=[Depends(auth.read_access)])
 @api_method
 def get_feed_history(feed_id: int,
@@ -35,6 +56,17 @@ def get_feed_history(feed_id: int,
 
         return [event.as_dict_public() for event in query.all()]
 
+
+@router.post("/{feed_id}/reset-failures",
+             dependencies=[Depends(auth.write_access)])
+@api_method
+def post_feed_reset_failures(feed_id: int) -> int:
+    with Session() as session:
+        # NOTE! no "queued" test
+        ret = session.query(Feed)\
+                     .filter(Feed.id == int)\
+                     .update({'last_fetch_failures': 0})
+        session.commit()
 
 @router.get("/{feed_id}", dependencies=[Depends(auth.read_access)])
 @api_method

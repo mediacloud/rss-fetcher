@@ -36,6 +36,9 @@ def queue_feeds(session: SessionType,
     """
     Queue feeds, create FetchEvent rows, report stats and log.
     `session` should already be in a transaction!
+
+    This is the ONLY place that should call queue.queue_feeds!!!
+    If this is needed elsewhere move to a separate file!!!!!
     """
     stats = Stats.get()
 
@@ -102,7 +105,9 @@ def find_and_queue_feeds(wq: queue.Queue, limit: int, timeout: int) -> int:
         if not feed_ids:
             return 0
 
-        return queue_feeds(session, wq, feed_ids, timeout)
+        ret = queue_feeds(session, wq, feed_ids, timeout)
+        session.commit()
+        return ret
 
 
 def _active_feed_ids(session: SessionType) -> Query:
