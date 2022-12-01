@@ -20,24 +20,27 @@ SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI
 SCRIPT = 'import_feeds'
 
 
-def _run_psql_command(cmd: str) -> None:
-    call(['psql', '-Atx', SQLALCHEMY_DATABASE_URI, '-c', cmd])
-
-
 if __name__ == '__main__':
     # prep file
     logger = logging.getLogger(SCRIPT)
     p = LogArgumentParser(SCRIPT, 'import feeds.csv file')
+    p.add_argument('--delete-stories', action='store_true')
+    p.add_argument('--delete-fetch-events', action='store_true')
+
     # mandatory positional argument
     p.add_argument('input_file', metavar='INPUT_FILE')
+
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
-
-    logger.info(f"Clearing database")
     with engine.begin() as conn:  # will automatically close
+        logger.info(f"Clearing feeds")
         conn.execute(text("DELETE FROM feeds;"))
-        conn.execute(text("DELETE FROM fetch_events;"))
-        conn.execute(text("DELETE FROM stories;"))
+        if args.delete_fetch_events:
+            logger.info(f"Clearing fetch_events")
+            conn.execute(text("DELETE FROM fetch_events;"))
+        if args.delete_stories:
+            logger.info(f"Clearing stories")
+            conn.execute(text("DELETE FROM stories;"))
 
     # import data
     filename = args.input_file
