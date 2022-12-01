@@ -61,6 +61,7 @@ class Status(Enum):
     SUCC = 'Success'            # success
     SOFT = 'Soft error'         # soft error (never disable)
     HARD = 'Hard error'         # hard error
+    TEMP = 'Temporary error'    # DNS "TRYAGAIN"
     NOUPD = 'No Update'         # don't update Feed
 
 
@@ -316,8 +317,10 @@ def update_feed(session: SessionType,
         else:
             if status == Status.HARD:
                 incr = 1.
-            else:
+            elif status == Status.SOFT:
                 incr = SOFT_FAILURE_INCREMENT
+            else:               # Status.TEMP
+                incr = 0        # don't advance error count
             failures = f.last_fetch_failures = f.last_fetch_failures + incr
             if failures >= MAX_FAILURES:
                 event = FetchEvent.Event.FETCH_FAILED_DISABLED
@@ -325,7 +328,7 @@ def update_feed(session: SessionType,
                 next_minutes = None  # don't reschedule
                 logger.warning(
                     f" Feed {feed_id}: disabled after {failures} failures")
-            else:
+            elif incr != 0:
                 event = FetchEvent.Event.FETCH_FAILED
                 logger.info(
                     f" Feed {feed_id}: upped last_fetch_failures to {failures}")
@@ -337,6 +340,7 @@ def update_feed(session: SessionType,
                     # (12h, 1d, 2d, 4d), so using linear backoff
                     next_minutes *= int(failures + 0.5)
 
+                # XXX have Status.SRAND (Soft + RAND)??
                 if status == Status.SOFT:
                     # Add random minute offset to break up clumps of 429
                     # (Too Many Requests) errors:
@@ -380,7 +384,6 @@ def update_feed(session: SessionType,
                 status_note))
         session.commit()
         session.close()
-
     # end "with session.begin()"
 
 
@@ -491,11 +494,13 @@ def request_exception_to_status(
     # catch-all for ConnectionError:
     if isinstance(exc, requests.exceptions.ConnectionError):
         s = repr(exc)
-        if 'Name or service not known' in s:
-            # _COULD_ be a human DNS screw-up....
-            return Status.HARD, "unknown hostname"
         # DNS errors appear as negative errno values
         if '[Errno -' in s:
+            if 'Name or service not known' in s:
+                # _COULD_ be a human DNS screw-up....
+                return Status.HARD, "unknown hostname"
+            if 'Temporary failure in name resolution' in s:
+                return Status.TEMP, "temporary DNS error"
             return Status.SOFT, "DNS error"
         return Status.SOFT, "connection error"
 
@@ -905,3 +910,9 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
     if u.status != Status.NOUPD:
         with Session() as session:
             update_feed(session, feed_id, start, u)
+
+        # if temporary DNS error, just chill for a bit
+        # (avoid chewing through queue)
+        if u.status == Status.TEMP:
+            setproctitle(f"{APP} {DYNO} temp DNS error")
+            time.sleep(60)
