@@ -221,13 +221,12 @@ fi
 REM=dokku_$TYPE_OR_UNAME
 
 if git remote | grep "^$REM\$" >/dev/null; then
-    echo removing git remote $REM
-    git remote remove $REM
+    echo found git remote $REM
+else
+    echo adding git remote $REM
+    GIT_OWNER=$(stat -c %U .git)
+    su $GIT_OWNER -c "git remote add $REM dokku@$HOST:$APP"
 fi
-echo adding git remote $REM
-git remote add $REM dokku@$HOST:$APP
-git fetch $REM
-
 ################
 
 if dokku apps:exists $APP >/dev/null 2>&1; then
