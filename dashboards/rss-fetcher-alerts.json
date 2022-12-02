@@ -96,7 +96,7 @@
         {
           "refCount": 0,
           "refId": "A",
-          "target": "movingAverage(stats.counters.mc.prod.rss-fetcher.queue_feeds.queued_feeds.count, '30min')",
+          "target": "movingAverage(stats.counters.mc.prod.rss-fetcher.queue_feeds.queued_feeds.count, '5min')",
           "textEditor": true
         }
       ],
@@ -353,7 +353,7 @@
       "targets": [
         {
           "refId": "A",
-          "target": "movingAverage(stats.timers.mc.prod.rss-fetcher.worker.total.status_SUCC.count, '30min')"
+          "target": "movingAverage(stats.timers.mc.prod.rss-fetcher.worker.total.status_SUCC.count, '5min')"
         }
       ],
       "thresholds": [
@@ -482,7 +482,7 @@
       "targets": [
         {
           "refId": "A",
-          "target": "movingAverage(sumSeries(stats.counters.mc.prod.rss-fetcher.worker.stories.*.count), '30min')",
+          "target": "movingAverage(sumSeries(stats.counters.mc.prod.rss-fetcher.worker.stories.*.count), '5min')",
           "textEditor": false
         }
       ],
@@ -551,5 +551,5 @@
   "timezone": "",
   "title": "rss-fetcher alerts",
   "uid": "YVUKAfDVk",
-  "version": 17
+  "version": 18
 }
