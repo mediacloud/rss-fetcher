@@ -56,11 +56,6 @@ LOG_AT_INFO = {'update_minutes', 'name'}
 SOFT_FAILURE_INCREMENT = 0.5
 
 
-# time to sleep after a "temporary DNS error"
-# to avoid uselessly spinning through queue
-TEMP_ERROR_SLEEP_SECONDS = 60
-
-
 class Status(Enum):
     # .value used for logging:
     SUCC = 'Success'            # success
@@ -934,10 +929,4 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
         with Session() as session:
             update_feed(session, feed_id, start, u)
 
-        # if temporary DNS error, just chill for a bit
-        # (avoid chewing through queue)
-        if u.status == Status.TEMP and TEMP_ERROR_SLEEP_SECONDS:
-            setproctitle(
-                f"{APP} {DYNO} temp error sleep {TEMP_ERROR_SLEEP_SECONDS}")
-            logger.info(f"Sleeping for {TEMP_ERROR_SLEEP_SECONDS}")
-            time.sleep(TEMP_ERROR_SLEEP_SECONDS)
+        # if repeated Status.TEMP errors seen, sleep here??
