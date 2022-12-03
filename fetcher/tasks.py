@@ -731,9 +731,13 @@ def fetch_and_process_feed(
     try:
         parsed_feed = feedparser.parse(response.text)
         if parsed_feed.bozo:
-            # BAIL: couldn't parse it correctly
-            return Update('parse_err', Status.SOFT, 'parse error',
-                          note=repr(parsed_feed.bozo_exception))
+            be = parsed_feed.bozo_exception
+            if isinstance(be, feedparser.CharacterEncodingOverride):
+                logger.debug(f"   Feed {feed_id} ignoring {be!r}")
+            else:
+                # BAIL: couldn't parse it correctly
+                return Update('parse_err', Status.SOFT, 'parse error',
+                              note=repr(be))
     except UnicodeError as exc:
         # w/ feedparser 6.0.10:
         # feedparser/mixin.py", line 359, in handle_charref:
