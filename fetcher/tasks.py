@@ -336,10 +336,11 @@ def update_feed(session: SessionType,
                 next_minutes = None  # don't reschedule
                 logger.warning(
                     f" Feed {feed_id}: disabled after {failures} failures")
-            elif incr != 0:
+            else:
                 event = FetchEvent.Event.FETCH_FAILED
-                logger.info(
-                    f" Feed {feed_id}: upped last_fetch_failures to {failures}")
+                if incr != 0:
+                    logger.info(
+                        f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
             if next_minutes is not None:
                 # result MUST NOT be less than next_minutes!!
