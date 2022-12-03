@@ -369,8 +369,12 @@ def update_feed(session: SessionType,
                 if next_minutes < MINIMUM_INTERVAL_MINS:
                     next_minutes = MINIMUM_INTERVAL_MINS
 
-            if update.retry_after_min and update.retry_after_min > next_minutes:
-                next_minutes = update.retry_after_min
+            ram = update.retry_after_min
+            if ram and ram > next_minutes:
+                # unlikely with 12h minima, but 24h seen:
+                logger.info(
+                    f"  Feed {feed_id} - using retry_after {ram} ({next_minutes})")
+                next_minutes = ram
 
             if update.randomize:
                 # Add random minute offset to break up clumps of 429
