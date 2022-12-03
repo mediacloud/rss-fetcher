@@ -64,7 +64,7 @@ TEMP_ERROR_SLEEP_SECONDS = 60
 class Status(Enum):
     # .value used for logging:
     SUCC = 'Success'            # success
-    SOFT = 'Soft error'         # soft error (never disable)
+    SOFT = 'Soft error'         # soft error (more retries)
     HARD = 'Hard error'         # hard error
     TEMP = 'Temporary error'    # DNS "TRYAGAIN"
     NOUPD = 'No Update'         # don't update Feed
@@ -77,6 +77,8 @@ class Update(NamedTuple):
     sys_status: str
     note: Optional[str] = None
     feed_col_updates: Dict[str, Any] = {}
+    retry_after_min: Optional[float] = None
+    randomize: bool = False
 
 
 def NoUpdate(counter: str) -> Update:
@@ -235,7 +237,7 @@ def update_feed(session: SessionType,
     * updates the Feed row
       + clearing "Feed.queued"
       + increment or clear Feed.last_fetch_failures
-      + update Feed.next_fetch_attempt (or not) to reschedule
+      + update Feed.next_fetch_attempt to reschedule
     * increment feeds stats counter
 
     so all policy can be centralized here.
@@ -307,7 +309,7 @@ def update_feed(session: SessionType,
 
         # NOTE! fetches_per_minute depends on retries NEVER being less
         # than MINIMUM_INTERVALS_MINS[_304].  Any changes here to
-        # nex_minutes MUST be reflected in fetches_per_minute function
+        # next_minutes MUST be reflected in fetches_per_minute function
         # database query.
 
         next_minutes = f.update_minutes or DEFAULT_INTERVAL_MINS
@@ -315,8 +317,9 @@ def update_feed(session: SessionType,
         if status == Status.SUCC:
             event = FetchEvent.Event.FETCH_SUCCEEDED
             if f.last_fetch_failures > 0:
+                # interested in seeing which errors are transient:
                 logger.info(
-                    f" Feed {feed_id}: clearing failure count (was {f.last_fetch_failures})")
+                    f" Feed {feed_id}: clearing failures (was {f.last_fetch_failures}: {prev_system_status})")
             f.last_fetch_failures = 0
             # many values come in via 'feed_col_updates'
         else:
@@ -339,17 +342,12 @@ def update_feed(session: SessionType,
                     f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
             if next_minutes is not None:
-                if failures > 0:
+                # result MUST NOT be less than next_minutes!!
+                if failures >= 1:
                     # back off to be kind to servers:
                     # with large intervals exponential backoff is extreme
                     # (12h, 1d, 2d, 4d), so using linear backoff
-                    next_minutes *= int(failures + 0.5)
-
-                # XXX have Status.SRAND (Soft + RAND)??
-                if status == Status.SOFT:
-                    # Add random minute offset to break up clumps of 429
-                    # (Too Many Requests) errors:
-                    next_minutes += random.random() * 60
+                    next_minutes *= failures
 
         if next_minutes is not None:  # reschedule?
             # clamp interval to a minimum value
@@ -370,6 +368,14 @@ def update_feed(session: SessionType,
             else:
                 if next_minutes < MINIMUM_INTERVAL_MINS:
                     next_minutes = MINIMUM_INTERVAL_MINS
+
+            if update.retry_after_min and update.retry_after_min > next_minutes:
+                next_minutes = update.retry_after_min
+
+            if update.randomize:
+                # Add random minute offset to break up clumps of 429
+                # (Too Many Requests) errors:
+                next_minutes += random.random() * 60
 
             f.next_fetch_attempt = next_dt = utc(next_minutes * 60)
             logger.info(
@@ -639,11 +645,17 @@ def fetch_and_process_feed(
         else:
             sys_status = f"HTTP {rsc}"
 
-        # Testing: see how often Retry-After is set, and how.
+        # Testing: see how often Retry-After is set, and how (usually int sec).
         retry_after = response.headers.get('Retry-After', None)
+        rretry_after = None
         if retry_after:
             logger.info(
                 f"   Feed {feed_id}: Retry-After: {retry_after} w/ {sys_status}")
+            try:
+                # convert to (real) minutes
+                rretry_after = int(retry_after) / 60
+            except ValueError:
+                pass
 
         # limiting tag cardinality, only a few, common codes for now.
         # NOTE! 429 is "too many requests"
@@ -651,7 +663,9 @@ def fetch_and_process_feed(
             counter = f"http_{rsc}"
         else:
             counter = f"http_{rsc//100}xx"
-        return Update(counter, status, sys_status)
+        return Update(counter, status, sys_status,
+                      retry_after_min=rretry_after,
+                      randomize=(rsc == 429))
 
     # NOTE! 304 response will not have a body (terminated by end of headers)
     # so the last hash isn't (over)written below
@@ -906,8 +920,7 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
     stats.incr('feeds', 1, labels=[('stat', u.counter)])
 
     # total time is multi-modal (connection timeouts), so split by status.
-    # UGH: started w/ upper case (.name, not .value)
-    # NOTE! stats.timers.mc.prod.rss-fetcher.total.status_SUCCESS.count
+    # NOTE! stats.timers.mc.prod.rss-fetcher.total.status_SUCC.count
     # is a count of all successful fetches.
     stats.timing('total', total_sec,
                  labels=[('status', u.status.name)])
