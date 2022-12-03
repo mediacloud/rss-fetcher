@@ -56,6 +56,10 @@ LOG_AT_INFO = {'update_minutes', 'name'}
 SOFT_FAILURE_INCREMENT = 0.5
 
 
+# non-zero, in case permanent!
+TEMP_FAILURE_INCREMENT = 0.25
+
+
 class Status(Enum):
     # .value used for logging:
     SUCC = 'Success'            # success
@@ -323,7 +327,7 @@ def update_feed(session: SessionType,
             elif status == Status.SOFT:
                 incr = SOFT_FAILURE_INCREMENT
             else:               # Status.TEMP
-                incr = 0        # don't advance error count
+                incr = TEMP_FAILURE_INCREMENT
             failures = f.last_fetch_failures = f.last_fetch_failures + incr
             if failures >= MAX_FAILURES:
                 event = FetchEvent.Event.FETCH_FAILED_DISABLED
