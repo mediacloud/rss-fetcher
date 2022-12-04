@@ -69,6 +69,10 @@ class Status(Enum):
     NOUPD = 'No Update'         # don't update Feed
 
 
+# system_status for working feed
+SYS_WORKING = 'Working'
+
+
 class Update(NamedTuple):
     """data for update_feed (returned by fetch_and_process_feed)"""
     counter: str
@@ -252,7 +256,7 @@ def update_feed(session: SessionType,
 
     # fetch_event entry (just add system_status to fetch_event?)
     if note:
-        if system_status == "Working":  # also check status == Status.SUCC??
+        if system_status == SYS_WORKING:  # or/also check status == Status.SUCC??
             status_note = note
         else:
             status_note = f"{system_status}; {note}"
@@ -706,7 +710,8 @@ def fetch_and_process_feed(
     if response.status_code == 304:
         # record if feed has ever sent 304 response.
         feed_col_updates['http_304'] = True
-        return Update('not_mod', Status.SUCC, "not modified",
+        return Update('not_mod', Status.SUCC, SYS_WORKING,
+                      note="not modified",
                       feed_col_updates=feed_col_updates)
 
     # code below this point expects full body w/ RSS
@@ -722,7 +727,8 @@ def fetch_and_process_feed(
             # considering setting http_304 to 'f'
             # (disabling faster fetching when both "no change" and "same hash" occur)
             logger.info(f"   Feed {feed_id} same hash w/ http_304 set")
-        return Update('same_hash', Status.SUCC, "same hash",
+        return Update('same_hash', Status.SUCC, SYS_WORKING,
+                      note="same hash",
                       feed_col_updates=feed_col_updates)
 
     feed_col_updates['last_fetch_hash'] = new_hash
@@ -757,7 +763,7 @@ def fetch_and_process_feed(
     if feed['update_minutes'] != update_minutes:
         feed_col_updates['update_minutes'] = update_minutes
 
-    return Update('ok', Status.SUCC, 'Working',
+    return Update('ok', Status.SUCC, SYS_WORKING,
                   note=f"{skipped} skipped / {saved} added",
                   feed_col_updates=feed_col_updates)
 
