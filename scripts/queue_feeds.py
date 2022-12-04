@@ -56,7 +56,9 @@ def queue_feeds(session: SessionType,
     # a feed_id that hasn't been marked as queued.
     session.query(Feed)\
            .filter(Feed.id.in_(feed_ids))\
-           .update({'last_fetch_attempt': now, 'queued': True},
+           .update({'last_fetch_attempt': now,
+                    'next_fetch_attempt': now,
+                    'queued': True},
                    synchronize_session=False)
 
     # create a fetch_event row for each feed:
