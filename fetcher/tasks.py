@@ -738,8 +738,11 @@ def fetch_and_process_feed(
         parsed_feed = feedparser.parse(response.text)
         if parsed_feed.bozo:
             be = parsed_feed.bozo_exception
-            if isinstance(be, feedparser.CharacterEncodingOverride):
+            # see https://github.com/lemon24/reader/issues/171
+            if isinstance(be, feedparser.ThingsNobodyCaresAboutButMe):
                 logger.debug(f"   Feed {feed_id} ignoring {be!r}")
+                if not parsed_feed.version:
+                    raise Exception("no version")
             else:
                 # BAIL: couldn't parse it correctly
                 return Update('parse_err', Status.SOFT, 'parse error',
