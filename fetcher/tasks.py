@@ -763,6 +763,9 @@ def fetch_and_process_feed(
     if feed['update_minutes'] != update_minutes:
         feed_col_updates['update_minutes'] = update_minutes
 
+    if saved > 0:
+        feed_col_updates['last_new_stories'] = now
+
     return Update('ok', Status.SUCC, SYS_WORKING,
                   note=f"{skipped} skipped / {saved} added",
                   feed_col_updates=feed_col_updates)

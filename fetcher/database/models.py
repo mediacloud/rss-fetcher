@@ -72,6 +72,7 @@ class Feed(MyBase):
     update_minutes = Column(Integer)  # sy:updatePeriod/sy:updateFrequency
     http_304 = Column(Boolean)        # sends HTTP 304 "Not Modified"
     system_status = Column(String)
+    last_new_stories = Column(DateTime)
 
     def __repr__(self) -> str:
         return f"<Feed id={self.id} name={self.name} sources_id={self.sources_id}>"
