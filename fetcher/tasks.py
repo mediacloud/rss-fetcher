@@ -228,8 +228,6 @@ def fetches_per_minute(session: SessionType) -> float:
     return q.one()[0] or 0  # handle empty db!
 
 
-# start_time used for fetch/processing time, last_fetch_attempt,
-# Stories.created_at, FetchEvent.created_at, last_fetch_success
 def update_feed(session: SessionType,
                 feed_id: int,
                 start_time: dt.datetime,
@@ -245,6 +243,9 @@ def update_feed(session: SessionType,
 
     so all policy can be centralized here.
 
+    start_time used for fetch/processing time, last_fetch_attempt,
+    Stories.created_at, FetchEvent.created_at, last_fetch_success
+
     ***NOTE!!*** Any changes here in requeue policy
     need to be reflected in fetches_per_minite (above)
     """
@@ -254,7 +255,7 @@ def update_feed(session: SessionType,
     note = update.note                   # for log, FetchEvent.note
     feed_col_updates = update.feed_col_updates
 
-    # fetch_event entry (just add system_status to fetch_event?)
+    # construct status_note for fetch_event entry "note"
     if note:
         if system_status == SYS_WORKING:  # or/also check status == Status.SUCC??
             status_note = note
@@ -741,20 +742,14 @@ def fetch_and_process_feed(
             # see https://github.com/lemon24/reader/issues/171
             if isinstance(be, feedparser.ThingsNobodyCaresAboutButMe):
                 logger.debug(f"   Feed {feed_id} ignoring {be!r}")
-                if not parsed_feed.version:
+                if not getattr(parsed_feed, 'version'):
                     raise Exception("no version")
             else:
-                # BAIL: couldn't parse it correctly
-                return Update('parse_err', Status.SOFT, 'parse error',
-                              note=repr(be))
-    except UnicodeError as exc:
-        # w/ feedparser 6.0.10:
-        # feedparser/mixin.py", line 359, in handle_charref:
-        # text = chr(c).encode('utf-8')
-        # UnicodeEncodeError: 'utf-8' codec can't encode character '\ud83d' in
-        # position 0: surrogates not allowed
-        return Update('unicode', Status.SOFT, 'unicode error',
-                      note=repr(exc))
+                raise be
+    except Exception as exc:
+        # BAIL: couldn't parse it correctly
+        return Update('parse_err', Status.SOFT, 'parse error',
+                      note=repr(be))
 
     saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
 
