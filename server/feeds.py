@@ -25,6 +25,9 @@ def post_feed_fetch_soon(feed_id: int) -> int:
     Mark feed to be fetched ASAP.
     Only contends with feeds that have never been attempted
     (and others that come thru this path).
+
+    Originally created sepate "reset-errors" and "fetch-soon",
+    (this does both).
     """
 
     # MAYBE move scripts.queue_feeds.queue_feeds() into its own file
@@ -34,7 +37,7 @@ def post_feed_fetch_soon(feed_id: int) -> int:
         count = session.query(Feed)\
                        .filter(Feed.id == feed_id,
                                Feed.queued.isnot(True))\
-                       .update({'next_fetch_attempt': None,
+                       .update({'next_fetch_attempt': None,  # ASAP
                                 'last_fetch_failures': 0,
                                 'system_enabled': True})
         session.commit()
