@@ -57,7 +57,7 @@ def queue_feeds(session: SessionType,
     session.query(Feed)\
            .filter(Feed.id.in_(feed_ids))\
            .update({'last_fetch_attempt': now,
-                    'next_fetch_attempt': now,
+                    'next_fetch_attempt': None,  # ASAP
                     'queued': True},
                    synchronize_session=False)
 
