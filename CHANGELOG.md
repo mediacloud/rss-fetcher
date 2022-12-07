@@ -1,6 +1,27 @@
 Change Log
 ==========
 
+## v0.12.3
+
+* scripts/queue_feeds.py: fix queuing feeds by number
+* fetcher/tasks.py:
+   + ignore feedparser charset (etc) errors
+   + detect "temporary" DNS errors, treat as softer than SOFT!
+   + use HTTP Retry-After values
+   + only randomize 429 errors, after range checks & backoff scaling
+   + don't round failure count multiplier
+   + log prev_system_status when clearing last_fetch_failures
+	(to see/understand what errors are transient)
+   + Add Feed.last_new_stories column
+   + Set system_status to Working when same hash or no change
+* fetcher/rss/item.template: output one RSS item per line
+* dashboards -- NEW: json files for Grafana dashboards
+* scripts/import_feeds.py: add --delete-{fetch-events,stories}
+* dokku-scripts/instance.sh: add per-user .pw file
+* server/auth.py -- NEW HTTP Basic authentication
+* server/{feeds,sources,stories}.py: add authentication
+* server/feeds.py: add /api/feeds/ID/fetch-soon
+
 ## v0.12.2
 
 * fetcher/config.py: fix comments
