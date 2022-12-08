@@ -172,7 +172,7 @@ def _stray_catcher(task_timeout: int) -> None:
         session.commit()
         if reset_count:
             logger.warning(
-                f"qlen = 0; reset {reset_count} queued feed(s)")
+                f"qlen = 0; stray_catcher reset {reset_count} queued feed(s)")
 
 
 def loop(wq: queue.Queue, refill_period_mins: int,
