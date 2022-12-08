@@ -1,10 +1,7 @@
 import csv
 import datetime as dt
 import logging
-import os
 from random import random       # low-fi random ok
-from subprocess import call
-import sys
 
 from sqlalchemy import text
 
