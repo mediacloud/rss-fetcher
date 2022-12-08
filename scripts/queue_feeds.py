@@ -32,7 +32,8 @@ logger = logging.getLogger(SCRIPT)
 def queue_feeds(session: SessionType,
                 wq: queue.Queue,
                 feed_ids: List[int],
-                task_timeout: int) -> int:
+                task_timeout: int,
+                reset_next_attempt: bool = False) -> int:
     """
     Queue feeds, create FetchEvent rows, report stats and log.
     `session` should already be in a transaction!
@@ -52,14 +53,19 @@ def queue_feeds(session: SessionType,
     now = dt.datetime.utcnow()
     nowstr = now.isoformat()
 
+    updates = {
+        'last_fetch_attempt': now,
+        'queued': True
+    }
+    if reset_next_attempt:
+        # process ASAP, always valid
+        updates['next_fetch_attempt'] = None
+
     # mark as queued first so that workers can never see
     # a feed_id that hasn't been marked as queued.
     session.query(Feed)\
            .filter(Feed.id.in_(feed_ids))\
-           .update({'last_fetch_attempt': now,
-                    'next_fetch_attempt': None,  # ASAP
-                    'queued': True},
-                   synchronize_session=False)
+           .update(updates, synchronize_session=False)
 
     # create a fetch_event row for each feed:
     for feed_id in feed_ids:
@@ -344,12 +350,18 @@ if __name__ == '__main__':
                 .all()
             valid_ids = [row[0] for row in rows]
 
-        # maybe complain about invalid feeds
-        # (or at least say how many we're ignoring)?
-        #   find via set(feed_ids) - set(valid_feeds)
+        # log how many are valid:
+        if len(valid_ids) != len(feed_ids):
+            logger.info(f" {len(valid_ids)}/{len(feed_ids)} valid feeds")
 
         with Session() as session, session.begin():
-            queue_feeds(session, wq, valid_ids, task_timeout)
+            queue_feeds(
+                session,
+                wq,
+                valid_ids,
+                task_timeout,
+                reset_next_attempt=True)
+
     else:
         # classic behavior (run from cron every 30 min)
         # remove --loop from Procfile
