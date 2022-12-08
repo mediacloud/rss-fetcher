@@ -8,7 +8,7 @@
 
 import os
 
-VERSION = "0.12.2"
+VERSION = "0.12.3"
 
 # paths moved to fetch.path
 
