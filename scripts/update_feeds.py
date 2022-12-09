@@ -18,6 +18,7 @@ def ptime(s: str) -> dt.datetime:
     # XXX handle non-zero TZ?
     return dt.datetime.strptime(s, '%Y-%m-%d %H:%M:%S.%f+00')
 
+
 if __name__ == '__main__':
     SCRIPT = 'update_feeds'
 

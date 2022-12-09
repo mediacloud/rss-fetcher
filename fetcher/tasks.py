@@ -746,10 +746,16 @@ def fetch_and_process_feed(
                     raise Exception("no version")
             else:
                 raise be
-    except Exception as exc:
+    except Exception as exc:    # RARE catch-all!
         # BAIL: couldn't parse it correctly
+        # most often seen error is a UnicodeError class exception inside
+        # feedparser:
+
+        # at site-packages/feedparser/mixin.py", line 359, in handle_charref
+        # UnicodeEncodeError: 'utf-8' codec can't encode character '\ud83c' in
+        # position 0: surrogates not allowed
         return Update('parse_err', Status.SOFT, 'parse error',
-                      note=repr(be))
+                      note=repr(exc))
 
     saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
 
