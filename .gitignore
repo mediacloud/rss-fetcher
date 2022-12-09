@@ -121,6 +121,7 @@ fetcher/static/*.rss
 fetcher/static/*.gz
 backup/export
 tmp/
+push.log
 
 # emacs backups, autosaves
 *~
