@@ -248,4 +248,4 @@ export DOKKU_DEFAULT_CHECKS_WAIT=5
 dokku ps:scale --skip-deploy $APP $PROCS
 dokku ps:start $APP
 
-echo "$(date '+%F %T' $APP $REMOTE $TAG" >> push.log
+echo "$(date '+%F %T') $APP $REMOTE $TAG" >> push.log
