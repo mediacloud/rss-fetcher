@@ -265,6 +265,8 @@ class _Config:                  # only instantiated in this file
 
     SQLALCHEMY_DATABASE_URI = conf_required('DATABASE_URL')
 
+    SQLALCHEMY_ECHO = conf_bool('SQLALCHEMY_ECHO', False)
+
     # required if STATSD_URL set
     STATSD_PREFIX = conf_optional('STATSD_PREFIX')
 
