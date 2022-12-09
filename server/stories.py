@@ -2,9 +2,6 @@ import logging
 from typing import Optional, TYPE_CHECKING
 
 from fastapi import APIRouter, Depends
-from flask import send_from_directory
-if TYPE_CHECKING:  # pragma: no cover
-    from flask.wrappers import Response
 
 from fetcher.database import models
 

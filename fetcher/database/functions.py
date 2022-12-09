@@ -12,7 +12,7 @@ from sqlalchemy.types import Numeric
 
 # Phil October 2022
 if hasattr(functions, 'greatest'):
-    greatest = functions.greatest  # type: ignore[attr-defined]
+    greatest = functions.greatest
 else:
     # https://docs.sqlalchemy.org/en/14/core/compiler.html#greatest-function
     # (NOTE: has special cases for non-PG dbs)
