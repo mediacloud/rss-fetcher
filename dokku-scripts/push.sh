@@ -40,6 +40,11 @@ if ! git diff --quiet; then
     exit 1
 fi
 
+# XXX handle options for real!!
+if [ "x$1" = x--force-push ]; then
+    PUSH_FLAGS=--force
+fi
+
 BRANCH=$(git branch --show-current)
 
 # For someone that works on a branch in mediacloud repo,
@@ -198,7 +203,7 @@ echo ''
 if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
     # not first push, safe to push by tag name
     echo "Pushing $TAG to $DOKKU_GIT_REMOTE $DOKKU_GIT_BRANCH"
-    if git push $DOKKU_GIT_REMOTE $TAG:$DOKKU_GIT_BRANCH; then
+    if git push $PUSH_FLAGS $DOKKU_GIT_REMOTE $TAG:$DOKKU_GIT_BRANCH; then
 	echo OK 2>&1
     else
 	STATUS=$?
