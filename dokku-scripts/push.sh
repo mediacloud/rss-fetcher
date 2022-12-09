@@ -134,6 +134,7 @@ echo "Last commit:"
 git log -n1
 
 # XXX display URL for DOKKU_GIT_REMOTE??
+echo ''
 echo -n "Push branch $BRANCH to $DOKKU_GIT_REMOTE dokku app $APP? [no] "
 read CONFIRM
 case "$CONFIRM" in
@@ -172,10 +173,10 @@ else
     # XXX use staging or $USER instead of full $APP for brevity?
     TAG=$(date -u '+%F-%H-%M-%S')-$HOSTNAME-$APP
 fi
+echo ''
 echo adding local tag $TAG
 git tag $TAG
 
-echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 # NOTE: push will complain if you (developer) switch branches
 # (or your branch has been perturbed upstream, ie; by a force push)
 # so add script option to enable --force to push to dokku git repo?
@@ -189,18 +190,33 @@ echo "pushing $BRANCH to git remote $DOKKU_GIT_REMOTE branch $DOKKU_GIT_BRANCH"
 #	value at that time."
 # (ISTR seeing refs/tags/..../refs/tags/....)
 
+echo ''
 echo stopping processes...
-
 dokku ps:stop $APP
 
+echo ''
 if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
     # not first push, safe to push by tag name
     echo "Pushing $TAG to $DOKKU_GIT_REMOTE $DOKKU_GIT_BRANCH"
-    git push $DOKKU_GIT_REMOTE $TAG:$DOKKU_GIT_BRANCH
+    if git push $DOKKU_GIT_REMOTE $TAG:$DOKKU_GIT_BRANCH; then
+	echo OK 2>&1
+    else
+	STATUS=$?
+	echo "$0: git push failed with status $STATUS" 2>&1
+	git tag -d $TAG >/dev/null 2>&1
+	exit $STATUS
+    fi
 else
     # first push for new app.
     echo "First push to of $BRANCH to $DOKKU_GIT_REMOTE $DOKKU_GIT_BRANCH"
-    git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH
+    if git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH; then
+	echo OK
+    else
+	STATUS=$?
+	echo "$0: initial git push failed with status $STATUS" 2>&1
+	git tag -d $TAG >/dev/null 2>&1
+	exit $STATUS
+    fi
     echo "================"
 
     # will see complaints "WARNING: deploy did not complete, you must push to main."
