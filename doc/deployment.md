@@ -1,14 +1,16 @@
-This is built to deploy via a PaaS host, like Heroku. We deploy via [dokku](https://dokku.com).
+This is built to deploy via a PaaS host, like Heroku.
+We deploy via [dokku](https://dokku.com).
 
 NOTE!! The top level autopep8.sh and mypy.sh scripts should be run
-before merging code to mediacloud/main branch!  It's probably best
-to run autopep8.sh before every commit.
+before merging code to mediacloud/main branch!  It's probably best to
+run autopep8.sh before every commit; mypy.sh creates a local venv (in
+directory "venv" with all the necessaries to run mypy, and to run the
+code).  autopep8.sh expects autopep8 be installed.
 
-mypy.sh creates a local venv (named "venv" with all the necessaries
-to run mypy, and to run the code).  autopep8.sh expects autopep8 be installed.
-
-See [../dokku-scripts/README.md](../dokku-scripts/README.md) for descriptions
-of all the dokku helper scripts.
+There are a number of shell scripts to help deploy the app (for both
+testing and production); See
+[../dokku-scripts/README.md](../dokku-scripts/README.md) for
+descriptions.
 
 # Rationale
 
@@ -159,7 +161,13 @@ the version change commit into "staging"
 
 Your development application can be disposed of by running
 
-    dokku-scripts/instance.sh destroy dev-MYUSERNAME
+    dokku-scripts/instance.sh destroy dev-USERNAME
+
+(you will be prompted to enter USERNAME-rss-fetcher at a number of
+points). Or, to stop all application processes (leaving the database
+running):
+
+    dokku ps:stop USERNAME-rss-fetcher
 
 # Staging
 
