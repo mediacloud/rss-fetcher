@@ -1,8 +1,17 @@
 Change Log
 ==========
 
-## v0.12.3
+## v0.12.4
+* /api/stories/by-source endpoint
+* Honor SQLALCHEMY_ECHO for debug
+* Fix exception in parse exception handler!
+* dokku-scripts/push.sh:
+  + fix push.log
+  + check for push errors
+  + add --force-push
+* start of feed syncing scripts (not ready)
 
+## v0.12.3
 * scripts/queue_feeds.py: fix queuing feeds by number
 * fetcher/tasks.py:
    + ignore feedparser charset (etc) errors
