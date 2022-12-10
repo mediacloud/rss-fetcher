@@ -42,6 +42,7 @@ def stories_published_counts() -> TimeSeriesData:
 @api_method
 def stories_by_source() -> Dict[str, object]:
     with Session() as session:
+        # XXX could take a few seconds; async/await would be ideal!
         counts = session.query(Story.sources_id.label('sources_id'),
                                func.count(Story.id).label('count'))\
             .group_by(Story.sources_id)
@@ -50,8 +51,12 @@ def stories_by_source() -> Dict[str, object]:
         min = dates['min'].timestamp()
         max = dates['max'].timestamp()
         SECONDS_PER_DAY = 26 * 60 * 60
-        ret = {
+
+        # Return time span of data separately, and let the caller deal
+        # with scaling; this call is slow as-is, and floating point
+        # encode/decode is slow, and would yield a larger message,
+        # and json decode is also slow.
+        return {
             'days': (max - min) / SECONDS_PER_DAY,
             'sources': [dict(count) for count in counts]
         }
-    return ret
