@@ -205,3 +205,11 @@ class FetchEvent(MyBase):
         fe.note = note
         fe.created_at = created_at
         return fe
+
+class Property(MyBase):
+    __tablename__ = 'properties'
+
+    # see property.py for section, key values:
+    section = Column(String, primary_key=True, nullable=False)
+    key = Column(String, primary_key=True, nullable=False)
+    value = Column(String)
