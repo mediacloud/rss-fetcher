@@ -230,6 +230,11 @@ class _Config:                  # only instantiated in this file
     # feeds to queue before quitting (if not looping)
     MAX_FEEDS = conf_int('MAX_FEEDS', 10000)
 
+    # For querying search.mediacloud.org for updates to feeds table
+    MCWEB_URL = conf_default('MCWEB_URL', 'https://search.mediacloud.org')
+    MCWEB_TIMEOUT = conf_int('MCWEB_TIMEOUT', 60)
+    MCWEB_TOKEN = conf_optional('MCWEB_TOKEN', hidden=True)
+
     # minimum requeue interval (used to clamp sy:updatePeriod/Frequency)
     MINIMUM_INTERVAL_MINS = conf_int('MINIMUM_INTERVAL_MINS',
                                      _DEFAULT_MINIMUM_INTERVAL_MINS)
