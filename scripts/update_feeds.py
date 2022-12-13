@@ -46,23 +46,23 @@ def identity(x: Any) -> Any:
     return x
 
 
-def run(random_interval_mins: int = conf.DEFAULT_INTERVAL_MINS,
-        mcweb_timeout: int = conf.MCWEB_TIMEOUT,
-        verify_certificates: bool = conf.VERIFY_CERTIFICATES) -> int:
+# all arguments must be passed, and by keyword
+def run(*,
+        random_interval_mins: int,
+        mcweb_timeout: int,
+        verify_certificates: bool,
+        batch_limit: int,
+        sleep_seconds: int) -> int:
 
     t0 = time.time()            # TEMP save as last_modified on completion
-    token = conf.MCWEB_TOKEN
+    token = conf.MCWEB_TOKEN    # get mcweb API token from environment
     if not token:
         logger.error("MCWEB_TOKEN not configured")
         return 255
 
-    last_update = int(prop.get(prop.Section.UPDATE_FEEDS,
-                               prop.UpdateFeeds.MODIFIED_SINCE) or "0")
+    last_update = int(prop.UpdateFeeds.modified_since.get() or 0)
 
-    limit = 500                 # XXX take as arg?
-    sleep_time = 5              # XXX take as arg?
-
-    url = f"{conf.MCWEB_URL}/api/sources/feeds/?modified_since={last_update}&limit={limit}"
+    url = f"{conf.MCWEB_URL}/api/sources/feeds/?modified_since={last_update}&limit={batch_limit}"
     headers = {"Authorization": f"Token {token}"}
 
     totals: StatsDict = {}
@@ -204,13 +204,11 @@ def run(random_interval_mins: int = conf.DEFAULT_INTERVAL_MINS,
         url = nxt
         if nxt:
             batch_stat("ok")
-            time.sleep(sleep_time)
+            time.sleep(sleep_seconds)
         break                   # TEMP
     # end while
 
-    prop.set(prop.Section.UPDATE_FEEDS,
-             prop.UpdateFeeds.MODIFIED_SINCE,
-             str(int(t0)))
+    prop.UpdateFeeds.modified_since.set(str(int(t0)))
 
     log_stats(batches, "BATCHES")
     log_stats(totals, "FEEDS")
@@ -223,7 +221,28 @@ if __name__ == '__main__':
     logger = logging.getLogger(SCRIPT)
     p = LogArgumentParser(SCRIPT, 'update feeds using CSV from mcweb')
 
+    # option to delete all feeds (and reset last-modified)???
+#    p.add_argument('--reset-last-modified', action='store_true',
+#                   help="reset saved last-modified time")
+
+    SLEEP = 5
+    p.add_argument('--sleep-seconds', default=SLEEP, type=int,
+                   help=f"time to sleep between batch requests in seconds (default: {SLEEP})")
+
+    BATCH = 500
+    p.add_argument('--batch-limit', default=BATCH, type=int,
+                   help=f"feed batch size to request (default: {BATCH})")
+
+    # all of these _COULD_ be command line options....
+    random_interval_mins: int = conf.DEFAULT_INTERVAL_MINS
+    mcweb_timeout: int = conf.MCWEB_TIMEOUT
+    verify_certificates: bool = conf.VERIFY_CERTIFICATES
+
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
 
-    sys.exit(run())
+    sys.exit(run(random_interval_mins=random_interval_mins,
+                 mcweb_timeout=mcweb_timeout,
+                 verify_certificates=verify_certificates,
+                 batch_limit=args.batch_limit,
+                 sleep_seconds=args.sleep_seconds))
