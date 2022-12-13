@@ -40,7 +40,7 @@ of a critical service.
 		Antioch towards thy foe, who, being naughty in My
 		sight, shall snuff it.'
     
-	Armaments, chapter 2, verses 9-21
+	Book of Armaments, chapter 2, verses 9-21
 		Monty Python and the Holy Grail
 
 # Development
@@ -132,7 +132,8 @@ application named `stats.YOURSERVER` which should be Internet visible
 service at `https://stats.YOURSERVER.BASTIONSERVER.DO.MA.IN` (assuming
 there is a wildcard DNS address record for `*.BASTIONSERVER.DO.MA.IN`.
 
-*TEXT HERE ABOUT POPULATING A GRAFANA DASHBOARD*
+JSON files for Grafana dashboards are in the `dashboard' directory.
+*need to script installation!!! via HTTP POST?!*
 
 *TEXT HERE ABOUT ACCEPTANCE CRITERIA!!*
 (including mypy.sh running cleanly, and running autopep8.sh)
