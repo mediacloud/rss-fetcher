@@ -222,8 +222,8 @@ if __name__ == '__main__':
     p = LogArgumentParser(SCRIPT, 'update feeds using CSV from mcweb')
 
     # option to delete all feeds (and reset last-modified)???
-#    p.add_argument('--reset-last-modified', action='store_true',
-#                   help="reset saved last-modified time")
+    p.add_argument('--reset-last-modified', action='store_true',
+                   help="reset saved last-modified time first")
 
     SLEEP = 5
     p.add_argument('--sleep-seconds', default=SLEEP, type=int,
@@ -240,6 +240,9 @@ if __name__ == '__main__':
 
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
+
+    if args.reset_last_modified:
+        prop.UpdateFeeds.modified_since.unset()
 
     sys.exit(run(random_interval_mins=random_interval_mins,
                  mcweb_timeout=mcweb_timeout,

@@ -26,6 +26,7 @@ from sqlalchemy.dialects.postgresql import insert
 from fetcher.database import Session
 from fetcher.database.models import Property
 
+
 class Section:
     """Base class for a 'section' of properties"""
     SECTION_NAME: str = 'OVERRIDE THIS!!!'
@@ -69,7 +70,6 @@ class PropertyObject:
             session.execute(stmt)
             session.commit()
 
-
     def unset(self) -> None:
         with Session() as session:
             # XXX get w/ lock?
@@ -77,6 +77,7 @@ class PropertyObject:
             if item:
                 session.delete(item)
                 session.commit()
+
 
 class UpdateFeeds(Section):
     """properties for UPDATE_FEEDS Section"""
