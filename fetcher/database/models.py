@@ -206,6 +206,7 @@ class FetchEvent(MyBase):
         fe.created_at = created_at
         return fe
 
+
 class Property(MyBase):
     __tablename__ = 'properties'
 

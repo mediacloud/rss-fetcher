@@ -17,6 +17,7 @@ import requests
 from fetcher.config import conf
 from fetcher.database import Session
 import fetcher.database.models as models
+import fetcher.database.property as prop
 from fetcher.logargparse import LogArgumentParser
 from fetcher.stats import Stats
 
@@ -45,8 +46,7 @@ def identity(x: Any) -> Any:
     return x
 
 
-def run(
-        random_interval_mins: int = conf.DEFAULT_INTERVAL_MINS,
+def run(random_interval_mins: int = conf.DEFAULT_INTERVAL_MINS,
         mcweb_timeout: int = conf.MCWEB_TIMEOUT,
         verify_certificates: bool = conf.VERIFY_CERTIFICATES) -> int:
 
@@ -56,8 +56,10 @@ def run(
         logger.error("MCWEB_TOKEN not configured")
         return 255
 
-    last_update = 0             # XXX
-    limit = 1000                # XXX take as arg?
+    last_update = int(prop.get(prop.Section.UPDATE_FEEDS,
+                               prop.UpdateFeeds.MODIFIED_SINCE) or "0")
+
+    limit = 500                 # XXX take as arg?
     sleep_time = 5              # XXX take as arg?
 
     url = f"{conf.MCWEB_URL}/api/sources/feeds/?modified_since={last_update}&limit={limit}"
@@ -103,7 +105,7 @@ def run(
             return 3
 
         logger.debug(
-            f"{url} OK text: {len(resp.text)} bytes, items: {len(items)}, total: {rcount}")
+            f" OK text: {len(resp.text)} bytes, items: {len(items)}, total: {rcount}")
 
         now = dt.datetime.utcnow()
 
@@ -127,18 +129,11 @@ def run(
                 if f is None:
                     f = models.Feed()
                     f.id = iid
-
-                    # XXX smaller interval??? none????
-                    f.next_fetch_attempt = now + \
-                        dt.timedelta(
-                            seconds=random() * random_interval_mins * 60)
-                    # maybe only log when verbosity > 0?
+                    sec = random() * random_interval_mins * 60
+                    f.next_fetch_attempt = now + dt.timedelta(seconds=sec)
                     logger.info(f"CREATE {iid}")
                     create = True
                 else:
-                    # XXX check if queued????
-                    # XXX check if modified_at has changed??
-                    # maybe only log when verbosity > 0?
                     logger.info(f"UPDATE {iid}")
                     create = False
 
@@ -212,7 +207,10 @@ def run(
             time.sleep(sleep_time)
         break                   # TEMP
     # end while
-    logger.error(f"Save last_modified={int(t0)}!!!")
+
+    prop.set(prop.Section.UPDATE_FEEDS,
+             prop.UpdateFeeds.MODIFIED_SINCE,
+             str(int(t0)))
 
     log_stats(batches, "BATCHES")
     log_stats(totals, "FEEDS")
