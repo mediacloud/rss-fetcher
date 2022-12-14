@@ -22,7 +22,7 @@ from fetcher.logargparse import LogArgumentParser
 from fetcher.stats import Stats
 
 
-def ptime(s: str) -> dt.datetime:
+def parse_timestamp(s: str) -> dt.datetime:
     """
     parse JSON datetime string from mcweb
     """
@@ -52,18 +52,22 @@ def run(*,
         mcweb_timeout: int,
         verify_certificates: bool,
         batch_limit: int,
-        sleep_seconds: int) -> int:
+        sleep_seconds: int,
+        max_batches: int) -> int:
 
-    t0 = time.time()            # TEMP save as last_modified on completion
     token = conf.MCWEB_TOKEN    # get mcweb API token from environment
     if not token:
         logger.error("MCWEB_TOKEN not configured")
         return 255
 
-    last_update = int(prop.UpdateFeeds.modified_since.get() or 0)
+    last_update = prop.UpdateFeeds.modified_since.get()
+    luz = last_update or "0"
+    lui = int(luz)
+    if lui > 0:
+        after = time.strftime("%F %T", time.gmtime(lui))
+        logger.info("Fetching updates after {after}")
 
-    url = f"{conf.MCWEB_URL}/api/sources/feeds/?modified_since={last_update}&limit={batch_limit}"
-    headers = {"Authorization": f"Token {token}"}
+    url = f"{conf.MCWEB_URL}/api/sources/feeds/?modified_since={luz}&limit={batch_limit}"
 
     totals: StatsDict = {}
     batches: StatsDict = {}
@@ -76,13 +80,18 @@ def run(*,
         batches[stat] = batches.get(stat, 0) + 1
         stats.incr('update.batches', labels=[('status', stat)])
 
-    while url:
-        logger.info(f"Fetching updates w/ {url}")
+    rs = requests.Session()
+    rs.headers.update({"Authorization": f"Token {token}"})
+
+    batch_number = 1
+    last_modified_at = None
+
+    while True:
+        logger.info(f"Fetching {url}")
         try:
-            resp = requests.get(url,
-                                headers=headers,
-                                timeout=mcweb_timeout,
-                                verify=verify_certificates)
+            resp = rs.get(url,
+                          timeout=mcweb_timeout,
+                          verify=verify_certificates)
         except Exception as e:
             batch_stat("get_failed")
             logger.exception(url)
@@ -121,6 +130,7 @@ def run(*,
             for item in items:
                 try:
                     iid = int(item['id'])
+                    modified_at = item['modified_at']  # in ISO format, w/ 'Z'
                 except (ValueError, KeyError) as e:
                     inc('bad_id')
                     continue
@@ -131,11 +141,16 @@ def run(*,
                     f.id = iid
                     sec = random() * random_interval_mins * 60
                     f.next_fetch_attempt = now + dt.timedelta(seconds=sec)
-                    logger.info(f"CREATE {iid}")
+                    logger.info(f"CREATE {iid} {modified_at}")
                     create = True
                 else:
-                    logger.info(f"UPDATE {iid}")
+                    logger.info(f"UPDATE {iid} {modified_at}")
                     create = False
+
+                # NOTE! This depends on the mcweb API returning items
+                # ordered by modified_at time!!
+                if not last_modified_at or modified_at > last_modified_at:
+                    last_modified_at = modified_at
 
                 # MAYBE only log messages when verbosity > 1?
                 def check(dest: str,
@@ -175,7 +190,7 @@ def run(*,
                     changes += check('sources_id', 'source', int)
                     changes += check('active', 'admin_rss_enabled', bool)
 
-                    changes += check('created_at', 'created_at', ptime,
+                    changes += check('created_at', 'created_at', parse_timestamp,
                                      allow_change=False)
 
                     # ignoring modified_at, but if saved could be used for
@@ -199,15 +214,37 @@ def run(*,
 
             if need_commit:
                 session.commit()
-            log_stats(batch_stats, "batch:", False)
+            log_stats(batch_stats, f"batch {batch_number}:", False)
+            batch_number += 1
         # end with session
         url = nxt
+        if not url:
+            break
+        if max_batches > 1:
+            max_batches -= 1
+        elif max_batches == 1:
+            logger.info("reached batch limit")
+            break
+        batch_stat("ok")
+
         if nxt:
-            batch_stat("ok")
             time.sleep(sleep_seconds)
+        else:
+            logger.info("no more batches")
     # end while
 
-    prop.UpdateFeeds.modified_since.set(str(int(t0)))
+    if last_modified_at:
+        # Using modified_at timestamp from remote database means we
+        # don't need to worry about clock skews if we're running on a
+        # different server than they are, *BUT* mcweb only wants time
+        # truncated to whole seconds, AND only returns entries AFTER
+        # that second!!!
+        t = parse_timestamp(last_modified_at)
+
+        tt = t.timestamp()
+        new_modified_since = str(int(tt))
+        logger.info(f"Updating modified_since to {new_modified_since}")
+        prop.UpdateFeeds.modified_since.set(new_modified_since)
 
     log_stats(batches, "BATCHES")
     log_stats(totals, "FEEDS")
@@ -220,6 +257,15 @@ if __name__ == '__main__':
     logger = logging.getLogger(SCRIPT)
     p = LogArgumentParser(SCRIPT, 'update feeds using mcweb API')
 
+    BATCH = 500
+    p.add_argument('--batch-limit', default=BATCH, type=int,
+                   help=f"feed batch size to request (default: {BATCH})")
+
+    MAX_BATCHES = 0
+    p.add_argument('--max-batches', default=MAX_BATCHES, type=int,
+                   help=f"number of batches to fetch (default: {MAX_BATCHES});"
+                   " zero means no limit")
+
     # option to delete all feeds (and reset last-modified)???
     p.add_argument('--reset-last-modified', action='store_true',
                    help="reset saved last-modified time first")
@@ -227,10 +273,6 @@ if __name__ == '__main__':
     SLEEP = 5
     p.add_argument('--sleep-seconds', default=SLEEP, type=int,
                    help=f"time to sleep between batch requests in seconds (default: {SLEEP})")
-
-    BATCH = 500
-    p.add_argument('--batch-limit', default=BATCH, type=int,
-                   help=f"feed batch size to request (default: {BATCH})")
 
     # all of these _COULD_ be command line options....
     random_interval_mins: int = conf.DEFAULT_INTERVAL_MINS
@@ -247,4 +289,5 @@ if __name__ == '__main__':
                  mcweb_timeout=mcweb_timeout,
                  verify_certificates=verify_certificates,
                  batch_limit=args.batch_limit,
-                 sleep_seconds=args.sleep_seconds))
+                 sleep_seconds=args.sleep_seconds,
+                 max_batches=args.max_batches))
