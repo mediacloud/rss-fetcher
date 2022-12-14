@@ -219,7 +219,7 @@ if __name__ == '__main__':
     SCRIPT = 'update_feeds'
 
     logger = logging.getLogger(SCRIPT)
-    p = LogArgumentParser(SCRIPT, 'update feeds using CSV from mcweb')
+    p = LogArgumentParser(SCRIPT, 'update feeds using mcweb API')
 
     # option to delete all feeds (and reset last-modified)???
     p.add_argument('--reset-last-modified', action='store_true',
