@@ -18,7 +18,7 @@ Phil Budne
 
 """
 
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, NoReturn, Optional, Type
 
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
@@ -86,7 +86,7 @@ class UpdateFeeds(Section):
     modified_since = PropertyObject(SECTION_NAME, "modified_since")
 
 
-if __name__ == '__main__':
+def test() -> None:
     class Test(Section):
         SECTION_NAME = 'test'
         foo = PropertyObject(SECTION_NAME, 'foo')
@@ -122,3 +122,28 @@ if __name__ == '__main__':
     all = Test.get_all()
     assert len(all) == 0
     print("PASSED!")
+
+
+if __name__ == '__main__':
+    import sys
+
+    def usage() -> NoReturn:
+        print("'test', 'get property' or 'set property value'")
+        sys.exit(1)
+
+    if len(sys.argv) > 1:
+        if sys.argv[1] in ('get', 'set'):
+            if sys.argv[2] == 'last_update':
+                p = UpdateFeeds.modified_since
+            else:
+                print(f"unknown property {sys.argv[2]}")
+            if sys.argv[1] == 'get':
+                print(p.get())
+            else:
+                p.set(sys.argv[3])
+        elif sys.argv[1] == 'test':
+            test()
+        else:
+            usage()
+    else:
+        usage()
