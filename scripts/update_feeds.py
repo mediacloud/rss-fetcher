@@ -32,11 +32,11 @@ def ptime(s: str) -> dt.datetime:
 StatsDict = Dict[str, int]
 
 
-def log_stats(stats: StatsDict, title: str = '') -> None:
+def log_stats(stats: StatsDict, title: str, always: bool = True) -> None:
     if stats:
         values = ', '.join([f"{key}: {value}" for key, value in stats.items()])
     else:
-        if not title:
+        if not always:
             return
         values = '(nothing)'
     logger.info(f"{title} {values}")
@@ -199,13 +199,12 @@ def run(*,
 
             if need_commit:
                 session.commit()
-            log_stats(batch_stats)
+            log_stats(batch_stats, "batch:", False)
         # end with session
         url = nxt
         if nxt:
             batch_stat("ok")
             time.sleep(sleep_seconds)
-        break                   # TEMP
     # end while
 
     prop.UpdateFeeds.modified_since.set(str(int(t0)))
