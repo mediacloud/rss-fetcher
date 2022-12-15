@@ -61,11 +61,11 @@ def run(*,
         return 255
 
     last_update = prop.UpdateFeeds.modified_since.get()
-    luz = last_update or "0"
-    lui = int(luz)
+    luz = last_update or "0"    # last update or zer
+    lui = int(luz)              # last update as int
     if lui > 0:
         after = time.strftime("%F %T", time.gmtime(lui))
-        logger.info("Fetching updates after {after}")
+        logger.info(f"Fetching updates after {after}")
 
     url = f"{conf.MCWEB_URL}/api/sources/feeds/?modified_since={luz}&limit={batch_limit}"
 
