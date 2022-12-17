@@ -157,6 +157,7 @@ _DEFAULT_MINIMUM_INTERVAL_MINS_304 = _DEFAULT_DEFAULT_INTERVAL_MINS
 # default value for MAXIMUM_INTERVAL_MINS if not configured:
 _DEFAULT_MAXIMUM_INTERVAL_MINS = 24 * 60
 
+
 class _Config:                  # only instantiated in this file
     """
     Configuration with logging on first access.
