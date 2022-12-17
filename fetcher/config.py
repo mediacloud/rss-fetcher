@@ -154,6 +154,8 @@ _DEFAULT_MINIMUM_INTERVAL_MINS = _DEFAULT_DEFAULT_INTERVAL_MINS
 # default value for MINIMUM_INTERVAL_MINS_304 if not configured:
 _DEFAULT_MINIMUM_INTERVAL_MINS_304 = _DEFAULT_DEFAULT_INTERVAL_MINS
 
+# default value for MAXIMUM_INTERVAL_MINS if not configured:
+_DEFAULT_MAXIMUM_INTERVAL_MINS = 24 * 60
 
 class _Config:                  # only instantiated in this file
     """
@@ -229,6 +231,10 @@ class _Config:                  # only instantiated in this file
 
     # feeds to queue before quitting (if not looping)
     MAX_FEEDS = conf_int('MAX_FEEDS', 10000)
+
+    # maximum requeue interval (used to clamp sy:updatePeriod/Frequency)
+    MAXIMUM_INTERVAL_MINS = conf_int('MAXIMUM_INTERVAL_MINS',
+                                     _DEFAULT_MAXIMUM_INTERVAL_MINS)
 
     # For querying search.mediacloud.org for updates to feeds table
     MCWEB_URL = conf_default('MCWEB_URL', 'https://search.mediacloud.org')

@@ -100,6 +100,7 @@ HTTP_SOFT = set([429, 500, 502, 503, 504])
 NORMALIZED_TITLE_DAYS = conf.NORMALIZED_TITLE_DAYS
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 MAX_FAILURES = conf.MAX_FAILURES
+MAXIMUM_INTERVAL_MINS = conf.MAXIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS_304 = conf.MINIMUM_INTERVAL_MINS_304
 RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
@@ -764,6 +765,10 @@ def fetch_and_process_feed(
 
     # see if feed indicates update period
     update_minutes = _feed_update_period_mins(parsed_feed)
+    # cap update period here (rather than burden fetches_per_minute query)
+    if update_minutes is not None and \
+       update_minutes > MAXIMUM_INTERVAL_MINS:
+        update_minutes = MAXIMUM_INTERVAL_MINS
     if feed['update_minutes'] != update_minutes:
         feed_col_updates['update_minutes'] = update_minutes
 
