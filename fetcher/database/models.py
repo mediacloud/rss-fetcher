@@ -50,7 +50,7 @@ class Feed(MyBase):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     sources_id = Column(BigInteger)
-    name = Column(String)
+    name = Column(String)       # ONLY set from mcweb feeds.name field
     url = Column(String)
     active = Column(Boolean, nullable=False, server_default=text('true'))
     last_fetch_attempt = Column(DateTime)
@@ -73,6 +73,7 @@ class Feed(MyBase):
     http_304 = Column(Boolean)        # sends HTTP 304 "Not Modified"
     system_status = Column(String)
     last_new_stories = Column(DateTime)
+    rss_title = Column(String)  # ONLY set from RSS feed title
 
     def __repr__(self) -> str:
         return f"<Feed id={self.id} name={self.name} sources_id={self.sources_id}>"

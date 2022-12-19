@@ -48,7 +48,7 @@ import fetcher.util as util
 
 
 # set of field_col_changes fields to log at info (else log at debug)
-LOG_AT_INFO = {'update_minutes', 'name'}
+LOG_AT_INFO = {'update_minutes', 'rss_title'}
 
 
 # take twice as many soft failures to disable feed
@@ -293,8 +293,8 @@ def update_feed(session: SessionType,
                         lf = logger.info
                     else:
                         lf = logger.debug
-                    # !r (repr) to quote strings
-                    lf(f"  Feed {feed_id} updating {key} from {curr!r} to {value!r}")
+                    # was !r to quote strings, but noisy w/ datetime
+                    lf(f"  Feed {feed_id} updating {key} from {curr} to {value}")
                 setattr(f, key, value)
 
         f.last_fetch_attempt = start_time  # match fetch_event & stories
@@ -890,8 +890,8 @@ def check_feed_title(feed: Dict,  # type: ignore[no-any-unimported]
         if len(title) > 0:
             title = ' '.join(title.split())  # condense whitespace
 
-            if title and feed['name'] != title:
-                feed_col_updates['name'] = title
+            if title and feed['rss_title'] != title:
+                feed_col_updates['rss_title'] = title
     except AttributeError:
         # if the feed has no title that isn't really an error, just skip safely
         pass

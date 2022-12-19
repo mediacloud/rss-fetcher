@@ -180,10 +180,8 @@ def run(*,
                 try:
                     changes = 0
 
-                    # may have been updated by fetcher from feed:
-                    changes += check('name', 'name',
-                                     allow_change=False)
-
+                    # we write to rss-title column
+                    changes += check('name', 'name')
                     changes += check('url', 'url')
 
                     # note names differ
