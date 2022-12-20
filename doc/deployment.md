@@ -105,6 +105,14 @@ the local dokku account) to the repository, for use by push.sh.
 You can duplicate the production database into your Dokku development
 environment by running `./dokku-scripts/clone-db.sh USERNAME-rss-fetcher`
 
+To fetch a small subset of feeds, disable most of them:
+
+    ssh -t dokku@$(hostname) postgres:connect USERNAME-rss-fetcher
+    ...
+    USERNAME_rss_fetcher=# update feeds set system_enabled=FALSE where ID > 20000;
+    UPDATE 161979
+    USERNAME_rss_fetcher=# \q
+
 Check your code into a git branch (named something other than
 `staging` or `prod`, push to your github `origin` (eg a github clone
 of the project under your account, or a branch in the mediacloud
@@ -190,6 +198,14 @@ run on ANY server.
 
 You can duplicate the production database into your staging
 environment by running `./dokku-scripts/clone-db.sh staging-rss-fetcher`
+
+To reduce the number of feeds fetched by staging, disable most of the feeds,
+for example:
+
+    ssh -t dokku@$(hostname) postgres:connect staging-rss-fetcher
+    ...
+    staging_rss_fetcher=# update feeds set system_enabled=FALSE where ID > 100000;
+    staging_rss_fetcher=# \q
 
 This is best done while there are no active staging-rss-fetcher
 containers running (ie; before pushing code, or after executing
