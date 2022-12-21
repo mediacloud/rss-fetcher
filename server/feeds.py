@@ -20,14 +20,15 @@ router = APIRouter(
 @router.post("/{feed_id}/fetch-soon",
              dependencies=[Depends(auth.write_access)])
 @api_method
-def post_feed_fetch_soon(feed_id: int) -> int:
+def fetch_feed_soon(feed_id: int) -> int:
     """
     Mark feed to be fetched ASAP.
     Only contends with feeds that have never been attempted
     (and others that come thru this path).
 
-    Originally created sepate "reset-errors" and "fetch-soon",
-    (this does both).
+    Clears last_fetch_failures and sets system_enabled to TRUE.
+
+    Returns 1 on success, 0 if feed does not exist, or already queued.
     """
 
     # MAYBE move scripts.queue_feeds.queue_feeds() into its own file
