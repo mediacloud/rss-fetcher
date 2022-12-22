@@ -1,7 +1,22 @@
 Change Log
 ==========
 
+## v0.12.5
+
+* Add /api/sources/N/fetch-soon (randomizes next_fetch_attempt)
+* Add Feed.rss_title column, always update Feed.name from mcweb
+* Add MAXIMUM_INTERVAL_MINS from meatspace review
+* Add properties.py: section/key/value store
+* scripts/update_feeds.py:
+  + update to use mcweb API
+  + improve logging
+  + use properties
+  + add --reset-last-modified
+* autopep8.sh: ignore venv*
+* runtime.txt: update to 3.9.15 due to vulnerability
+
 ## v0.12.4
+
 * /api/stories/by-source endpoint
 * Honor SQLALCHEMY_ECHO for debug
 * Fix exception in parse exception handler!
@@ -12,6 +27,7 @@ Change Log
 * start of feed syncing scripts (not ready)
 
 ## v0.12.3
+
 * scripts/queue_feeds.py: fix queuing feeds by number
 * fetcher/tasks.py:
    + ignore feedparser charset (etc) errors
