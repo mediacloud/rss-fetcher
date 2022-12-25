@@ -121,7 +121,8 @@ if not VERIFY_CERTIFICATES:
 #    __USER_AGENT = 'mediacloud bot for open academic research (http://mediacloud.org)'
 # see https://www.rfc-editor.org/rfc/rfc9110.html#section-10.1.2
 # with regard to From: header
-USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
+#USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
+USER_AGENT = 'mediacloud bot for open academic research (+https://mediacloud.org)'
 
 # RDF Site Summary 1.0 Modules: Syndication
 # https://web.resource.org/rss/1.0/modules/syndication/
