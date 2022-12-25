@@ -18,6 +18,7 @@ import os
 import random
 import time
 import warnings
+import http.client
 
 # PyPI
 import feedparser
@@ -45,6 +46,9 @@ import fetcher.queue
 from fetcher.stats import Stats
 import fetcher.queue
 import fetcher.util as util
+
+# Increase Python3 http header limit (default is 100):
+http.client._MAXHEADERS = 1000
 
 
 # set of field_col_changes fields to log at info (else log at debug)
