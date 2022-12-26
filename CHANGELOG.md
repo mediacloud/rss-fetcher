@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+## v0.12.6
+
+* Update User-Agent to old system string plus plus in front of URL
+     (rssfeeds.usatoday.com returning HTML w/ browser U-A string)
+* Accept up to 1000 HTTP headers in responses
+     (www.lexpress.fr was sometimes sending more than 100?)
+
 ## v0.12.5
 
 * Add /api/sources/N/fetch-soon (randomizes next_fetch_attempt)
