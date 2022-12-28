@@ -65,6 +65,9 @@ fi
 # NOTE! used for filename in /etc/cron.d, so must contain only alphanum dots and dashes?
 APP=${PREFIX}rss-fetcher
 
+# optional -- needed to talk to mcweb (web-search backend API)
+NET=${PREFIX}mcweb
+
 # Service names:
 # Generated docker container names are dokku.{postgres,redis}.APP
 # so no need for more specifics in service names.
@@ -106,41 +109,20 @@ if [ "x$OP" = xdestroy ]; then
 fi
 
 ################
-# create functions
-
-check_service() {
-    local PLUGIN=$1
-    shift
-    local SERVICE=$1
-    shift
-    local APP=$1
-    shift
-    local CREATE_OPTIONS="$*"
-
-    if dokku $PLUGIN:exists $SERVICE >/dev/null 2>&1; then
-	echo "found $PLUGIN service $SERVICE"
-    else
-	if [ "x$CREATE_OPTIONS" != x ]; then
-	    echo creating $PLUGIN service $SERVICE w/ options $CREATE_OPTIONS
-	else
-	    echo creating $PLUGIN service $SERVICE
-	fi
-	dokku $PLUGIN:create $SERVICE $CREATE_OPTIONS
-	# XXX check status & call destroy on failure?
-    fi
-
-    if dokku $PLUGIN:linked $SERVICE $APP >/dev/null 2>&1; then
-	echo "$PLUGIN service $SERVICE already linked to app $APP"
-    else
-	echo linking $PLUGIN service $SERVICE to app $APP
-	dokku $PLUGIN:link $SERVICE $APP
-	# XXX check status
-    fi
-}
+# set config vars:
 
 add_vars() {
     VARS="$VARS $*"
 }
+
+# PLB: somewhere I saw that deployment delay env vars
+# DOKKU_WAIT_TO_RETIRE and DOKKU_DEFAULT_CHECKS_WAIT can be passed via
+# config:set
+
+# display/log in UTC:
+add_vars TZ=UTC
+
+add_vars MAX_FEEDS=15000
 
 ################
 # before taking any actions:
@@ -170,12 +152,12 @@ prod|staging)
 *)
     VF=.pw.$UNAME
     if [ -f $VF ]; then
-	echo using user/password in $VF
+	echo using rss-fetcher API user/password in $VF
     else
-	# XXX _could_ check .env file,
+	# XXX _could_ check .env file (used for non-dokku development)
 	# creating from .env.template
 	# and adding vars if needed.
-	echo generating user/password, saving in $VF
+	echo generating rss-fetcher API user/password, saving in $VF
 	echo RSS_FETCHER_USER=$UNAME$$ > $VF
 	echo RSS_FETCHER_PASS=$(openssl rand -base64 15) >> $VF
     fi
@@ -240,7 +222,58 @@ else
 	echo ERROR: $STATUS
 	exit $STATUS
     fi
+
+    if [ "x$NET" != x ]; then
+	if dokku network:exists $NET >/dev/null; then
+	    echo network $NET exists
+	else
+	    echo creating network $NET
+	    dokku network:create $NET
+	fi
+	# test via dokku network:report APP "Network computed initial network:" line?
+	echo setting $APP initial-network $NET
+	dokku network:set $APP initial-network $NET
+	# XXX check status?
+
+	# options for service create commands:
+	#SERVICE_CONFIG="--config-options --network=$NET"
+    fi
 fi
+
+################
+# helper for service creation
+# must not be called before app creation
+
+check_service() {
+    local PLUGIN=$1
+    shift
+    local SERVICE=$1
+    shift
+    local APP=$1
+    shift
+    local CREATE_OPTIONS="$*"
+
+    if dokku $PLUGIN:exists $SERVICE >/dev/null 2>&1; then
+	echo "found $PLUGIN service $SERVICE"
+    else
+	if [ "x$CREATE_OPTIONS" != x ]; then
+	    echo creating $PLUGIN service $SERVICE w/ options $CREATE_OPTIONS
+	else
+	    echo creating $PLUGIN service $SERVICE
+	fi
+
+	dokku $PLUGIN:create $SERVICE $CREATE_OPTIONS $SERVICE_CONFIG
+	# XXX check status & call destroy on failure?
+    fi
+
+    if dokku $PLUGIN:linked $SERVICE $APP >/dev/null 2>&1; then
+	echo "$PLUGIN service $SERVICE already linked to app $APP"
+    else
+	echo linking $PLUGIN service $SERVICE to app $APP
+	dokku $PLUGIN:link $SERVICE $APP
+	# XXX check status
+    fi
+}
 
 ################
 
@@ -250,14 +283,9 @@ check_service redis $REDIS_SVC $APP
 
 ################
 
-# display/log in UTC:
-add_vars TZ=UTC
-
-add_vars MAX_FEEDS=15000
-
-################
-
-# consider passing larger than default --shm-size???
+# vacuum fails w/ shm-size related error:
+# consider passing --shm-size SIZE?
+# see https://github.com/dokku/dokku-postgres
 check_service postgres $DATABASE_SVC $APP
 
 # postgres: URLs deprecated in SQLAlchemy 1.4
