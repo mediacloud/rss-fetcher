@@ -230,13 +230,13 @@ else
 	    echo creating network $NET
 	    dokku network:create $NET
 	fi
-	# test via dokku network:report APP "Network computed initial network:" line?
-	echo setting $APP initial-network $NET
-	dokku network:set $APP initial-network $NET
-	# XXX check status?
+	# test if exists first via dokku network:report APP
+	# and look for "Network computed initial network:" line?
 
-	# options for service create commands:
-	#SERVICE_CONFIG="--config-options --network=$NET"
+	# savant on Discord suggested attach-post-create
+	echo setting $APP attach-post-create $NET
+	dokku network:set $APP attach-post-create $NET
+	# XXX check status?
     fi
 fi
 
@@ -262,7 +262,7 @@ check_service() {
 	    echo creating $PLUGIN service $SERVICE
 	fi
 
-	dokku $PLUGIN:create $SERVICE $CREATE_OPTIONS $SERVICE_CONFIG
+	dokku $PLUGIN:create $SERVICE $CREATE_OPTIONS
 	# XXX check status & call destroy on failure?
     fi
 
