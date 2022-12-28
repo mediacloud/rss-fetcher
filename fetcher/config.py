@@ -233,6 +233,9 @@ class _Config:                  # only instantiated in this file
     # feeds to queue before quitting (if not looping)
     MAX_FEEDS = conf_int('MAX_FEEDS', 10000)
 
+    # maximum length URL to accept from feeds
+    MAX_URL = conf_int('MAX_URL', 2048)
+
     # maximum requeue interval (used to clamp sy:updatePeriod/Frequency)
     MAXIMUM_INTERVAL_MINS = conf_int('MAXIMUM_INTERVAL_MINS',
                                      _DEFAULT_MAXIMUM_INTERVAL_MINS)

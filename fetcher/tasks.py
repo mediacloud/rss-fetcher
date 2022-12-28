@@ -104,6 +104,7 @@ HTTP_SOFT = set([429, 500, 502, 503, 504])
 NORMALIZED_TITLE_DAYS = conf.NORMALIZED_TITLE_DAYS
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 MAX_FAILURES = conf.MAX_FAILURES
+MAX_URL = conf.MAX_URL
 MAXIMUM_INTERVAL_MINS = conf.MAXIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS_304 = conf.MINIMUM_INTERVAL_MINS_304
@@ -811,6 +812,12 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
             if not util.is_absolute_url(link):  # skip relative URLs
                 logger.debug(f" * skip relative URL: {link}")
                 stories_incr('relurl')
+                skipped_count += 1
+                continue
+
+            if len(link) > MAX_URL:
+                logger.debug(f" * URL too long: {link}")
+                stories_incr('toolong')
                 skipped_count += 1
                 continue
 
