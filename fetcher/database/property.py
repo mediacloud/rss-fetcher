@@ -18,6 +18,7 @@ Phil Budne
 
 """
 
+import logging
 from typing import Dict, List, NoReturn, Optional, Type
 
 from sqlalchemy import delete, select
@@ -26,6 +27,7 @@ from sqlalchemy.dialects.postgresql import insert
 from fetcher.database import Session
 from fetcher.database.models import Property
 
+logger = logging.getLogger(__name__)
 
 class Section:
     """Base class for a 'section' of properties"""
@@ -36,6 +38,7 @@ class Section:
         """
         return a dict with all key/values in a section
         """
+        loggger.debug(f"get_all section {cls.SECTION_NAME}")
         with Session() as session:
             items = session.query(Property.key, Property.value)\
                            .filter(Property.section == cls.SECTION_NAME)
@@ -51,16 +54,20 @@ class PropertyObject:
         with Session() as session:
             item = session.get(Property, (self.section, self.key))
             if item is None:
-                return default
-            return str(item.value)
+                ret = default
+            else:
+                ret = str(item.value)
+            logger.debug(f"get section {self.section} key {self.key} => {ret}")
+            return ret
 
     def set(self, value: Optional[str]) -> None:
         """
-        Will store None as NULL, but if you do this, you'll
-        need to pass a default value to "get" in order to distinguish
-        between a key whose value has not been set vs a key whose
-        value has been set to None!!!
+        Setting value to None is equivalent to unset
         """
+        if value is None:
+            self.unset()
+            return
+        logger.debug(f"set section {self.section} key {self.key} to {value}")
         with Session() as session:
             # https://docs.sqlalchemy.org/en/20/dialects/postgresql.html#postgresql-insert-on-conflict
             stmt = insert(Property)\
@@ -71,6 +78,7 @@ class PropertyObject:
             session.commit()
 
     def unset(self) -> None:
+        logger.debug(f"unset section {self.section} key {self.key}")
         with Session() as session:
             # XXX get w/ lock?
             item = session.get(Property, (self.section, self.key))
@@ -84,6 +92,7 @@ class UpdateFeeds(Section):
     SECTION_NAME = 'update_feeds'
 
     modified_since = PropertyObject(SECTION_NAME, "modified_since")
+    next_url = PropertyObject(SECTION_NAME, "next_url")
 
 
 def test() -> None:
