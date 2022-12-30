@@ -12,13 +12,12 @@ import sys
 import time
 from typing import Any, Callable, Dict
 
-import requests
-
 from fetcher.config import conf
 from fetcher.database import Session
 import fetcher.database.models as models
 import fetcher.database.property as prop
 from fetcher.logargparse import LogArgumentParser
+from fetcher.mcweb_api import MCWebAPI, MODIFIED_BEFORE
 from fetcher.stats import Stats
 
 
@@ -55,20 +54,6 @@ def run(*,
         sleep_seconds: int,
         max_batches: int) -> int:
 
-    token = conf.MCWEB_TOKEN    # get mcweb API token from environment
-    if not token:
-        logger.error("MCWEB_TOKEN not configured")
-        return 255
-
-    last_update = prop.UpdateFeeds.modified_since.get()
-    luz = last_update or "0"    # last update or zer
-    lui = int(luz)              # last update as int
-    if lui > 0:
-        after = time.strftime("%F %T", time.gmtime(lui))
-        logger.info(f"Fetching updates after {after}")
-
-    url = f"{conf.MCWEB_URL}/api/sources/feeds/?modified_since={luz}&limit={batch_limit}"
-
     totals: StatsDict = {}
     batches: StatsDict = {}
     stats = Stats.get()         # get singleton
@@ -80,57 +65,73 @@ def run(*,
         batches[stat] = batches.get(stat, 0) + 1
         stats.incr('update.batches', labels=[('status', stat)])
 
-    rs = requests.Session()
-    rs.headers.update({"Authorization": f"Token {token}"})
+    mcweb = MCWebAPI(timeout=mcweb_timeout)
 
-    batch_number = 1
-    last_modified_at = None
+    if batch_limit:             # doing short sprints?
+        # try resuming from saved URL, if any
+        url = prop.UpdateFeeds.next_url.get()
+        if url:
+            if '?' in url:
+                _, query = url.split('?', 1)
+                for param in query.split('&'):
+                    if param.startswith(MODIFIED_BEFORE):
+                        if '=' in param:
+                            _, now = param.split('=', 1)
+                            now = float(now)
+                        else:
+                            url = None
+                        break
+            else:
+                url = None
 
-    while True:
+    if not url:
+        vers = mcweb.version()
+        now = vers.get('now')
+        if not now:                 # have a headache?
+            batch_stat("vers_err")  # not a batch error
+            return 1
+
+        last_update = prop.UpdateFeeds.modified_since.get()
+        print("last update", last_update)
+        luz = last_update or "0"    # last update or zero
+        luf = float(luz)            # last update as float
+
+        logger.info(f"Fetching updates after {luf} before {now}")
+
+        url = mcweb.feeds_url(luf, now, batch_limit)
+
+    while url:
         logger.info(f"Fetching {url}")
         try:
-            resp = rs.get(url,
-                          timeout=mcweb_timeout,
-                          verify=verify_certificates)
+            data = mcweb.get_url_dict(url) # XXX timeout?
         except Exception as e:
             batch_stat("get_failed")
             logger.exception(url)
-            return 1
-
-        if resp.status_code != 200:
-            logger.error(
-                f"{url}: HTTP Status {resp.status_code} {resp.reason}")
-            batch_stat("http_err")
             return 2
 
         try:
-            data = json.loads(resp.text)
             items = data['results']
             nxt = data['next']
             rcount = data['count']
         except Exception as e:
             logger.exception(url)
             batch_stat("format")
-            return 3
+            return 4
 
         logger.debug(
-            f" OK text: {len(resp.text)} bytes, items: {len(items)}, total: {rcount}")
-
-        now = dt.datetime.utcnow()
-
-        batch_stats: StatsDict = {}
+            f" OK text: items: {len(items)}, total: {rcount}")
 
         def inc(stat: str) -> None:
-            batch_stats[stat] = batch_stats.get(stat, 0) + 1
             totals[stat] = totals.get(stat, 0) + 1
             stats.incr('update.feeds', labels=[('status', stat)])
 
         need_commit = False
+        dtnow = dt.datetime.utcnow()
+
         with Session.begin() as session:  # type: ignore[attr-defined]
             for item in items:
                 try:
                     iid = int(item['id'])
-                    modified_at = item['modified_at']  # in ISO format, w/ 'Z'
                 except (ValueError, KeyError) as e:
                     inc('bad_id')
                     continue
@@ -140,17 +141,12 @@ def run(*,
                     f = models.Feed()
                     f.id = iid
                     sec = random() * random_interval_mins * 60
-                    f.next_fetch_attempt = now + dt.timedelta(seconds=sec)
-                    logger.info(f"CREATE {iid} {modified_at}")
+                    f.next_fetch_attempt = dtnow + dt.timedelta(seconds=sec)
+                    logger.info(f"CREATE {iid}")
                     create = True
                 else:
-                    logger.info(f"UPDATE {iid} {modified_at}")
+                    logger.info(f"UPDATE {iid}")
                     create = False
-
-                # NOTE! This depends on the mcweb API returning items
-                # ordered by modified_at time!!
-                if not last_modified_at or modified_at > last_modified_at:
-                    last_modified_at = modified_at
 
                 # MAYBE only log messages when verbosity > 1?
                 def check(dest: str,
@@ -188,8 +184,9 @@ def run(*,
                     changes += check('sources_id', 'source', int)
                     changes += check('active', 'admin_rss_enabled', bool)
 
-                    changes += check('created_at', 'created_at', parse_timestamp,
-                                     allow_change=False)
+                    # neither created nor modified times available?
+                    # would do
+                    #changes += check('created_at', 'created_at', parse_timestamp, allow_change=False)
 
                     # ignoring modified_at, but if saved could be used for
                     # MAX(mcweb_modified_at) to know most recent update
@@ -212,37 +209,28 @@ def run(*,
 
             if need_commit:
                 session.commit()
-            log_stats(batch_stats, f"batch {batch_number}:", False)
-            batch_number += 1
         # end with session
         url = nxt
-        if not url:
-            break
-        if max_batches > 1:
-            max_batches -= 1
-        elif max_batches == 1:
-            logger.info("reached batch limit")
-            break
-        batch_stat("ok")
+        if items:
+            batch_stat("ok")
 
-        if nxt:
+        if max_batches:
+            # before url check (clear property if value is None)
+            prop.UpdateFeeds.next_url.set(url)
+
+        if url:
+            if max_batches > 1:
+                max_batches -= 1
+            elif max_batches == 1:
+                logger.info("reached batch limit")
+                break
+
             time.sleep(sleep_seconds)
-        else:
-            logger.info("no more batches")
-    # end while
-
-    if last_modified_at:
-        # Using modified_at timestamp from remote database means we
-        # don't need to worry about clock skews if we're running on a
-        # different server than they are, *BUT* mcweb only wants time
-        # truncated to whole seconds, AND only returns entries AFTER
-        # that second!!!
-        t = parse_timestamp(last_modified_at)
-
-        tt = t.timestamp()
-        new_modified_since = str(int(tt))
-        logger.info(f"Updating modified_since to {new_modified_since}")
-        prop.UpdateFeeds.modified_since.set(new_modified_since)
+    else:                       # while url
+        new = str(now)
+        logger.info(f"setting new modified_since: {new}")
+        prop.UpdateFeeds.modified_since.set(new)
+        prop.UpdateFeeds.next_url.unset()
 
     log_stats(batches, "BATCHES")
     log_stats(totals, "FEEDS")
@@ -283,9 +271,10 @@ if __name__ == '__main__':
     if args.reset_last_modified:
         prop.UpdateFeeds.modified_since.unset()
 
-    sys.exit(run(random_interval_mins=random_interval_mins,
-                 mcweb_timeout=mcweb_timeout,
-                 verify_certificates=verify_certificates,
-                 batch_limit=args.batch_limit,
-                 sleep_seconds=args.sleep_seconds,
-                 max_batches=args.max_batches))
+    sys.exit(
+        run(random_interval_mins=random_interval_mins,
+            mcweb_timeout=mcweb_timeout,
+            verify_certificates=verify_certificates,
+            batch_limit=args.batch_limit,
+            sleep_seconds=args.sleep_seconds,
+            max_batches=args.max_batches))
