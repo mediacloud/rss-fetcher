@@ -29,6 +29,7 @@ from fetcher.database.models import Property
 
 logger = logging.getLogger(__name__)
 
+
 class Section:
     """Base class for a 'section' of properties"""
     SECTION_NAME: str = 'OVERRIDE THIS!!!'
@@ -38,7 +39,7 @@ class Section:
         """
         return a dict with all key/values in a section
         """
-        loggger.debug(f"get_all section {cls.SECTION_NAME}")
+        logger.debug(f"get_all section {cls.SECTION_NAME}")
         with Session() as session:
             items = session.query(Property.key, Property.value)\
                            .filter(Property.section == cls.SECTION_NAME)

@@ -51,7 +51,7 @@ def run(*,
         mcweb_timeout: int,
         verify_certificates: bool,
         batch_limit: int,
-        sleep_seconds: int,
+        sleep_seconds: float,
         max_batches: int) -> int:
 
     totals: StatsDict = {}
@@ -71,39 +71,39 @@ def run(*,
         # try resuming from saved URL, if any
         url = prop.UpdateFeeds.next_url.get()
         if url:
+            logger.info(f"batch_limit set, next_url: {url}")
             if '?' in url:
                 _, query = url.split('?', 1)
                 for param in query.split('&'):
                     if param.startswith(MODIFIED_BEFORE):
                         if '=' in param:
-                            _, now = param.split('=', 1)
-                            now = float(now)
+                            _, nstr = param.split('=', 1)
+                            now = float(nstr)
                         else:
+                            logger.warning(f"no '=' in {param}")
                             url = None
                         break
+                else:           # for param...
+                    logger.warning(f"{MODIFIED_BEFORE} not in {url}")
             else:
+                logger.warning(f"no query in {url}")
                 url = None
 
     if not url:
         vers = mcweb.version()
-        now = vers.get('now')
-        if not now:                 # have a headache?
+        web_now = vers.get('now')
+        if web_now is None:
             batch_stat("vers_err")  # not a batch error
             return 1
 
-        last_update = prop.UpdateFeeds.modified_since.get()
-        print("last update", last_update)
-        luz = last_update or "0"    # last update or zero
-        luf = float(luz)            # last update as float
-
-        logger.info(f"Fetching updates after {luf} before {now}")
-
-        url = mcweb.feeds_url(luf, now, batch_limit)
+        last_update = float(prop.UpdateFeeds.modified_since.get() or '0')
+        logger.info(f"Fetching updates after {last_update} before {web_now}")
+        url = mcweb.feeds_url(last_update, web_now, batch_limit)
 
     while url:
         logger.info(f"Fetching {url}")
         try:
-            data = mcweb.get_url_dict(url) # XXX timeout?
+            data = mcweb.get_url_dict(url)  # XXX timeout?
         except Exception as e:
             batch_stat("get_failed")
             logger.exception(url)
@@ -128,7 +128,7 @@ def run(*,
         need_commit = False
         dtnow = dt.datetime.utcnow()
 
-        with Session.begin() as session:  # type: ignore[attr-defined]
+        with Session() as session:
             for item in items:
                 try:
                     iid = int(item['id'])
@@ -152,7 +152,10 @@ def run(*,
                 def check(dest: str,
                           src: str,
                           cast: Callable[[Any], Any] = identity,
-                          allow_change: bool = True) -> int:
+                          allow_change: bool = True,
+                          optional: bool = True) -> int:
+                    if optional and src not in item:
+                        return 0
                     curr = getattr(f, dest)
                     new = cast(item[src])
 
@@ -184,13 +187,9 @@ def run(*,
                     changes += check('sources_id', 'source', int)
                     changes += check('active', 'admin_rss_enabled', bool)
 
-                    # neither created nor modified times available?
-                    # would do
-                    #changes += check('created_at', 'created_at', parse_timestamp, allow_change=False)
-
-                    # ignoring modified_at, but if saved could be used for
-                    # MAX(mcweb_modified_at) to know most recent update
-                    # processed.
+                    # required (does not auto-populate):
+                    changes += check('created_at', 'created_at', parse_timestamp,
+                                     allow_change=False)
 
                     if changes == 0:
                         logger.info(" no change")
@@ -227,7 +226,7 @@ def run(*,
 
             time.sleep(sleep_seconds)
     else:                       # while url
-        new = str(now)
+        new = str(web_now)
         logger.info(f"setting new modified_since: {new}")
         prop.UpdateFeeds.modified_since.set(new)
         prop.UpdateFeeds.next_url.unset()
@@ -252,12 +251,11 @@ if __name__ == '__main__':
                    help=f"number of batches to fetch (default: {MAX_BATCHES});"
                    " zero means no limit")
 
-    # option to delete all feeds (and reset last-modified)???
     p.add_argument('--reset-last-modified', action='store_true',
                    help="reset saved last-modified time first")
 
     SLEEP = 5
-    p.add_argument('--sleep-seconds', default=SLEEP, type=int,
+    p.add_argument('--sleep-seconds', default=SLEEP, type=float,
                    help=f"time to sleep between batch requests in seconds (default: {SLEEP})")
 
     # all of these _COULD_ be command line options....

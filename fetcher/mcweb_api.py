@@ -6,7 +6,7 @@ Phil Budne, December 2022
 
 import logging
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 # PyPI
 import requests.sessions
@@ -21,25 +21,27 @@ MCWEB_URL = conf.MCWEB_URL
 
 logger = logging.getLogger('mcweb_api')
 
+
 class MCWebError(Exception):
     """class for MCWebApi error"""
 
+
 class MCWebAPI:
-    def __init__(self, timeout):
+    def __init__(self, timeout: Optional[float] = None):
         # mcweb seems to be closing after every request,
         # but maybe (she turned me into a newt!) it will get better
         self._session = requests.sessions.Session()
         self.timeout = timeout
 
-    def __enter__(self):
-        #logger.debug("__enter__")
+    def __enter__(self) -> "MCWebAPI":
+        # logger.debug("__enter__")
         return self
 
-    def __exit__(self, *args):
-        #logger.debug("__exit__")
+    def __exit__(self, *args: Any) -> None:
+        # logger.debug("__exit__")
         self._session.close()
 
-    def _request(self, method: str, url: str, **kws) -> Any:
+    def _request(self, method: str, url: str, **kws: Any) -> Any:
         if not MCWEB_URL:
             raise MCWebError('MCWEB_URL not set')
 
@@ -50,7 +52,8 @@ class MCWebAPI:
                                          timeout=self.timeout, **kws)
 
         if response.status_code != 200:
-            raise MCWebError(f"HTTP {url}: {response.status_code} {response.reason}")
+            raise MCWebError(
+                f"HTTP {url}: {response.status_code} {response.reason}")
         j = response.json()
         return j
 
@@ -70,7 +73,7 @@ class MCWebAPI:
             raise MCWebError(f"{url} expected dict got {type(r).__name__}")
         return r
 
-    ################ top level
+    # top level
 
     def version(self) -> Dict[str, Any]:
         """
@@ -78,9 +81,10 @@ class MCWebAPI:
         """
         return self._get_dict("version")
 
-    ################ sources (directory) methods
+    # sources (directory) methods
 
-    def feeds_url(self, since: float, before: float, batch_limit: int = 1000):
+    def feeds_url(self, since: float, before: float,
+                  batch_limit: int = 1000) -> str:
         """
         return initial URL for updating feeds
         """
@@ -88,6 +92,7 @@ class MCWebAPI:
                 f"?modified_since={since}"
                 f"&{MODIFIED_BEFORE}={before}"
                 f"&limit={batch_limit}")
+
 
 if __name__ == '__main__':
     import time
@@ -104,4 +109,3 @@ if __name__ == '__main__':
             r = f['results']
             print(url, len(r))
             url = f['next']
-
