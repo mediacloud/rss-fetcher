@@ -194,7 +194,7 @@ def run(*,
                     changes += check('created_at', 'created_at',
                                      parse_timestamp,
                                      allow_change=False,
-                                     optional=True) # XXX FIX ME!!!
+                                     optional=True)  # XXX FIX ME!!!
 
                     if changes == 0:
                         logger.info(" no change")
