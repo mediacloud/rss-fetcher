@@ -27,6 +27,15 @@ if __name__ == '__main__':
     p.add_argument('--port', default=def_port, type=int,
                    help=f"port to listen on [default: {def_port}]")
 
+    # Tempting to add a --workers argument (like uvicorn.main has)
+    # would need to pass app as a string "server.app", BUT
+    # the workers die because fetcher.stats.Stats object not initialized
+    # (need to do it at top level in server.__init__.py, BUT
+    # cannot because Stats can only be initialized once,
+    # and I (mistakenly?) pushed that down into LogArgumentParser
+    # (seemed to make sense, as I was trying to make all scripts
+    # send stats). -PLB (see also comment in fetcher/logargparse.py)
+
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
 

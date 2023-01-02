@@ -152,6 +152,13 @@ class LogArgumentParser(argparse.ArgumentParser):
         else:
             logger.info("Not logging to a file")
 
+        # NOTE! pushing this down (from script top level)
+        # may have been a mistake: Trying to pass a "workers"
+        # argument to uvicorn.run (needs to get app as "server.app")
+        # launches new processes without Stats.init being called.
+
+        # context where multiple processes were launched
+        # via a library that spawned workers as processes
         fetcher.stats.Stats.init(self.prog)
 
         return args
