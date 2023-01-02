@@ -126,7 +126,7 @@ if not VERIFY_CERTIFICATES:
 #    __USER_AGENT = 'mediacloud bot for open academic research (http://mediacloud.org)'
 # see https://www.rfc-editor.org/rfc/rfc9110.html#section-10.1.2
 # with regard to From: header
-#USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
+# USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 USER_AGENT = 'mediacloud bot for open academic research (+https://mediacloud.org)'
 
 # RDF Site Summary 1.0 Modules: Syndication
@@ -439,14 +439,14 @@ def _feed_update_period_mins(   # type: ignore[no-any-unimported]
         upm = int(UPDATE_PERIODS_MINS[update_period])
         # *should* get here with a value (unless DEFAULT_UPDATE_PERIOD is bad)
 
-        #logger.debug(f" update_period {update_period} upm {upm}")
+        # logger.debug(f" update_period {update_period} upm {upm}")
 
         # get divisor.  use default if not present or empty, or whitespace only
         update_frequency = pff.get('sy_updatefrequency')
         if update_frequency is not None:
             # translate to number: have seen 0.1 as update_frequency!
             ufn = float(update_frequency.strip() or DEFAULT_UPDATE_FREQUENCY)
-            #logger.debug(f" update_frequency {update_frequency} ufn {ufn}")
+            # logger.debug(f" update_frequency {update_frequency} ufn {ufn}")
             if ufn <= 0.0:
                 return None     # treat as missing tags
         else:
@@ -455,7 +455,7 @@ def _feed_update_period_mins(   # type: ignore[no-any-unimported]
         ret = round(upm / ufn)
         if ret <= 0:
             ret = DEFAULT_INTERVAL_MINS  # XXX maybe return None?
-        #logger.debug(f" _feed_update_period_mins pd {update_period} fq {update_frequency} => {ret}")
+        # logger.debug(f" _feed_update_period_mins pd {update_period} fq {update_frequency} => {ret}")
         return ret
     except (KeyError, ValueError, TypeError, ZeroDivisionError) as exc:
         logger.info(f"    _feed_update_period_mins exception: {exc}")

@@ -55,7 +55,7 @@ def fetch_source_feeds_soon(sources_id: int) -> int:
     utcnow = text("TIMEZONE('utc', CURRENT_TIMESTAMP)")
 
     # get a bucket number:
-    #bucket = f.random() * buckets
+    # bucket = f.random() * buckets
     bucket = Feed.id % buckets
 
     soon = utcnow + bucket * binterval
