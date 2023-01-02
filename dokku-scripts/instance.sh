@@ -529,6 +529,8 @@ if [ "x$TYPE" = xprod ]; then
 
     # copy archived rows in CSV files to private bucket (NOTE! After "run archiver" entry created above)
     echo "45 1 * * * $BACKUP_USER aws s3 --profile $DB_BACKUP_PROFILE sync $STDIR/db-archive/ s3://$DB_BACKUP_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-dbarch-mc.log 2>&1" >> $CRONTEMP
+
+    echo "*/5 * * * * root /usr/bin/dokku run $APP update" >> $CRONTEMP
 fi
 
 if [ -f $CRONTAB ]; then
