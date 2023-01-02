@@ -444,6 +444,12 @@ fi
 
 CRONTEMP="/tmp/$APP.cron.tmp"
 
+# NOTE!!! "dokku enter $APP fetcher COMMAND ARGS...."
+# might be faster than "dokku run PROCESS", since the latter
+# almost certainly needs to spin up a new container,
+# and the "fetcher" container is (now) always active
+# (could also use "worker" (aka "worker.1"))
+
 if grep '^fetcher:.*--loop' Procfile >/dev/null; then
     PERIODIC="# running fetcher w/ --loop in Procfile: no crontab entry needed"
 else
