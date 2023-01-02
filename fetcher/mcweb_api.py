@@ -2,8 +2,13 @@
 Interface to mcweb API for rss-fetcher
 Phil Budne, December 2022
 (adapted from web-search/mcweb/backend/sources/rss_fetcher_api.py)
+
+NOTE! Django appears to ALWAYS close HTTP connections,
+thawting using requests "Session" object, but leaving
+it in place, in case there is some trick to make it work.
 """
 
+import json
 import logging
 import os
 from typing import Any, Dict, Optional
@@ -11,6 +16,7 @@ from typing import Any, Dict, Optional
 # PyPI
 import requests.sessions
 
+from fetcher import VERSION
 from fetcher.config import conf
 
 MODIFIED_BEFORE = 'modified_before'
@@ -45,7 +51,7 @@ class MCWebAPI:
         if not MCWEB_URL:
             raise MCWebError('MCWEB_URL not set')
 
-        headers = {}
+        headers = {'User-Agent': f"rss-fetcher {VERSION} mcweb_api.py"}
         if MCWEB_TOKEN:
             headers['Authorization'] = f"Token {MCWEB_TOKEN}"
         response = self._session.request(method, url, headers=headers,
@@ -54,8 +60,16 @@ class MCWebAPI:
         if response.status_code != 200:
             raise MCWebError(
                 f"HTTP {url}: {response.status_code} {response.reason}")
-        j = response.json()
-        return j
+
+        # HTML response (not 404) sent if url/route not known
+        ct = response.headers.get('content-type', '').split(';')
+        if not ct[0].endswith('/json'):
+            raise MCWebError(f"{url}: response type {ct[0]}")
+
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            raise MCWebError(f"{url}: bad json")
 
     def _get(self, path: str) -> Any:
         url = f'{MCWEB_URL}/api/{path}'
@@ -104,8 +118,10 @@ if __name__ == '__main__':
         print("version", v)
 
         url = mcweb.feeds_url(0, v['now'])
-        while url:
+        count = 10
+        while url and count:
             f = mcweb.get_url_dict(url)
             r = f['results']
             print(url, len(r))
             url = f['next']
+            count -= 1
