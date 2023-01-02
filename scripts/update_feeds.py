@@ -37,11 +37,12 @@ def log_stats(stats: StatsDict, title: str, always: bool = True) -> None:
     else:
         if not always:
             return
-        values = '(nothing)'
+        values = '(none)'
     logger.info(f"{title} {values}")
 
 
 def identity(x: Any) -> Any:
+    """identity cast for db fields"""
     return x
 
 
@@ -153,7 +154,7 @@ def run(*,
                           src: str,
                           cast: Callable[[Any], Any] = identity,
                           allow_change: bool = True,
-                          optional: bool = True) -> int:
+                          optional: bool = False) -> int:
                     if optional and src not in item:
                         return 0
                     curr = getattr(f, dest)
@@ -179,17 +180,21 @@ def run(*,
                 try:
                     changes = 0
 
-                    # we write to rss-title column
-                    changes += check('name', 'name')
                     changes += check('url', 'url')
+
+                    # take name from mcweb: we write only to rss-title column
+                    changes += check('name', 'name')
 
                     # note names differ
                     changes += check('sources_id', 'source', int)
                     changes += check('active', 'admin_rss_enabled', bool)
 
-                    # required (does not auto-populate):
-                    changes += check('created_at', 'created_at', parse_timestamp,
-                                     allow_change=False)
+                    # should NOT be optional (does not auto-populate),
+                    # only accept first time
+                    changes += check('created_at', 'created_at',
+                                     parse_timestamp,
+                                     allow_change=False,
+                                     optional=True) # XXX FIX ME!!!
 
                     if changes == 0:
                         logger.info(" no change")
@@ -224,6 +229,7 @@ def run(*,
                 logger.info("reached batch limit")
                 break
 
+            logger.info(f"sleeping {sleep_seconds} sec")
             time.sleep(sleep_seconds)
     else:                       # while url
         new = str(web_now)
@@ -237,6 +243,8 @@ def run(*,
 
 
 if __name__ == '__main__':
+    from fetcher.pidfile import LockedException, PidFile
+
     SCRIPT = 'update_feeds'
 
     logger = logging.getLogger(SCRIPT)
@@ -254,7 +262,7 @@ if __name__ == '__main__':
     p.add_argument('--reset-last-modified', action='store_true',
                    help="reset saved last-modified time first")
 
-    SLEEP = 5
+    SLEEP = 0.5
     p.add_argument('--sleep-seconds', default=SLEEP, type=float,
                    help=f"time to sleep between batch requests in seconds (default: {SLEEP})")
 
@@ -269,10 +277,15 @@ if __name__ == '__main__':
     if args.reset_last_modified:
         prop.UpdateFeeds.modified_since.unset()
 
-    sys.exit(
-        run(random_interval_mins=random_interval_mins,
-            mcweb_timeout=mcweb_timeout,
-            verify_certificates=verify_certificates,
-            batch_limit=args.batch_limit,
-            sleep_seconds=args.sleep_seconds,
-            max_batches=args.max_batches))
+    try:
+        with PidFile(SCRIPT):
+            sys.exit(
+                run(random_interval_mins=random_interval_mins,
+                    mcweb_timeout=mcweb_timeout,
+                    verify_certificates=verify_certificates,
+                    batch_limit=args.batch_limit,
+                    sleep_seconds=args.sleep_seconds,
+                    max_batches=args.max_batches))
+    except LockedException:
+        logger.error("could not get lock")
+        exit(255)
