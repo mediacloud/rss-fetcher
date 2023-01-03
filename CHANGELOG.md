@@ -1,6 +1,21 @@
 Change Log
 ==========
 
+## v0.12.7
+
+* instance.sh: configure rss-fetcher AND mcweb Dokku app networking
+* Fix mypy complaint about _MAXHEADERS
+* Add MAX_URL -- max URL length to accept
+* Add /api/{feeds,sources}/ID/stories endpoints
+* New: fetcher.pidfile -- create exclusion lock for scripts
+* New: fetcher/mcweb_api.py
+* scripts/update_feeds.py:
+  + use fetcher.mcweb_api
+  + change defaults
+  + use fetcher.pidfile
+  + --sleep-seconds takes float
+* fetcher/database/property.py: add logging
+
 ## v0.12.6
 
 * Update User-Agent to old system string plus plus in front of URL
