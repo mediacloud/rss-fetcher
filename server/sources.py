@@ -1,15 +1,16 @@
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select, text
 import sqlalchemy.sql.functions as f
 
 from fetcher.database import Session
-from fetcher.database.models import Feed
+from fetcher.database.models import Feed, Story
 
 import server.auth as auth
 from server.util import api_method
+from server.common import STORY_COLUMNS, STORY_LIMIT, STORY_ORDER
 
 logger = logging.getLogger(__name__)
 
@@ -68,3 +69,19 @@ def fetch_source_feeds_soon(sources_id: int) -> int:
                        .update({'next_fetch_attempt': soon})
         session.commit()
     return int(count)
+
+# maybe take limit as a query parameter _limit=N??
+@router.get("/{sources_id}/stories",
+            dependencies=[Depends(auth.write_access)])
+@api_method
+def fetch_source_stories(sources_id: int) -> List[Dict[str,Any]]:
+    """
+    return story details.
+    see also feeds.fetch_feed_stories
+    """
+    query = (select(STORY_COLUMNS)
+             .where(Story.sources_id == sources_id)
+             .order_by(STORY_ORDER)
+             .limit(STORY_LIMIT))
+    with Session() as session:
+        return [s._asdict() for s in session.execute(query)]

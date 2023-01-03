@@ -1,13 +1,16 @@
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 
 from fetcher.database import Session
-from fetcher.database.models import Feed, FetchEvent
+from fetcher.database.models import Feed, FetchEvent, Story
 
 import server.auth as auth
 from server.util import api_method
+from server.common import STORY_COLUMNS, STORY_LIMIT, STORY_ORDER
+
 
 logger = logging.getLogger(__name__)
 
@@ -73,3 +76,20 @@ def get_feed(feed_id: int) -> Optional[Dict]:
             return feed.as_dict_public()
         else:
             return None
+
+
+# maybe take limit as a query parameter _limit=N??
+@router.get("/{feed_id}/stories",
+            dependencies=[Depends(auth.write_access)])
+@api_method
+def fetch_feed_stories(feed_id: int) -> List[Dict[str,Any]]:
+    """
+    return story details.
+    see also sources.fetch_source_stories
+    """
+    query = (select(STORY_COLUMNS)
+             .where(Story.feed_id == feed_id)
+             .order_by(STORY_ORDER)
+             .limit(STORY_LIMIT))
+    with Session() as session:
+        return [s._asdict() for s in session.execute(query)]
