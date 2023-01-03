@@ -13,7 +13,13 @@ from fetcher.database.models import Story
 
 
 # list of Story columns to return from /api/{feeds,sources}/ID/stories:
-STORY_COLUMNS: List[ColumnElement] = [Story.url, Story.feed_id, Story.published_at, Story.fetched_at, Story.domain, Story.title]
+STORY_COLUMNS: List[ColumnElement] = [
+    Story.url,
+    Story.feed_id,
+    Story.published_at,
+    Story.fetched_at,
+    Story.domain,
+    Story.title]
 
 # default limit of stories to return from /api/{feeds,sources}/ID/stories:
 STORY_LIMIT = 50

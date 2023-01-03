@@ -82,7 +82,7 @@ def get_feed(feed_id: int) -> Optional[Dict]:
 @router.get("/{feed_id}/stories",
             dependencies=[Depends(auth.write_access)])
 @api_method
-def fetch_feed_stories(feed_id: int) -> List[Dict[str,Any]]:
+def fetch_feed_stories(feed_id: int) -> List[Dict[str, Any]]:
     """
     return story details.
     see also sources.fetch_source_stories

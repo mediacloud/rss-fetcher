@@ -71,10 +71,12 @@ def fetch_source_feeds_soon(sources_id: int) -> int:
     return int(count)
 
 # maybe take limit as a query parameter _limit=N??
+
+
 @router.get("/{sources_id}/stories",
             dependencies=[Depends(auth.write_access)])
 @api_method
-def fetch_source_stories(sources_id: int) -> List[Dict[str,Any]]:
+def fetch_source_stories(sources_id: int) -> List[Dict[str, Any]]:
     """
     return story details.
     see also feeds.fetch_feed_stories
