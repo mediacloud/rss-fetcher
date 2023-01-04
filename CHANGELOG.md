@@ -3,7 +3,10 @@ Change Log
 
 ## v0.12.7
 
-* instance.sh: configure rss-fetcher AND mcweb Dokku app networking
+* Procfile: add "update" for update_feeds.py
+* instance.sh:
+  + configure rss-fetcher AND mcweb Dokku app networking
+  + install crontab entry for update in production
 * Fix mypy complaint about _MAXHEADERS
 * Add MAX_URL -- max URL length to accept
 * Add /api/{feeds,sources}/ID/stories endpoints
