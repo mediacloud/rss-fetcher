@@ -193,8 +193,7 @@ def run(*,
                     # only accept first time
                     changes += check('created_at', 'created_at',
                                      parse_timestamp,
-                                     allow_change=False,
-                                     optional=True)  # XXX FIX ME!!!
+                                     allow_change=False)
 
                     if changes == 0:
                         logger.info(" no change")
@@ -262,6 +261,9 @@ if __name__ == '__main__':
     p.add_argument('--reset-last-modified', action='store_true',
                    help="reset saved last-modified time first")
 
+    p.add_argument('--reset-next-url', action='store_true',
+                   help="reset saved next batch URL to fetch")
+
     SLEEP = 0.5
     p.add_argument('--sleep-seconds', default=SLEEP, type=float,
                    help=f"time to sleep between batch requests in seconds (default: {SLEEP})")
@@ -276,6 +278,9 @@ if __name__ == '__main__':
 
     if args.reset_last_modified:
         prop.UpdateFeeds.modified_since.unset()
+
+    if args.reset_next_url:
+        prop.UpdateFeeds.next_url.unset()
 
     try:
         with PidFile(SCRIPT):

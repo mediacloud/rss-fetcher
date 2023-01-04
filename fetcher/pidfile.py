@@ -17,7 +17,7 @@ ASSUMPTION: all instances of script run in same container!
 from enum import Enum
 import errno
 from os import (
-    close, getpid, kill, open, read, unlink, write,
+    close, getpid, kill, open, path, read, unlink, write,
     O_CREAT, O_EXCL, O_RDONLY, O_RDWR)
 import time
 from typing import Any
@@ -36,7 +36,7 @@ class PidFile:
     """
 
     def __init__(self, fname: str):
-        self._fname = os.path.join(LOCKDIR, fname + '.pid')
+        self._fname = path.join(LOCKDIR, fname + '.pid')
 
     def _checkpid(self, pid: int) -> bool:
         try:
