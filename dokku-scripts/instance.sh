@@ -251,7 +251,8 @@ app_http_port() {
 app_http_url() {
     APP=$1
     # return container IP address and port for APP's web server
-    echo "http://$APP.web.1:$(app_http_port $APP)"
+    # NOTE! mcweb.web wired into mcweb/settings.py ALLOWED_HOSTS list
+    echo "http://$APP.web:$(app_http_port $APP)"
 }
 
 if [ "x$NET" != x ]; then
@@ -275,7 +276,7 @@ if [ "x$NET" != x ]; then
 	echo found $MCWEB_APP app
 
 	# get the http port for mcweb listener
-	MCWEB_URL=http://$MCWEB_APP.web.1:$(app_http_port $MCWEB_APP)
+	MCWEB_URL=$(app_http_url $MCWEB_APP)
 	echo MCWEB_URL=$MCWEB_URL
 	add_vars MCWEB_URL=$MCWEB_URL
     fi
@@ -536,7 +537,7 @@ if [ "x$TYPE" = xprod ]; then
     # copy archived rows in CSV files to private bucket (NOTE! After "run archiver" entry created above)
     echo "45 1 * * * $BACKUP_USER aws s3 --profile $DB_BACKUP_PROFILE sync $STDIR/db-archive/ s3://$DB_BACKUP_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-dbarch-mc.log 2>&1" >> $CRONTEMP
 
-    echo "*/5 * * * * root /usr/bin/dokku run $APP update" >> $CRONTEMP
+    echo "*/5 * * * * root /usr/bin/dokku run $APP update > $LOGDIR/rss-fetcher-update.log 2>&1" >> $CRONTEMP
 fi
 
 if [ -f $CRONTAB ]; then
@@ -596,7 +597,7 @@ if dokku apps:exists $MCWEB_APP >/dev/null 2>&1; then
 
 	# get the http port for our OpenAPI listener inside web container
 	# (requires that rss-fetcher be deployed)
-	RSS_FETCHER_URL=http://$APP.web.1:$(app_http_port $APP)
+	RSS_FETCHER_URL=$(app_http_url $APP)
 
 	if [ "x$OUR_PORT" != x -a \
 	  "x$(dokku config:get $MCWEB_APP RSS_FETCHER_URL)" = "x$RSS_FETCHER_URL" ]; then
