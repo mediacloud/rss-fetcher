@@ -8,8 +8,7 @@ a pileup of processes if the lock holder runs slowly or hangs.
 Uses UNIX system calls to atomically create a "pid file"
 (file contain process pid).
 
-ASSUMPTION: all instances of script run in same container!
-(but putting pid files in a shared volume (/storage/locks) would fix this)
+ASSUMPTION: LOCK_DIR visible to all containers (ie; /storage/lock)
 """
 
 # Phil Budne, January 2023
@@ -23,7 +22,7 @@ import time
 from typing import Any
 
 
-LOCKDIR = '/tmp'
+from fetcher.path import LOCK_DIR, check_dir
 
 
 class LockedException(Exception):
@@ -36,7 +35,7 @@ class PidFile:
     """
 
     def __init__(self, fname: str):
-        self._fname = path.join(LOCKDIR, fname + '.pid')
+        self._fname = path.join(LOCK_DIR, fname + '.pid')
 
     def _checkpid(self, pid: int) -> bool:
         try:
@@ -49,6 +48,7 @@ class PidFile:
 
     def _lock(self) -> bool:
         while True:
+            check_dir(LOCK_DIR)
             try:
                 fd = open(self._fname, O_CREAT | O_EXCL | O_RDWR)
                 write(fd, f"{getpid()}\n".encode())

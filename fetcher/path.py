@@ -16,6 +16,7 @@ LOG_DIR = os.path.join(STORAGE_DIR, 'logs')
 INPUT_RSS_DIR = os.path.join(STORAGE_DIR, 'saved-input-files')
 OUTPUT_RSS_DIR = os.path.join(STORAGE_DIR, 'rss-output-files')
 DB_ARCHIVE_DIR = os.path.join(STORAGE_DIR, 'db-archive')
+LOCK_DIR = os.path.join(STORAGE_DIR, 'lock')
 
 
 def check_dir(dir: str) -> None:
