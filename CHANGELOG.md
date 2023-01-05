@@ -10,13 +10,15 @@ Change Log
 * Fix mypy complaint about _MAXHEADERS
 * Add MAX_URL -- max URL length to accept
 * Add /api/{feeds,sources}/ID/stories endpoints
-* New: fetcher.pidfile -- create exclusion lock for scripts
+* New: fetcher.pidfile -- create exclusion locks for scripts
 * New: fetcher/mcweb_api.py
 * scripts/update_feeds.py:
   + use fetcher.mcweb_api
   + change defaults
   + use fetcher.pidfile
   + --sleep-seconds takes float
+  + add --reset-next-url
+  + require created_at	
 * fetcher/database/property.py: add logging
 
 ## v0.12.6
