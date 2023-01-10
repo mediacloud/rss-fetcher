@@ -246,6 +246,7 @@ class _Config:                  # only instantiated in this file
     MCWEB_TOKEN = conf_optional('MCWEB_TOKEN', hidden=True)
 
     # minimum requeue interval (used to clamp sy:updatePeriod/Frequency)
+    # if server has never sent a 304 "Not Modified" response.
     MINIMUM_INTERVAL_MINS = conf_int('MINIMUM_INTERVAL_MINS',
                                      _DEFAULT_MINIMUM_INTERVAL_MINS)
 
@@ -256,7 +257,7 @@ class _Config:                  # only instantiated in this file
     # hour or less; It's doubtful we would ever want to poll THAT
     # often.  CAUTION!  Faster polling could cause more 429 (throttling)
     # responses!
-    MINIMUM_INTERVAL_MINS_304 = conf_int('DEFAULT_INTERVAL_MINS_304',
+    MINIMUM_INTERVAL_MINS_304 = conf_int('MINIMUM_INTERVAL_MINS_304',
                                          _DEFAULT_MINIMUM_INTERVAL_MINS_304)
 
     # rq uses only redis for queues; use dokku-redis supplied URL
