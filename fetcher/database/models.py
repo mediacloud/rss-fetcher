@@ -74,6 +74,8 @@ class Feed(MyBase):
     system_status = Column(String)
     last_new_stories = Column(DateTime)
     rss_title = Column(String)  # ONLY set from RSS feed title
+    poll_minutes = Column(Integer)  # poll period override
+    # ^^^ _COULD_ be auto-adaptive (add bool adaptive(_poll)?)
 
     def __repr__(self) -> str:
         return f"<Feed id={self.id} name={self.name} sources_id={self.sources_id}>"
