@@ -19,4 +19,4 @@ if ! dokku postgres:exists $DB >/dev/null 2>&1; then
     exit 2
 fi
 echo "randomizing $DB feeds"
-echo "update feeds set next_fetch_attempt = NOW() + (random() * '12 hours'::interval);" | dokku postgres:connect $DB
+echo "update feeds set next_fetch_attempt = timezone('utc', now()) + (random() * '6 hours'::interval);" | dokku postgres:connect $DB

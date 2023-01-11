@@ -146,7 +146,7 @@ def conf_required(name: str) -> property:
 
 
 # default value for DEFAULT_INTERVAL_MINS if not configured:
-_DEFAULT_DEFAULT_INTERVAL_MINS = 12 * 60
+_DEFAULT_DEFAULT_INTERVAL_MINS = 6 * 60
 
 # default value for MINIMUM_INTERVAL_MINS if not configured:
 _DEFAULT_MINIMUM_INTERVAL_MINS = _DEFAULT_DEFAULT_INTERVAL_MINS
