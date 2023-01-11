@@ -204,13 +204,11 @@ def normalized_url_exists(session: SessionType,
 # because needs to be kept in sync with queuing policy
 # in update_feed().
 
-# NOTE! This returns a maximal value
+# NOTE! This returns an upper bound for polls
 # (without trying to account for backoff due to errors).
 def fetches_per_minute(session: SessionType) -> float:
     """
-    Return average expected fetches per minute, based on
-    Feed.update_minutes (derived from <sy:updatePeriod> and
-    <sy:updateFrequency>).
+    Return average expected fetches per minute
 
     NOTE!! This needs to be kept in sync with the policy in
     update_feed() (below)
@@ -219,16 +217,20 @@ def fetches_per_minute(session: SessionType) -> float:
         session.query(
             func.sum(
                 1.0 /
-                # never faster than minimum interval
-                # (but allow lower minimum if server sends HTTP 304)
-                greatest(
-                    # use DEFAULT_INTERVAL_MINS if update_minutes is NULL
-                    func.coalesce(
-                        Feed.update_minutes,
-                        DEFAULT_INTERVAL_MINS),
-                    case([(Feed.http_304, MINIMUM_INTERVAL_MINS_304)],
-                         else_=MINIMUM_INTERVAL_MINS)
-                )  # greatest
+                func.coalesce(
+                    # poll_minutes overrides all else if non-NULL
+                    Feed.poll_minutes,
+                    # else never faster than minimum interval
+                    # (but allow lower minimum if server sends HTTP 304)
+                    greatest(
+                        # use DEFAULT_INTERVAL_MINS if update_minutes is NULL
+                        func.coalesce(
+                            Feed.update_minutes,
+                            DEFAULT_INTERVAL_MINS),
+                        case([(Feed.http_304, MINIMUM_INTERVAL_MINS_304)],
+                             else_=MINIMUM_INTERVAL_MINS)
+                    )  # greatest
+                )  # func.coalesce
             )  # sum
         )  # query
     )  # active
@@ -311,19 +313,20 @@ def update_feed(session: SessionType,
         f.system_status = system_status
 
         # get normal feed update period in minutes, one of:
-        # 1. new value being passed in to update Feed row (from RSS)
-        # 2. value currently stored in feed row (if fetch or parse failed)
+        # 0. poll_minutes field, if non-NULL
+        # 1. update_minutes value being passed in to update Feed row (from RSS)
+        # 2. update_minutes stored in feed row (if fetch or parse failed)
         # 3. default
         # (update_minutes is either a value from feed, or NULL)
 
         # On error, next_minutes is multipled by last_fetch_failures.
 
-        # NOTE! fetches_per_minute depends on retries NEVER being less
-        # than MINIMUM_INTERVALS_MINS[_304].  Any changes here to
-        # next_minutes MUST be reflected in fetches_per_minute function
-        # database query.
+        # NOTE! changes HERE *MUST* be reflected in "fetches_per_minute"
+        # function above!!!  Consider
 
-        next_minutes = f.update_minutes or DEFAULT_INTERVAL_MINS
+        next_minutes = (f.poll_minutes or
+                        f.update_minutes or
+                        DEFAULT_INTERVAL_MINS)
 
         if status == Status.SUCC:
             event = FetchEvent.Event.FETCH_SUCCEEDED
@@ -353,7 +356,8 @@ def update_feed(session: SessionType,
                     logger.info(
                         f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
-            if next_minutes is not None:
+            # no backoff if poll_minutes set (for now)
+            if next_minutes is not None and f.poll_minutes is None:
                 # result MUST NOT be less than next_minutes!!
                 if failures >= 1:
                     # back off to be kind to servers:
@@ -361,7 +365,7 @@ def update_feed(session: SessionType,
                     # (12h, 1d, 2d, 4d), so using linear backoff
                     next_minutes *= failures
 
-        if next_minutes is not None:  # reschedule?
+        if next_minutes is not None:  # rescheduling?
             # clamp interval to a minimum value
 
             # Allow different (shorter) interval if server sends
@@ -373,24 +377,26 @@ def update_feed(session: SessionType,
             # NOTE!! logic here is replicated (in an SQL query)
             # in fetches_per_minite() function above, and any
             # changes need to be reflected there as well!!!
+            if f.poll_minutes is None:
+                if f.http_304:
+                    if next_minutes < MINIMUM_INTERVAL_MINS_304:
+                        next_minutes = MINIMUM_INTERVAL_MINS_304
+                else:
+                    if next_minutes < MINIMUM_INTERVAL_MINS:
+                        next_minutes = MINIMUM_INTERVAL_MINS
 
-            if f.http_304:
-                if next_minutes < MINIMUM_INTERVAL_MINS_304:
-                    next_minutes = MINIMUM_INTERVAL_MINS_304
-            else:
-                if next_minutes < MINIMUM_INTERVAL_MINS:
-                    next_minutes = MINIMUM_INTERVAL_MINS
-
+            # Always honor HTTP Retry-After: header if longer (but log)
             ram = update.retry_after_min
             if ram and ram > next_minutes:
-                # unlikely with 12h minima, but 24h seen:
+                # 24 hours not uncommon; have seen 317100 sec (88h!) once
                 logger.info(
                     f"  Feed {feed_id} - using retry_after {ram} ({next_minutes})")
                 next_minutes = ram
 
             if update.randomize:
                 # Add random minute offset to break up clumps of 429
-                # (Too Many Requests) errors:
+                # (Too Many Requests) errors.  In practice, quantized
+                # into queuer loop period sized buckets.
                 next_minutes += random.random() * 60
 
             f.next_fetch_attempt = next_dt = utc(next_minutes * 60)
