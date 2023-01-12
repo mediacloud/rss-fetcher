@@ -7,7 +7,7 @@ import logging
 import os.path
 
 from sqlalchemy import select, update
-from typing import Set
+from typing import List
 
 from fetcher.database import Session
 from fetcher.database.models import Feed, FetchEvent
@@ -17,7 +17,7 @@ SCRIPT = 'poll_update'
 logger = logging.getLogger(SCRIPT)
 
 
-def feeds_to_update(rows: int, urls: int, fraction: float) -> Set[int]:
+def feeds_to_update(rows: int, urls: int, fraction: float) -> List[int]:
     query = (select(FetchEvent.feed_id, FetchEvent.created_at, FetchEvent.note)  # type: ignore[arg-type]
              .where(FetchEvent.event == FetchEvent.Event.FETCH_SUCCEEDED.value)
              .order_by(FetchEvent.feed_id,
@@ -25,7 +25,7 @@ def feeds_to_update(rows: int, urls: int, fraction: float) -> Set[int]:
     # print(query)
 
     last_feed = -1
-    to_update = set()
+    to_update = []
     with Session() as session:
         for event in session.execute(query):
             feed = event.feed_id
@@ -91,24 +91,21 @@ def feeds_to_update(rows: int, urls: int, fraction: float) -> Set[int]:
 
             # print(feed, "n:", n, "matches:", matches)
             if n == rows:       # fetched enough data?
-                print(feed, matches / n, first, last)
+                # print(feed, matches / n, first, last)
                 if matches / n >= fraction:
-                    to_update.add(feed)
-                    logger.debug(f" found {feed}")
+                    to_update.append(feed)
+                    logger.debug(f" adding {feed}")
 
                 candidate = False  # ignore remaining rows
                 continue
     return to_update
 
 
-def update_feeds(to_update: Set[int], period: int) -> None:
+def update_feeds(to_update: List[int], period: int) -> None:
     """
     just nail to a low value (could be made adaptive:
-    starting period low, and and increasing)
+    starting period low, and and increasing?)
     """
-
-    if not to_update:
-        return
 
     with Session() as session:
         u = (update(Feed)       # type: ignore[arg-type]
@@ -116,8 +113,9 @@ def update_feeds(to_update: Set[int], period: int) -> None:
              .where(Feed.poll_minutes != period)
              .values(poll_minutes=period))
         res = session.execute(u)
-        # XXX log res.rowcount?
+        count = res.rowcount
         session.commit()
+        logger.info(f"Updated {count} rows")
 
 
 if __name__ == '__main__':
