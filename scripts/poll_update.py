@@ -11,7 +11,6 @@ from typing import Set
 
 from fetcher.database import Session
 from fetcher.database.models import Feed, FetchEvent
-from fetcher.logargparse import LogArgumentParser
 
 SCRIPT = 'poll_update'
 
@@ -122,6 +121,9 @@ def update_feeds(to_update: Set[int], period: int) -> None:
 
 
 if __name__ == '__main__':
+    from fetcher.logargparse import LogArgumentParser
+    from fetcher.pidfile import LockedException, PidFile
+
     p = LogArgumentParser(SCRIPT, 'update feed poll_minutes column')
     p.add_argument('--update', action='store_true',
                    help="actually update date")
@@ -136,6 +138,13 @@ if __name__ == '__main__':
     PERIOD = 120                # update interval to set
 
     to_update = feeds_to_update(ROWS, URLS, FRACTION)
+    logger.info(f"found {len(to_update)} feeds to update")
 
-    if args.update:
-        update_feeds(to_update, PERIOD)
+    if args.update and to_update:
+        try:
+            with PidFile(SCRIPT):
+                update_feeds(to_update, PERIOD)
+        except LockedException:
+            logger.error("could not get lock")
+            exit(255)
+
