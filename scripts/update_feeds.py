@@ -1,6 +1,5 @@
 """
-Read CSV dumped from mcweb-db sources_feed table to update our feeds table.
-(run by dokku-scripts/sync-feeds.sh from /etc/cron.d/rss-fetcher)
+Update Feeds table using mcweb API
 """
 
 import csv
@@ -16,7 +15,6 @@ from fetcher.config import conf
 from fetcher.database import Session
 import fetcher.database.models as models
 import fetcher.database.property as prop
-from fetcher.logargparse import LogArgumentParser
 from fetcher.mcweb_api import MCWebAPI, MODIFIED_BEFORE
 from fetcher.stats import Stats
 
@@ -242,6 +240,7 @@ def run(*,
 
 
 if __name__ == '__main__':
+    from fetcher.logargparse import LogArgumentParser
     from fetcher.pidfile import LockedException, PidFile
 
     SCRIPT = 'update_feeds'
