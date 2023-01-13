@@ -470,8 +470,13 @@ cat >$CRONTEMP <<EOF
 $PERIODIC
 # generate RSS output files (try multiple times a day, in case of bad code, or downtime)
 30 */6 * * * root /usr/bin/dokku run $APP generator > $LOGDIR/$APP-generator.log 2>&1
+#
+# Update poll rates for "short fast" feeds.
+# Looks at fetch_events table, so run before archiver (just in case):
+6 1 * * * root /usr/bin/dokku run $APP python -m scripts.poll_update --verbose --update > $LOGDIR/$APP-poll_update.log 2>&1
+#
 # archive old DB table entries (non-critical); production aws s3 sync should run after this
-# (before 2am standard time rollback, in we don't get rid of time changes, and server not configured in UTC)
+# (before 2am standard time rollback, in case we never get rid of time changes, and server not configured in UTC)
 30 1 * * * root /usr/bin/dokku run $APP archiver --verbose --delete > $LOGDIR/$APP-archiver.log 2>&1
 EOF
 
