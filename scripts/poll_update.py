@@ -144,4 +144,3 @@ if __name__ == '__main__':
         except LockedException:
             logger.error("could not get lock")
             exit(255)
-
