@@ -17,14 +17,21 @@ uniformly short lists of items, with little overlap when polled normally:
 * fetcher/tasks.py: implement policy changes to honor poll_minutes
 * scripts/poll_update.py: script to set poll_minutes for "short fast" feeds
 
-* scripts/update_feeds.py: import LogArgumentParser in main
+Administrivia:
 
 * dokku-scripts/instance.sh:
   + fix/use app_http_url function
   + save feed update script output
   + add crontab entry for poll_updates
+
+Create/use global /storage/lock directory:
+
 * fetcher/path.py: add LOCK_DIR
 * fetcher/pidfile: use fetcher.path.LOCK_DIR, create if needed
+
+Cleanup:
+
+* scripts/update_feeds.py: import LogArgumentParser in main
 
 ## v0.12.7
 
