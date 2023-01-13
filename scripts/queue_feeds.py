@@ -308,6 +308,8 @@ if __name__ == '__main__':
     p = LogArgumentParser(SCRIPT, 'Feed Queuing')
     p.add_argument('--clear', action='store_true',
                    help='Clear queue and exit.')
+    p.add_argument('--fetches-per-minute', action='store_true',
+                   help='Display calculated fetches per minute and exit.')
     p.add_argument('--loop', metavar='M', type=int,
                    help='Clear queue and run as daemon, reporting stats, queuing feeds every M minutes.')
     p.add_argument('feeds', metavar='FEED_ID', nargs='*', type=int,
@@ -322,6 +324,11 @@ if __name__ == '__main__':
         logger.info("Clearing Queue")
         queue.clear_queue()
         sys.exit(0)
+
+    if args.fetches_per_minute:
+        with Session() as session:
+            print(tasks.fetches_per_minute(session))
+            sys.exit(0)
 
     if args.loop is not None:
         if args.feeds:
