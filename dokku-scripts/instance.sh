@@ -380,7 +380,7 @@ for VV in $VARS; do
     # VE var equals
     VE=$(echo $VV | sed 's/=.*$/=/')
     # find current value
-    CURR=$(fgrep "$VE" $TMP)
+    CURR=$(grep "^$VE" $TMP)
     if [ "x$VV" != "x$CURR" ]; then
 	NEED="$NEED $VV"
     fi
