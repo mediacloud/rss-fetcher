@@ -1,6 +1,31 @@
 Change Log
 ==========
 
+## v0.12.8
+
+Reduce default fetch interval to 6 hours (from 12):
+
+* fetcher/config.py: change _DEFAULT_DEFAULT_INTERVAL_MINS to 6 hours!
+* dokku-scripts/randomize-feeds.sh: change from 12 to 6 hours
+
+Implement Feed.poll_minutes override, for feeds that publish
+uniformly short lists of items, with little overlap when polled normally:
+
+* fetcher/database/models.py: add poll_minutes (poll period override)
+	(currently only set by scripts/poll_update.py
+* fetcher/database/versions/20230111_1237_add_poll_minutes.py: migration
+* fetcher/tasks.py: implement policy changes to honor poll_minutes
+* scripts/poll_update.py: script to set poll_minutes for "short fast" feeds
+
+* scripts/update_feeds.py: import LogArgumentParser in main
+
+* dokku-scripts/instance.sh:
+  + fix/use app_http_url function
+  + save feed update script output
+  + add crontab entry for poll_updates
+* fetcher/path.py: add LOCK_DIR
+* fetcher/pidfile: use fetcher.path.LOCK_DIR, create if needed
+
 ## v0.12.7
 
 * Procfile: add "update" for update_feeds.py
