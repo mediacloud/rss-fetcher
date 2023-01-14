@@ -99,14 +99,11 @@ def find_and_queue_feeds(wq: queue.Queue, limit: int, timeout: int) -> int:
         # NOTE nulls_first is preferred in sqlalchemy 1.4
         #  but not available in sqlalchemy-stubs 0.4
 
-        # maybe secondary order by (Feed.id % 1001)?
-        #  would require adding adding a column to query
-
         # XXX lock rows for update?
         rows = \
             _ready_ids(session)\
             .order_by(Feed.next_fetch_attempt.asc().nullsfirst(),
-                      Feed.id.desc())\
+                      (Feed.id % 1001).desc())\
             .limit(limit)\
             .all()  # all rows
         feed_ids = [row[0] for row in rows]
