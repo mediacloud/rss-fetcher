@@ -131,13 +131,14 @@ add_vars() {
     VARS="$VARS $*"
 }
 
-# PLB: somewhere I saw that deployment delay env vars
-# DOKKU_WAIT_TO_RETIRE and DOKKU_DEFAULT_CHECKS_WAIT can be passed via
-# config:set
+# set dokku timeout values to half the default values:
+add_vars DOKKU_WAIT_TO_RETIRE=30
+add_vars DOKKU_DEFAULT_CHECKS_WAIT=5
 
-# display/log in UTC:
+# display/log time in UTC:
 add_vars TZ=UTC
 
+# used by queue_feeds w/o --loop argument:
 add_vars MAX_FEEDS=15000
 
 ################
@@ -154,8 +155,8 @@ add_vars MC_APP=$APP
 
 case "$TYPE" in
 prod|staging)
-    # XXX maybe use .$TYPE (.staging vs .prod)???
-    # could get from ansible "vault" file
+    # XXX maybe use .$TYPE (.staging vs .prod) file??
+    # could get from "vault" file if using ansible.
     VARS_FILE=.prod
     VF=$TMP
     # get vars for count, and to ignore comment lines!
@@ -604,10 +605,10 @@ if dokku apps:exists $MCWEB_APP >/dev/null 2>&1; then
 	# (requires that rss-fetcher be deployed)
 	RSS_FETCHER_URL=$(app_http_url $APP)
 
-	if [ "x$OUR_PORT" != x -a \
-	  "x$(dokku config:get $MCWEB_APP RSS_FETCHER_URL)" = "x$RSS_FETCHER_URL" ]; then
+	if [ "x$(dokku config:get $MCWEB_APP RSS_FETCHER_URL)" = "x$RSS_FETCHER_URL" ]; then
 	    echo $MCWEB_APP RSS_FETCHER_URL already set
 	    if [ "x$MCWEB_RESTART" != x ]; then
+		# no config change, but need restart.
 		# only one process, so no need to get picky
 		echo restarting $MCWEB_APP app
 		dokku ps:restart $MCWEB_APP
