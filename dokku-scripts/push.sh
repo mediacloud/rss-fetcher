@@ -7,7 +7,6 @@
 # DOES NOT NEED TO BE RUN AS ROOT!!!
 
 APP=rss-fetcher
-PROCS="fetcher=1 worker=8 web=1"
 
 SCRIPT_DIR=$(dirname $0)
 INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
@@ -111,9 +110,9 @@ esac
 DOKKU_GIT_BRANCH=main
 
 case $BRANCH in
-prod) ;;
-staging) APP=staging-$APP;;
-*) APP=${LOGIN_USER}-$APP;;
+prod) WORKERS=10;;
+staging) APP=staging-$APP; WORKERS=4;;
+*) APP=${LOGIN_USER}-$APP; WORKERS=1;;
 esac
 
 if ! dokku apps:exists "$APP" >/dev/null 2>&1; then
@@ -240,11 +239,7 @@ done
 
 # start fetcher/worker procoesses
 echo scaling up
-
-# try speeding up deployment
-# only works w/o alias dokku=ssh....?
-export DOKKU_DEFAULT_CHECKS_WAIT=5
-
+PROCS="fetcher=1 worker=$WORKERS web=1"
 dokku ps:scale --skip-deploy $APP $PROCS
 dokku ps:start $APP
 
