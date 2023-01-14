@@ -148,7 +148,7 @@ def _ready_ids(session: SessionType) -> Query:
     return _ready_filter(_active_feed_ids(session))
 
 
-def _stray_catcher(task_timeout: int) -> None:
+def _stray_catcher(task_timeout: int) -> int:
     """
     "stray feed catcher"
 
@@ -157,7 +157,7 @@ def _stray_catcher(task_timeout: int) -> None:
     with Session() as session:
         db_queued = count_queued(session)
         if db_queued == 0:
-            return
+            return 0
 
         # here if queue empty, but there db entries marked queued;
         # clear "queued" column on any entry "started" a while ago
@@ -179,6 +179,7 @@ def _stray_catcher(task_timeout: int) -> None:
         if reset_count:
             logger.warning(
                 f"qlen = 0; stray_catcher reset {reset_count} queued feed(s)")
+        return int(reset_count or 0)
 
 
 def loop(wq: queue.Queue, refill_period_mins: int,
@@ -219,7 +220,10 @@ def loop(wq: queue.Queue, refill_period_mins: int,
         # wait for multiple of refill_period_mins.
         if (int(t0 / 60) % refill_period_mins) == 0:
             if qlen == 0:
-                _stray_catcher(task_timeout)
+                strays = _stray_catcher(task_timeout)
+            else:
+                strays = 0
+            stats.gauge('strays_caught', strays)
 
             # The name hi_water is a remnant of an implementation
             # attempt that refilled to the queue hi_water only when
