@@ -211,8 +211,13 @@ if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
 	exit $STATUS
     fi
 else
-    # first push for new app.
-    echo "First push to of $BRANCH to $DOKKU_GIT_REMOTE $DOKKU_GIT_BRANCH"
+    # first push for new app, cannot push tag, or confusion ensues
+    # (maybe not w/ manually configured deploy-branch??)
+
+    echo "Setting $APP deploy-branch to $DOKKU_GIT_BRANCH"
+    dokku git:set $APP deploy-branch $DOKKU_GIT_BRANCH
+
+    echo "pushing $BRANCH to $DOKKU_GIT_REMOTE $DOKKU_GIT_BRANCH (first push)"
     if git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH; then
 	echo OK
     else
@@ -223,10 +228,9 @@ else
     fi
     echo "================"
 
-    # will see complaints "WARNING: deploy did not complete, you must push to main."
-    echo "First push: pushing tag $TAG (ignore WARNING)"
-    # just redirect all output???
-    git push $DOKKU_GIT_REMOTE $TAG
+    echo "First push: pushing tag $TAG"
+    # suppress "WARNING: deploy did not complete, you must push to main."
+    git push $DOKKU_GIT_REMOTE $TAG >/dev/null 2>&1
 fi
 echo "================"
 
