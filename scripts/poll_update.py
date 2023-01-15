@@ -95,7 +95,6 @@ def feeds_to_update(rows: int, urls: int, fraction: float) -> List[int]:
                 if matches / n >= fraction:
                     to_update.append(feed)
                     logger.debug(f" adding {feed}")
-
                 candidate = False  # ignore remaining rows
                 continue
     return to_update
@@ -115,6 +114,8 @@ def update_feeds(to_update: List[int], period: int) -> None:
         count = res.rowcount
         session.commit()
         logger.info(f"Updated {count} rows")
+        stats = Stats.get()
+        stats.incr('updated', count)
 
 
 if __name__ == '__main__':
