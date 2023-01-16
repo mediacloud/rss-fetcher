@@ -11,6 +11,7 @@ from typing import List
 
 from fetcher.database import Session
 from fetcher.database.models import Feed, FetchEvent
+from fetcher.stats import Stats
 
 SCRIPT = 'poll_update'
 
