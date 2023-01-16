@@ -192,7 +192,7 @@ class FetchEvent(MyBase):
         QUEUED = 'queued'
         FETCH_FAILED = 'fetch_failed'
         FETCH_SUCCEEDED = 'fetch_succeeded'
-        # disabled due to excessive failures
+        # disabled due to excessive failures:
         FETCH_FAILED_DISABLED = 'fetch_disabled'
 
     def __repr__(self) -> str:
