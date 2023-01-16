@@ -94,7 +94,8 @@ def feeds_to_update(rows: int, urls: int, fraction: float) -> List[int]:
                 # print(feed, matches / n, first, last)
                 if matches / n >= fraction:
                     to_update.append(feed)
-                    logger.debug(f" adding {feed}")
+                    logger.debug(
+                        f" adding {feed} ({matches}/{n} {first} {last})")
                 candidate = False  # ignore remaining rows
                 continue
     return to_update
