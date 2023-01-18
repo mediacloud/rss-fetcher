@@ -113,7 +113,7 @@ def update_feeds(to_update: List[int], period: int) -> None:
         u = (update(Feed)       # type: ignore[arg-type]
              .where(Feed.id.in_(to_update),
                      or_(Feed.poll_minutes.is_(None),
-                         Feed.poll_minutes > period))
+                         Feed.poll_minutes >= period))
              .values(poll_minutes=period))
         res = session.execute(u)
         count = res.rowcount
