@@ -99,6 +99,7 @@ def feeds_to_update(rows: int, urls: int, fraction: float) -> List[int]:
                         f" adding {feed} ({matches}/{n} {first} {last})")
                 candidate = False  # ignore remaining rows
                 continue
+    logger.info(f"found {len(to_update)} feeds to update")
     return to_update
 
 
@@ -139,13 +140,13 @@ if __name__ == '__main__':
     FRACTION = 0.8              # fraction of ROWS that need to match
     PERIOD = 120                # update interval to set
 
-    to_update = feeds_to_update(ROWS, URLS, FRACTION)
-    logger.info(f"found {len(to_update)} feeds to update")
-
-    if args.update and to_update:
+    if args.update:
         try:
             with PidFile(SCRIPT):
+                to_update = feeds_to_update(ROWS, URLS, FRACTION)
                 update_feeds(to_update, PERIOD)
         except LockedException:
             logger.error("could not get lock")
             exit(255)
+    else:
+        feeds_to_update(ROWS, URLS, FRACTION)
