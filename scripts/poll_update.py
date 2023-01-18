@@ -99,7 +99,7 @@ def feeds_to_update(rows: int, urls: int, fraction: float) -> List[int]:
                         f" adding {feed} ({matches}/{n} {first} {last})")
                 candidate = False  # ignore remaining rows
                 continue
-    logger.info(f"found {len(to_update)} feeds to update")
+    logger.info(f"found {len(to_update)} candidate feeds to update")
     return to_update
 
 
@@ -111,9 +111,9 @@ def update_feeds(to_update: List[int], period: int) -> None:
 
     with Session() as session:
         u = (update(Feed)       # type: ignore[arg-type]
-             .where(Feed.id.in_(to_update),
-                     or_(Feed.poll_minutes.is_(None),
-                         Feed.poll_minutes >= period))
+             .where(Feed.id.in_(to_update))
+             .where(or_(Feed.poll_minutes.is_(None),
+                        Feed.poll_minutes > period))
              .values(poll_minutes=period))
         res = session.execute(u)
         count = res.rowcount
