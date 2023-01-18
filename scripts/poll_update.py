@@ -6,7 +6,7 @@ fixed size windows, that publish frequently
 import logging
 import os.path
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from typing import List
 
 from fetcher.database import Session
@@ -110,7 +110,9 @@ def update_feeds(to_update: List[int], period: int) -> None:
 
     with Session() as session:
         u = (update(Feed)       # type: ignore[arg-type]
-             .where(Feed.id.in_(to_update))
+             .where(Feed.id.in_(to_update),
+                     or_(Feed.poll_minutes.is_(None),
+                         Feed.poll_minutes > period))
              .values(poll_minutes=period))
         res = session.execute(u)
         count = res.rowcount
