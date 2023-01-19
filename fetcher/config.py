@@ -221,6 +221,9 @@ class _Config:                  # only instantiated in this file
     DEFAULT_INTERVAL_MINS = conf_int('DEFAULT_INTERVAL_MINS',
                                      _DEFAULT_DEFAULT_INTERVAL_MINS)
 
+    # poll interval for short, fast feeds (used by scripts.poll_update)
+    FAST_POLL_MINUTES = conf_int('FAST_POLL_MINUTES', 120)
+
     # number of fetch_event rows to keep for each feed
     FETCH_EVENT_ROWS = conf_int('FETCH_EVENT_ROWS', 30)
 

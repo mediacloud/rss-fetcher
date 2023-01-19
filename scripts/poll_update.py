@@ -9,6 +9,7 @@ import os.path
 from sqlalchemy import or_, select, update
 from typing import List
 
+from fetcher.config import conf
 from fetcher.database import Session
 from fetcher.database.models import Feed, FetchEvent
 from fetcher.stats import Stats
@@ -138,7 +139,7 @@ if __name__ == '__main__':
     ROWS = 10                   # number of most recent rows to look at
     URLS = 100                  # too many urls returned
     FRACTION = 0.8              # fraction of ROWS that need to match
-    PERIOD = 120                # update interval to set
+    PERIOD = conf.FAST_POLL_MINUTES  # update interval to set
 
     if args.update:
         try:
