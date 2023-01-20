@@ -1,6 +1,22 @@
 Change Log
 ==========
 
+## v0.12.9
+
+* dokku-scripts/instance.sh: speed up deployment, fix mcweb config
+* dokku-scripts/push.sh: vary workers acording to instance type
+	add git:set
+* fetcher/config.py: add FAST_POLL_MINUTES
+* fetcher/database/models.py: comment
+* scripts/poll_update.py:
+  + use FAST_POLL_MINUTES
+  + don't overwrite poll period if less than or equal
+  + add stats
+  + take pidfile lock before gathering candidates
+* scripts/queue_feeds.py:
+  + order by id % 1001
+  + stats for stray catcher
+
 ## v0.12.8
 
 Reduce default fetch interval to 6 hours (from 12):
