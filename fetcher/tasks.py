@@ -765,7 +765,7 @@ def fetch_and_process_feed(
 
         if SAVE_PARSE_ERRORS:
             # NOTE! Saving per-feed
-            _save_rss_files(path.PARSE_ERROR_DIR, feed['feed_id'],
+            _save_rss_files(path.PARSE_ERROR_DIR, feed['id'],
                             feed, response, note=repr(exc))
         return Update('parse_err', Status.SOFT, 'parse error',
                       note=repr(exc))
