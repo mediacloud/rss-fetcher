@@ -277,6 +277,10 @@ class _Config:                  # only instantiated in this file
     # (also retention limit on stories)
     RSS_OUTPUT_DAYS = conf_int('RSS_OUTPUT_DAYS', 14)
 
+    # enable saving input (RSS) files that fail to parse
+    # (one per feed), plus metadata
+    SAVE_PARSE_ERRORS = conf_optional('SAVE_PARSE_ERRORS')
+
     # save input rss files (one per source) plus metadata for debug
     SAVE_RSS_FILES = conf_bool('SAVE_RSS_FILES', False)
 

@@ -110,6 +110,7 @@ MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS_304 = conf.MINIMUM_INTERVAL_MINS_304
 RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
+SAVE_PARSE_ERRORS = conf.SAVE_PARSE_ERRORS
 VERIFY_CERTIFICATES = conf.VERIFY_CERTIFICATES
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
@@ -145,25 +146,25 @@ DEFAULT_UPDATE_PERIOD = 'daily'  # specified in Syndication spec
 DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
 
 
-def _save_rss_files(feed: Dict, response: requests.Response) -> None:
+def _save_rss_files(dir: str, fname: Any, feed: Dict,
+                    response: requests.Response, note: Optional[str] = None) -> None:
     """
-    debugging helper method - saves two files for the feed to paths.
-    only saves one feed per source? bug and feature!
+    debugging helper method - saves two files for the feed (data & metadata)
     """
-    srcid = feed['sources_id']
     summary = {
-        'id': feed['id'],
-        'url': feed['url'],
-        'sourcesId': srcid,
+        'feed': feed,           # NOTE! pre-update!!
         'statusCode': response.status_code,
+        'reason': response.reason,
         'headers': dict(response.headers),
     }
+    if note:
+        summary['note'] = note
 
-    path.check_dir(path.INPUT_RSS_DIR)
-    json_filename = os.path.join(path.INPUT_RSS_DIR, f"{srcid}-summary.json")
+    path.check_dir(dir)
+    json_filename = os.path.join(dir, f"{fname}-summary.json")
     with open(json_filename, 'w', encoding='utf-8') as f:
         json.dump(summary, f, indent=4)
-    rss_filename = os.path.join(path.INPUT_RSS_DIR, f"{srcid}-content.rss")
+    rss_filename = os.path.join(dir, f"{fname}-content.rss")
     with open(rss_filename, 'w', encoding='utf-8') as f:
         f.write(response.text)
 
@@ -649,7 +650,8 @@ def fetch_and_process_feed(
     response = _fetch_rss_feed(feed)
 
     if SAVE_RSS_FILES:
-        _save_rss_files(feed, response)
+        # NOTE! saves one file per SOURCE!  bug and feature?!
+        _save_rss_files(path.INPUT_RSS_DIR, feed['source_id'], feed, response)
 
     # BAIL: HTTP failed (not full response or "Not Changed")
     rsc = response.status_code
@@ -659,7 +661,6 @@ def fetch_and_process_feed(
         else:
             status = Status.HARD
 
-        rurl = response.url
         reason = response.reason
         if reason:
             # include reason (in case of non-standard response code)
@@ -761,12 +762,11 @@ def fetch_and_process_feed(
                 raise be
     except Exception as exc:    # RARE catch-all!
         # BAIL: couldn't parse it correctly
-        # most often seen error is a UnicodeError class exception inside
-        # feedparser:
 
-        # at site-packages/feedparser/mixin.py", line 359, in handle_charref
-        # UnicodeEncodeError: 'utf-8' codec can't encode character '\ud83c' in
-        # position 0: surrogates not allowed
+        if SAVE_PARSE_ERRORS:
+            # NOTE! Saving per-feed
+            _save_rss_files(path.PARSE_ERROR_DIR, feed['feed_id'],
+                            feed, response, note=repr(exc))
         return Update('parse_err', Status.SOFT, 'parse error',
                       note=repr(exc))
 
