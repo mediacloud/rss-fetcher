@@ -759,7 +759,7 @@ def fetch_and_process_feed(
         vers = parsed_feed.get('version', '')
         if not vers:
             raise Exception("no version")
-        logger.info(f"   Feed {feed_id} version {vers}")
+        logger.info(f"  Feed {feed_id} version {vers}")
     except Exception as exc:    # RARE catch-all!
         # BAIL: couldn't parse it correctly
 
