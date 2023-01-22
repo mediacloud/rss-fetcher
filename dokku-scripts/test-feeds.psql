@@ -1,0 +1,51 @@
+-- psql file: ssh dokku@$(hostname) postgres:connect user-rss-fetcher < test-feeds.psql
+-- initializes feeds table to a set of feeds phil uses in pbudne-rss-fetcher dev instance
+DELETE FROM feeds;
+INSERT INTO feeds (id, sources_id, name, url)
+VALUES 
+ (10, 1, 'NYT > Baseball', 'http://www.nytimes.com/services/xml/rss/nyt/Baseball.xml')
+
+-- Sends HTML w/ browser User-Agent string:
+,(103, 4, 'GANNETT Syndication Service','http://rssfeeds.usatoday.com/usatoday-NewsTopStories')
+
+,(1000, 1, 'NYT > Bogus', 'http://www.nytimes.com/services/xml/rss/nyt/bogus.xml') -- 404
+,(1001, 1, 'NYT > NXDOM', 'http://www.nytimes.abc/services/xml/rss/nyt/bogus.xml') -- bad hostname
+,(9765, 19347, 'Latest Articles', 'http://www.freerepublic.com/tag/*/feed.rss') -- 25 RSS items, update quickly
+
+,(11678, 1726, 'foobar', 'http://www.kommersant.ru/rss/section-business.xml') -- CharacterEncodingOverride
+,(49511, 27377, 'Oakland North', 'http://oaklandnorth.net//?feed=rss2') -- 60 min
+,(68346, 38970, 'Western People', 'http://www.westernpeople.ie/?feed=rdf') -- 10 items, fast update, 60 min
+,(89855, 41809, 'LExpress.fr', 'http://www.lexpress.fr/rss/edito-video-christophe-barbier.xml') -- > 100 headers
+
+,(348146, 902, 'Between the Columns','http://www.betweenthecolumns.com/feeds/posts/default') -- weak etags
+,(400599, 26146, 'Black Star News','http://www.blackstarnews.com/rss.xml') -- nginx N-M etag
+,(437127, 987, 'The Daily Newarker', 'https://www.dnssec-failed.org/feed/') -- DNS Temp failure
+,(175084, 102919, 'xyzzy', 'http://meloukhia.net/feed/')-- Retry-After: 86400 w/ HTTP 503 Service Unavailable
+,(905114, 665027, 'GiornalediRimini.com', 'http://giornaledirimini.com/feed/') -- 10 RSS items, freq updates, 60 min
+
+,(1869466, 5679, 'Digital Inspiration','https://www.labnol.org/rss.xml') -- long etag
+
+-- update_minutes, but no http_304 seen:
+,(520537, 369966, 'aba-net.com', 'http://www.aba-net.com/news/rss/index.rdf') -- update period 720
+,(2073117, 1417446, 'Livingston Today', 'https://livingstontoday.com/stories.rss') -- update period 1440
+,(1742031, 652165, 'El Disparador Uruguay', 'http://eldisparadoruruguay.com.ar/feed/') -- update period 60
+
+-- update_minutes set, W/ http_304:
+,(1654346, 109349, 'Moroccan Times', 'https://moroccantimes.com/feed/') -- 60 min
+,(2391370, 27490, 'Fog City Journal', 'http://www.fogcityjournal.com/wordpress/feed/?type=100') -- 60 min
+,(2283212, 57767, 'Comments for YPulse', 'https://www.ypulse.com/comments/feed/') -- 720 min
+,(2072647, 1644000, 'Key West Reporter', 'https://keywestreporter.com/stories.rss') -- 1440 min
+,(2073421, 1644622, 'South Ohio News', 'https://southohionews.com/stories.rss') -- 1440 min
+
+-- Retry-After: 14400 seen:
+,(17329,5851,'Smart Mobs','http://www.smartmobs.com/feed/')
+,(424715,300383,'Malawi Broadcasting Corporation','http://www.mbc.mw/index.php?format=feed&type=atom')
+,(514374,271186,'IPPMEDIA','http://www.ippmedia.com/rss.xml')
+,(1080581,300383,'Feed','http://www.mbc.mw/index.php?format=feed&type=rss')
+,(1111809,514394,'Der III. Weg','https://der-dritte-weg.info/feed/rdf')
+,(1455511,652022,'Radio Éxito La Cruz Corrientes','http://www.radioexito.com.ar/rss.xml')
+,(1976902,623769,'الاسبوع العربي احداث لبنانية عربية سياسية اقتصادية اجتماعية','https://arabweek.com.lb/feed/')
+,(2134871,300383,'Malawi Broadcasting Corporation','https://www.mbc.mw/?format=feed&type=atom')
+,(2322471,356479,'Dainik Savera Times RSS','http://dainiksaveratimes.com/feeds/uttar_pardesh.php')
+,(2374157,5851,'Smart Mobs','https://smartmobs.com/feed/')
+;
