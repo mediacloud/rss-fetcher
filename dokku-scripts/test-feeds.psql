@@ -48,4 +48,8 @@ VALUES
 ,(2134871,300383,'Malawi Broadcasting Corporation','https://www.mbc.mw/?format=feed&type=atom')
 ,(2322471,356479,'Dainik Savera Times RSS','http://dainiksaveratimes.com/feeds/uttar_pardesh.php')
 ,(2374157,5851,'Smart Mobs','https://smartmobs.com/feed/')
+
+-- parse errors
+,(2161285,84097,'blogdomago.com RSS feed','https://blogdomago.com/homepage/rss.php?1')
+,(2408467,57561,'ttblogs.com RSS feed','https://ttblogs.com/homepage/rss.php?1')
 ;

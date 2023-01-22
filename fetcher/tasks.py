@@ -754,15 +754,12 @@ def fetch_and_process_feed(
     # try to parse the content, parsing all the stories
     try:
         parsed_feed = feedparser.parse(response.text)
-        if parsed_feed.bozo:
-            be = parsed_feed.bozo_exception
-            # see https://github.com/lemon24/reader/issues/171
-            if isinstance(be, feedparser.ThingsNobodyCaresAboutButMe):
-                logger.debug(f"   Feed {feed_id} ignoring {be!r}")
-                if not getattr(parsed_feed, 'version'):
-                    raise Exception("no version")
-            else:
-                raise be
+        # legacy common/src/python/mediawords/feed/parse.py
+        # ignores "bozo", checks only "version"
+        vers = parsed_feed.get('version', '')
+        if not vers:
+            raise Exception("no version")
+        logger.info(f"   Feed {feed_id} version {vers}")
     except Exception as exc:    # RARE catch-all!
         # BAIL: couldn't parse it correctly
 
