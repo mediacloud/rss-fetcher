@@ -152,9 +152,12 @@ def _save_rss_files(dir: str, fname: Any, feed: Dict,
     debugging helper method - saves two files for the feed (data & metadata)
     """
     summary = {
-        'feed': feed,           # NOTE! pre-update!!
-        'statusCode': response.status_code,
+        'id': feed['id'],
+        'url': feed['url'],
+        'sources_id': feed['sources_id'],
+        'status_code': response.status_code,
         'reason': response.reason,
+        'rurl': response.url,
         'headers': dict(response.headers),
     }
     if note:
