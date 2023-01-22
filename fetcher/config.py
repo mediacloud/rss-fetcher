@@ -269,7 +269,7 @@ class _Config:                  # only instantiated in this file
     # timeout in sec. for fetching an RSS file
     RSS_FETCH_TIMEOUT_SECS = conf_int('RSS_FETCH_TIMEOUT_SECS', 30)
 
-    # user/password for Basic Authentication between rss-fetcher and web-search
+    # user/password for Basic Authentication for rss-fetcher API service
     RSS_FETCHER_USER = conf_optional('RSS_FETCHER_USER', hidden=True)
     RSS_FETCHER_PASS = conf_optional('RSS_FETCHER_PASS', hidden=True)
 
@@ -279,7 +279,7 @@ class _Config:                  # only instantiated in this file
 
     # enable saving input (RSS) files that fail to parse
     # (one per feed), plus metadata
-    SAVE_PARSE_ERRORS = conf_optional('SAVE_PARSE_ERRORS')
+    SAVE_PARSE_ERRORS = conf_bool('SAVE_PARSE_ERRORS', False)
 
     # save input rss files (one per source) plus metadata for debug
     SAVE_RSS_FILES = conf_bool('SAVE_RSS_FILES', False)
