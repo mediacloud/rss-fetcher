@@ -2,7 +2,7 @@
 -- initializes feeds table to a set of feeds phil uses in pbudne-rss-fetcher dev instance
 DELETE FROM feeds;
 INSERT INTO feeds (id, sources_id, name, url)
-VALUES 
+VALUES
  (10, 1, 'NYT > Baseball', 'http://www.nytimes.com/services/xml/rss/nyt/Baseball.xml')
 
 -- Sends HTML w/ browser User-Agent string:
