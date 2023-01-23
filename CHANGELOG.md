@@ -1,6 +1,17 @@
 Change Log
 ==========
 
+## v0.12.10
+
+Fix spurrious parse errors:
+
+* dokku-scripts/test-feeds.psql: create feeds table with small test set
+* fetcher/config.py: add SAVE_PARSE_ERRORS param
+* fetcher/path.py: add PARSE_ERROR_DIR
+* fetcher/tasks.py: ignore feedparser "bozo"; check "version" only
+	honor SAVE_PARSE_ERRORS
+* .env.template: add TZ, SAVE_PARSE_ERRORS
+
 ## v0.12.9
 
 * dokku-scripts/instance.sh: speed up deployment, fix mcweb config
