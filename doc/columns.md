@@ -3,7 +3,7 @@
 The following are descriptions of rss-fetcher database columns that
 are (or might be) displayed in the search.mediacloud.org web application.
 
-# Feeds
+## Feeds
 
 Columns copied/updated from search.mediacloud.org database:
 
@@ -35,24 +35,24 @@ Generated/Internal data (subject to change):
 * update_minutes - Number of minutes between document updates (published in feed. empty if no value published).
 * http_304 - True if feed HTTP server has ever returned HTTP 304 "Not Modified" in response to an ETag or Last-Modified value we provided.
 * system_status - A short string indicating status from the last fetch attempt:
-	+ DNS error
-	+ HTTP nnn Description
-	+ SSL error
-	+ Working
-	+ connect timeout
-	+ connection error
-	+ fetch error
-	+ job timeout
-	+ parse error
-	+ read timeout
-	+ too many redirects
-	+ unknown hostname
+	+ `DNS error`
+	+ `HTTP nnn Description`
+	+ `SSL error`
+	+ `Working`
+	+ `connect timeout`
+	+ `connection error`
+	+ `fetch error`
+	+ `job timeout`
+	+ `parse error`
+	+ `read timeout`
+	+ `too many redirects`
+	+ `unknown hostname`
 * last_new_stories - UTC date/time of the last time new stories successfully fetched, parsed and stored.
 * rss_title - Title of feed parsed from fetched document (may change every day!)
 * poll_minutes - Minutes between fetches.  Currently only set automatically,
 	to a fixed value for feeds that often return no previously seen articles.
 
-# Fetch Events
+## Fetch Events
 
 * created_at - UTC date/time of creation of row.
 * feed_id - feed id number
