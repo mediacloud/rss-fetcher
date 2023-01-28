@@ -1,7 +1,17 @@
 Change Log
 ==========
 
-## v0.12.10
+## v0.12.11 2023-01-28
+
+Fix more parse errors
+
+* fetcher/tasks.py: feed response.content to feedparser:
+	response.text decodes utf-16 as utf-8 (w/ bad results)
+* dokku-scripts/test-feeds.psql: add feeds w/ doctype html, html, utf-16
+	remove www.mbc.mw urls (all HTML)
+* CHANGELOG.md: add dates on 0.12.* versions
+
+## v0.12.10 2023-01-23
 
 Fix spurrious parse errors:
 
@@ -12,7 +22,7 @@ Fix spurrious parse errors:
 	honor SAVE_PARSE_ERRORS
 * .env.template: add TZ, SAVE_PARSE_ERRORS
 
-## v0.12.9
+## v0.12.9 2023-01-20
 
 * dokku-scripts/instance.sh: speed up deployment, fix mcweb config
 * dokku-scripts/push.sh: vary workers acording to instance type
@@ -28,7 +38,7 @@ Fix spurrious parse errors:
   + order by id % 1001
   + stats for stray catcher
 
-## v0.12.8
+## v0.12.8 2023-01-13
 
 Reduce default fetch interval to 6 hours (from 12):
 
@@ -60,7 +70,7 @@ Cleanup:
 
 * scripts/update_feeds.py: import LogArgumentParser in main
 
-## v0.12.7
+## v0.12.7 2023-01-03
 
 * Procfile: add "update" for update_feeds.py
 * instance.sh:
@@ -77,17 +87,17 @@ Cleanup:
   + use fetcher.pidfile
   + --sleep-seconds takes float
   + add --reset-next-url
-  + require created_at	
+  + require created_at
 * fetcher/database/property.py: add logging
 
-## v0.12.6
+## v0.12.6 2022-12-26
 
 * Update User-Agent to old system string plus plus in front of URL
      (rssfeeds.usatoday.com returning HTML w/ browser U-A string)
 * Accept up to 1000 HTTP headers in responses
      (www.lexpress.fr was sometimes sending more than 100?)
 
-## v0.12.5
+## v0.12.5 2022-12-21
 
 * Add /api/sources/N/fetch-soon (randomizes next_fetch_attempt)
 * Add Feed.rss_title column, always update Feed.name from mcweb
@@ -101,7 +111,7 @@ Cleanup:
 * autopep8.sh: ignore venv*
 * runtime.txt: update to 3.9.15 due to vulnerability
 
-## v0.12.4
+## v0.12.4 2022-12-10
 
 * /api/stories/by-source endpoint
 * Honor SQLALCHEMY_ECHO for debug
@@ -112,7 +122,7 @@ Cleanup:
   + add --force-push
 * start of feed syncing scripts (not ready)
 
-## v0.12.3
+## v0.12.3 2022-12-10?
 
 * scripts/queue_feeds.py: fix queuing feeds by number
 * fetcher/tasks.py:
@@ -133,7 +143,7 @@ Cleanup:
 * server/{feeds,sources,stories}.py: add authentication
 * server/feeds.py: add /api/feeds/ID/fetch-soon
 
-## v0.12.2
+## v0.12.2 2022-11-19
 
 * fetcher/config.py: fix comments
 * doc/deployment.md: update
@@ -143,7 +153,7 @@ Cleanup:
 * scripts/db_archive.py: fix log message
 * dokku-scripts/instance.sh: remove obsolete RSS_FILE_PATH variable
 
-## v0.12.1
+## v0.12.1 2022-11-09
 
 * fetcher/config.py: drop TASK_TIMEOUT_SECONDS back to 180
 * fetcher/logargparse.py: fix --logger-level/-L
@@ -167,7 +177,7 @@ Cleanup:
 * scripts/queue_feeds.py: if qlen==0 but db_queue!=0, clear queued feeds (fix leakage).
 * fetcher/tasks.py: clear queued on insane feeds (stop leakage).
 
-## v0.12.0
+## v0.12.0 2022-11-07
 
 Major raking by Phil Budne
 
