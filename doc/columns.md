@@ -67,11 +67,11 @@ Generated/Internal data (subject to change):
 	useful to technical folks to diagnose the issue.
 
 	+ With `fetch_succeeded`:
-		o `N skipped / N added`
-		o `not modified` -- HTTP server returned 304 "Not Modified" status
-		o `same hash` -- document did not change
+		- `N skipped / N added`
+		- `not modified` -- HTTP server returned 304 "Not Modified" status
+		- `same hash` -- document did not change
 
 	+ With `parse failed`:
-		o `Exception('empty')` -- returned document was empty
-		o `Exception('html?')` -- returned document appeared to be HTML
-		o `Exception('no version')` -- type/version (Atom/rss 1.0/rss 2.0/rdf) of returned document could not be detected.
+		- `Exception('empty')` -- returned document was empty
+		- `Exception('html?')` -- returned document appeared to be HTML
+		- `Exception('no version')` -- type/version (Atom/rss 1.0/rss 2.0/rdf) of returned document could not be detected.
