@@ -762,7 +762,7 @@ def fetch_and_process_feed(
             if not response.content:
                 raise Exception("empty")
             top = response.content[:1024].lower()
-            if top.find('<!doctype html') or top.find('<html'):
+            if top.find(b'<!doctype html') or top.find(b'<html'):
                 raise Exception("html?")
             raise Exception("no version")
         logger.info(f"  Feed {feed_id} version {vers}")

@@ -39,13 +39,10 @@ VALUES
 
 -- Retry-After: 14400 seen:
 ,(17329,5851,'Smart Mobs','http://www.smartmobs.com/feed/')
-,(424715,300383,'Malawi Broadcasting Corporation','http://www.mbc.mw/index.php?format=feed&type=atom')
 ,(514374,271186,'IPPMEDIA','http://www.ippmedia.com/rss.xml')
-,(1080581,300383,'Feed','http://www.mbc.mw/index.php?format=feed&type=rss')
 ,(1111809,514394,'Der III. Weg','https://der-dritte-weg.info/feed/rdf')
 ,(1455511,652022,'Radio Éxito La Cruz Corrientes','http://www.radioexito.com.ar/rss.xml')
 ,(1976902,623769,'الاسبوع العربي احداث لبنانية عربية سياسية اقتصادية اجتماعية','https://arabweek.com.lb/feed/')
-,(2134871,300383,'Malawi Broadcasting Corporation','https://www.mbc.mw/?format=feed&type=atom')
 ,(2322471,356479,'Dainik Savera Times RSS','http://dainiksaveratimes.com/feeds/uttar_pardesh.php')
 ,(2374157,5851,'Smart Mobs','https://smartmobs.com/feed/')
 
@@ -53,4 +50,8 @@ VALUES
 ,(857733,59086,'مينافن أخبار الشرق الأوسط','http://menafn.com/rss/menafn_menatopstoriesar.xml') -- utf-16!!
 ,(2161285,84097,'blogdomago.com RSS feed','https://blogdomago.com/homepage/rss.php?1') -- bozo set
 ,(2408467,57561,'ttblogs.com RSS feed','https://ttblogs.com/homepage/rss.php?1') -- bozo set
+
+-- parse errors (HTML)
+,(971,8,'New Jersey Nets Basketball','http://feeds.nydailynews.com/nydnrss/sports/basketball/nets') -- doctype html
+,(2821,3177,'Интернетные штучки','http://feeds.feedburner.com/internetno') -- <html> w/o doctype
 ;
