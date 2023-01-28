@@ -4,9 +4,12 @@
 # for a Dokku postgres service in the outside world.
 # Phil Budne, January 2023
 
+
 SVC="$1"
-if [ "x$SRC" = x ]; then
+if [ "x$SVC" = x ]; then
     echo "Usage: $0 dokku-postgres-service-name" 1>&2
+    echo "ie;" 1>&2
+    echo 'export DATABASE_URL=`./dokku-scripts/dburl.sh my-rss-fetcher`' 1>&2
     exit 1
 fi
 
