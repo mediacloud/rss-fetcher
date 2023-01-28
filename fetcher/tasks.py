@@ -168,8 +168,8 @@ def _save_rss_files(dir: str, fname: Any, feed: Dict,
     with open(json_filename, 'w', encoding='utf-8') as f:
         json.dump(summary, f, indent=4)
     rss_filename = os.path.join(dir, f"{fname}-content.rss")
-    with open(rss_filename, 'w', encoding='utf-8') as f:
-        f.write(response.text)
+    with open(rss_filename, 'wb') as f:
+        f.write(response.content)
 
 
 def normalized_title_exists(session: SessionType,
@@ -753,7 +753,8 @@ def fetch_and_process_feed(
 
     # try to parse the content, parsing all the stories
     try:
-        parsed_feed = feedparser.parse(response.text)
+        # NOTE! passing undecoded bytes!
+        parsed_feed = feedparser.parse(response.content)
         # legacy common/src/python/mediawords/feed/parse.py
         # ignores "bozo", checks only "version"
         vers = parsed_feed.get('version', '')
