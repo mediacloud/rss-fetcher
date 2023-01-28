@@ -19,7 +19,8 @@ SCRIPT = 'poll_update'
 logger = logging.getLogger(SCRIPT)
 
 
-def feeds_to_update(rows: int, urls: int, fraction: float) -> List[int]:
+def feeds_to_update(rows: int, urls: int, fraction: float,
+                    reject_no_change: bool) -> List[int]:
     query = (select(FetchEvent.feed_id, FetchEvent.created_at, FetchEvent.note)  # type: ignore[arg-type]
              .where(FetchEvent.event == FetchEvent.Event.FETCH_SUCCEEDED.value)
              .order_by(FetchEvent.feed_id,
@@ -54,11 +55,12 @@ def feeds_to_update(rows: int, urls: int, fraction: float) -> List[int]:
             n += 1              # row count
             first = created_at  # earliest
 
-            # ignore feed if not always skipped N / added N
-            # (including "same hash" and "no change")
-            # must ALWAYS have changed
             if not note.endswith('added'):
-                candidate = False
+                if reject_no_change:
+                    # ignore feed if not always skipped N / added N
+                    # (including "same hash" and "no change")
+                    # must ALWAYS have changed
+                    candidate = False
                 continue
 
             # ['30', 'skipped', '/', '0', 'added']
@@ -93,8 +95,9 @@ def feeds_to_update(rows: int, urls: int, fraction: float) -> List[int]:
 
             # print(feed, "n:", n, "matches:", matches)
             if n == rows:       # fetched enough data?
-                # print(feed, matches / n, first, last)
-                if matches / n >= fraction:
+                f = matches / n
+                # print(feed, matches, n, f, first, last)
+                if f >= fraction:
                     to_update.append(feed)
                     logger.debug(
                         f" adding {feed} ({matches}/{n} {first} {last})")
@@ -125,29 +128,66 @@ def update_feeds(to_update: List[int], period: int) -> None:
 
 
 if __name__ == '__main__':
+    from argparse import ArgumentTypeError
+    from sys import exit
+
     from fetcher.logargparse import LogArgumentParser
     from fetcher.pidfile import LockedException, PidFile
 
-    p = LogArgumentParser(SCRIPT, 'update feed poll_minutes column')
-    p.add_argument('--update', action='store_true',
-                   help="actually update date")
-    # info logging before this call unlikely to be seen:
-    args = p.my_parse_args()       # parse logging args, output start message
+    # https://stackoverflow.com/questions/12116685/how-can-i-require-my-python-scripts-argument-to-be-a-float-in-a-range-using-arg
+    def restricted_float(x: str) -> float:
+        """test for float command line argument in range: 0.0 < x <= 1.0"""
+        try:
+            ret = float(x)
+        except ValueError:
+            raise ArgumentTypeError(f"{x!r} not a floating-point literal")
+
+        if ret <= 0.0 or ret > 1.0:
+            raise ArgumentTypeError(f"{ret!r} not in range (0.0, 1.0]")
+        return ret
 
     # all could be command line options
     # (defaulted from config params):
     ROWS = 10                   # number of most recent rows to look at
     URLS = 100                  # too many urls returned
-    FRACTION = 0.8              # fraction of ROWS that need to match
     PERIOD = conf.FAST_POLL_MINUTES  # update interval to set
+
+    # default values:
+    FRACTION = 0.8              # fraction of ROWS that need to match
+
+    p = LogArgumentParser(SCRIPT, 'update feed poll_minutes column')
+    # experiment:
+    p.add_argument('--accept-no-change',
+                   action='store_false', dest='reject_no_change',
+                   help="consider feeds with 'no change' or 'same hash'")
+    # current default:
+    p.add_argument('--reject-no-change',
+                   action='store_true', dest='reject_no_change',
+                   help="reject feeds with 'no change' or 'same hash'")
+    p.set_defaults(reject_no_change=True)
+
+    p.add_argument('--fraction', type=restricted_float,
+                   help=f"floating point (0,1] to fraction of fetches that must have no previously seen articles ({FRACTION})",
+                   default=FRACTION)
+    p.add_argument('--update', action='store_true',
+                   help="actually update database (else just dry run)!")
+    # info logging before this call unlikely to be seen:
+    args = p.my_parse_args()       # parse logging args, output start message
+
+    def get_feeds_to_update() -> List[int]:
+        to_update = feeds_to_update(
+            ROWS, URLS, args.fraction,
+            reject_no_change=args.reject_no_change)
+        return to_update
 
     if args.update:
         try:
             with PidFile(SCRIPT):
-                to_update = feeds_to_update(ROWS, URLS, FRACTION)
+                to_update = get_feeds_to_update()
                 update_feeds(to_update, PERIOD)
         except LockedException:
             logger.error("could not get lock")
             exit(255)
     else:
-        feeds_to_update(ROWS, URLS, FRACTION)
+        logger.info("DRY RUN! use --update to make changes: use -v to see candidates")
+        get_feeds_to_update()
