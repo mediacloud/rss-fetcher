@@ -75,3 +75,5 @@ Generated/Internal data (subject to change):
 		- `Exception('empty')` -- returned document was empty
 		- `Exception('html?')` -- returned document appeared to be HTML
 		- `Exception('no version')` -- type/version (Atom/rss 1.0/rss 2.0/rdf) of returned document could not be detected.
+		- `UnicodeEncodeError(....) -- could not decode document
+
