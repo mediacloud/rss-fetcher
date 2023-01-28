@@ -759,6 +759,11 @@ def fetch_and_process_feed(
         # ignores "bozo", checks only "version"
         vers = parsed_feed.get('version', '')
         if not vers:
+            if not response.content:
+                raise Exception("empty")
+            top = response.content[:1024].lower()
+            if top.find('<!doctype html') or top.find('<html'):
+                raise Exception("html?")
             raise Exception("no version")
         logger.info(f"  Feed {feed_id} version {vers}")
     except Exception as exc:    # RARE catch-all!
