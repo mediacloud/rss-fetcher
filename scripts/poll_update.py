@@ -189,5 +189,6 @@ if __name__ == '__main__':
             logger.error("could not get lock")
             exit(255)
     else:
-        logger.info("DRY RUN! use --update to make changes: use -v to see candidates")
+        logger.info(
+            "DRY RUN! use --update to make changes: use -v to see candidates")
         get_feeds_to_update()
