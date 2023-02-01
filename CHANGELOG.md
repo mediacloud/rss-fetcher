@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+## v0.12.12 2023-02-01
+
+* add HTTP_CONDITIONAL_FETCH config variable
+* new doc/columns.md -- explain db columns
+* new dokku-scripts/dburl.sh
+* scripts.poll_update: add options for experimentation
+
 ## v0.12.11 2023-01-28
 
 Fix more parse errors
