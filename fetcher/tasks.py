@@ -774,6 +774,8 @@ def fetch_and_process_feed(
                 raise Exception("html?")
             raise Exception("no version")
         logger.info(f"  Feed {feed_id} version {vers}")
+    except fetcher.queue.JobTimeoutException:
+        raise
     except Exception as exc:    # RARE catch-all!
         # BAIL: couldn't parse it correctly
 
