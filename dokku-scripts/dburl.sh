@@ -16,7 +16,7 @@ fi
 ssh dokku@$(hostname) postgres:info $SVC | awk "
 /Dsn:/ { dsn = \$2 }
 /Internal ip:/ { ip = \$3
-	print gensub(/^postgres:/, \"postgresql:\", 1, 
+	print gensub(/^postgres:/, \"postgresql:\", 1,
 		gensub(/dokku-postgres-$SVC/, ip, 1, dsn))
 	exit 0
 }"
