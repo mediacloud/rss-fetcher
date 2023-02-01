@@ -54,4 +54,7 @@ VALUES
 -- parse errors (HTML)
 ,(971,8,'New Jersey Nets Basketball','http://feeds.nydailynews.com/nydnrss/sports/basketball/nets') -- doctype html
 ,(2821,3177,'Интернетные штучки','http://feeds.feedburner.com/internetno') -- <html> w/o doctype
+
+-- can't trust ETag, Last-Modified old
+,(1700037, 366647, 'Conservative News Today', 'https://www.bizpacreview.com/feed')
 ;

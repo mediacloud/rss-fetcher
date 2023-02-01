@@ -227,6 +227,9 @@ class _Config:                  # only instantiated in this file
     # number of fetch_event rows to keep for each feed
     FETCH_EVENT_ROWS = conf_int('FETCH_EVENT_ROWS', 30)
 
+    # Use saved ETag or Last-Modified for conditional feed fetch
+    HTTP_CONDITIONAL_FETCH = conf_bool('HTTP_CONDITIONAL_FETCH', False)
+
     # number of old log files to keep
     LOG_BACKUP_COUNT = conf_int('LOG_BACKUP_COUNT', 7)
 

@@ -103,6 +103,7 @@ HTTP_SOFT = set([429, 500, 502, 503, 504])
 # please keep alphabetical:
 NORMALIZED_TITLE_DAYS = conf.NORMALIZED_TITLE_DAYS
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
+HTTP_CONDITIONAL_FETCH = conf.HTTP_CONDITIONAL_FETCH
 MAX_FAILURES = conf.MAX_FAILURES
 MAX_URL = conf.MAX_URL
 MAXIMUM_INTERVAL_MINS = conf.MAXIMUM_INTERVAL_MINS
@@ -481,23 +482,29 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     """
     headers = {'User-Agent': USER_AGENT}
 
-    # if ETag (Entity-Tag) stashed, make GET conditional
-    etag = feed.get('http_etag', None)
-    if etag:
-        # If-None-Match takes one or more etag values
-        headers['If-None-Match'] = etag  # "value" or W/"value"
-    else:
-        # if no ETag, but have an old Last-Modified header value
-        # make GET conditional on THAT.
-        # https://www.rfc-editor.org/rfc/rfc9110.html#name-if-modified-since
-        # says:
-        #     "A recipient MUST ignore If-Modified-Since if the request
-        #     contains an If-None-Match header field"
-        # The Internet credo is "be conservative in what you send"
-        # so only sending one.
-        lastmod = feed.get('http_last_modified', None)
-        if lastmod:
-            headers['If-Modified-Since'] = lastmod
+    # 2023-01-31: some feeds give incorrect "no change" responses
+    # ie; https://www.bizpacreview.com/feed
+    # perhaps try to validate http_last_modified
+    # (don't send headers if last_modified is more than a month old?)
+
+    if HTTP_CONDITIONAL_FETCH:
+        # if ETag (Entity-Tag) stashed, make GET conditional
+        etag = feed.get('http_etag', None)
+        if etag:
+            # If-None-Match takes one or more etag values
+            headers['If-None-Match'] = etag  # "value" or W/"value"
+        else:
+            # if no ETag, but have an old Last-Modified header value
+            # make GET conditional on THAT.
+            # https://www.rfc-editor.org/rfc/rfc9110.html#name-if-modified-since
+            # says:
+            #     "A recipient MUST ignore If-Modified-Since if the request
+            #     contains an If-None-Match header field"
+            # The Internet credo is "be conservative in what you send"
+            # so only sending one.
+            lastmod = feed.get('http_last_modified', None)
+            if lastmod:
+                headers['If-Modified-Since'] = lastmod
 
     response = requests.get(
         feed['url'],
