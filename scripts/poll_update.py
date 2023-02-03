@@ -19,8 +19,16 @@ SCRIPT = 'poll_update'
 logger = logging.getLogger(SCRIPT)
 
 
-def feeds_to_update(rows: int, urls: int, fraction: float,
-                    reject_no_change: bool) -> List[int]:
+def update_feeds(rows: int,     # need to see this many successes
+                 urls: int,
+                 fraction: float,  # fraction of fetches to qualify min: 1/rows, max 1
+                 reject_no_change: bool,  # don't consider feeds that didn't change
+                 update: bool,  # actually update rows
+                 period: int    # period in minutes to set poll_minutes to
+                 ) -> None:
+
+    stats = Stats.get()
+
     query = (select(FetchEvent.feed_id, FetchEvent.created_at, FetchEvent.note)  # type: ignore[arg-type]
              .where(FetchEvent.event == FetchEvent.Event.FETCH_SUCCEEDED.value)
              .order_by(FetchEvent.feed_id,
@@ -28,10 +36,10 @@ def feeds_to_update(rows: int, urls: int, fraction: float,
     # print(query)
 
     last_feed = -1
-    to_update = []
+    count = skipped = 0
     with Session() as session:
         for event in session.execute(query):
-            feed = event.feed_id
+            feed_id = event.feed_id
             note = event.note
             created_at = event.created_at
 
@@ -39,11 +47,11 @@ def feeds_to_update(rows: int, urls: int, fraction: float,
             if created_at.timetuple().tm_wday >= 5:  # monday is zero
                 continue
 
-            # print(feed, created_at, note)
-            if feed != last_feed:  # new feed?
+            # print(feed_id, created_at, note)
+            if feed_id != last_feed:  # new feed?
                 n = 0
                 matches = 0
-                last_feed = feed
+                last_feed = feed_id
                 urls_returned = -1
                 candidate = True
                 last = created_at  # most recent
@@ -77,7 +85,7 @@ def feeds_to_update(rows: int, urls: int, fraction: float,
                 urls_returned = total
 
                 # ignore feeds that ever return no URLs or too many
-                if urls_returned >= URLS or urls_returned == 0:
+                if urls_returned >= urls or urls_returned == 0:
                     candidate = False
                     continue
                 # fall through for "matches" check
@@ -93,38 +101,30 @@ def feeds_to_update(rows: int, urls: int, fraction: float,
             # ((n-matches) > rows*(1-fraction))? but it's hardly
             # worth the effort.
 
-            # print(feed, "n:", n, "matches:", matches)
+            # print(feed_id, "n:", n, "matches:", matches)
             if n == rows:       # fetched enough data?
                 f = matches / n
-                # print(feed, matches, n, f, first, last)
+                # print(feed_id, matches, n, f, first, last)
                 if f >= fraction:
-                    to_update.append(feed)
-                    logger.debug(
-                        f" adding {feed} ({matches}/{n} {first} {last})")
+                    feed_obj = session.get(Feed, feed_id)
+                    if feed_obj.poll_minutes is None or feed_obj.poll_minutes > period:
+                        logger.debug(
+                            f" {feed_id} ({matches}/{n} {first} {last})")
+                        if update:
+                            feed_obj.poll_minutes = period
+                            session.add(feed_obj)
+                            stats.incr('updated', count)
+                        count += 1
+                    else:
+                        skipped += 1
                 candidate = False  # ignore remaining rows
                 continue
-    logger.info(f"found {len(to_update)} candidate feeds to update")
-    return to_update
+        # end for
+        logger.info(f"found {count} feeds to update, skipped {skipped}")
+        if update:
+            session.commit()
 
-
-def update_feeds(to_update: List[int], period: int) -> None:
-    """
-    just nail to a low value (could be made adaptive:
-    starting period low, and and increasing?)
-    """
-
-    with Session() as session:
-        u = (update(Feed)       # type: ignore[arg-type]
-             .where(Feed.id.in_(to_update))
-             .where(or_(Feed.poll_minutes.is_(None),
-                        Feed.poll_minutes > period))
-             .values(poll_minutes=period))
-        res = session.execute(u)
-        count = res.rowcount
-        session.commit()
-        logger.info(f"Updated {count} rows")
-        stats = Stats.get()
-        stats.incr('updated', count)
+    # end session
 
 
 if __name__ == '__main__':
@@ -174,21 +174,22 @@ if __name__ == '__main__':
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
 
-    def get_feeds_to_update() -> List[int]:
-        to_update = feeds_to_update(
+    def do_update() -> None:
+        update_feeds(
             ROWS, URLS, args.fraction,
-            reject_no_change=args.reject_no_change)
-        return to_update
+            reject_no_change=args.reject_no_change,
+            update=args.update,
+            period=PERIOD
+        )
 
     if args.update:
         try:
             with PidFile(SCRIPT):
-                to_update = get_feeds_to_update()
-                update_feeds(to_update, PERIOD)
+                do_update()
         except LockedException:
             logger.error("could not get lock")
             exit(255)
     else:
         logger.info(
             "DRY RUN! use --update to make changes: use -v to see candidates")
-        get_feeds_to_update()
+        do_update()
