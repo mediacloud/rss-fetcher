@@ -1,10 +1,14 @@
 #!/bin/sh
 
 # create a virtual domain with https on a dokku server that is Internet visible
+# (ie; tarbell)
 # proxying to a plain text HTTP server that's NOT Internet visible.
-# Phil Budne, October 2022
+# (ie; a Dokku app or other web server running on a server on a private net)
 
+# Phil Budne, October 2022
 # from https://dokku.com/blog/2021/dokku-0.25.0/
+# I use this to expose the grafana interface from a dokku-graphite
+# instance running on ifill as https://stats.ifill.tarbell.mediacloud.org/
 
 SCRIPT_DIR=$(dirname $0)
 INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
