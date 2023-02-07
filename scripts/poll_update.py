@@ -108,11 +108,13 @@ def update_feeds(rows: int,     # need to see this many successes
                 if f >= fraction:
                     feed_obj = session.get(Feed, feed_id)
                     if feed_obj.poll_minutes is None or feed_obj.poll_minutes > period:
-                        # used to display {first} {last} (date times, but not that valuable)
+                        # used to display {first} {last} (date times, but not
+                        # that valuable)
                         logger.debug(
                             f" {feed_id} ({matches}/{n} {urls_returned} {feed_obj.update_minutes})")
                         if update:
-                            # XXX if feed_obj.update_minutes is not None, use max(update_minutes, period)?
+                            # XXX if feed_obj.update_minutes is not None, use
+                            # max(update_minutes, period)?
                             feed_obj.poll_minutes = period
                             session.add(feed_obj)
                             stats.incr('updated', count)
@@ -131,7 +133,7 @@ def update_feeds(rows: int,     # need to see this many successes
 
 if __name__ == '__main__':
     from argparse import ArgumentTypeError
-    from sys import exit
+    import sys
 
     from fetcher.logargparse import LogArgumentParser
     from fetcher.pidfile import LockedException, PidFile
@@ -204,7 +206,7 @@ if __name__ == '__main__':
                 do_update()
         except LockedException:
             logger.error("could not get lock")
-            exit(255)
+            sys.exit(255)
     else:
         logger.info(
             "DRY RUN! use --update to make changes: use -v to see candidates")
