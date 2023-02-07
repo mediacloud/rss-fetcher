@@ -108,9 +108,11 @@ def update_feeds(rows: int,     # need to see this many successes
                 if f >= fraction:
                     feed_obj = session.get(Feed, feed_id)
                     if feed_obj.poll_minutes is None or feed_obj.poll_minutes > period:
+                        # used to display {first} {last} (date times, but not that valuable)
                         logger.debug(
-                            f" {feed_id} ({matches}/{n} {first} {last})")
+                            f" {feed_id} ({matches}/{n} {urls_returned} {feed_obj.update_minutes})")
                         if update:
+                            # XXX if feed_obj.update_minutes is not None, use max(update_minutes, period)?
                             feed_obj.poll_minutes = period
                             session.add(feed_obj)
                             stats.incr('updated', count)
@@ -148,12 +150,12 @@ if __name__ == '__main__':
 
     # all could be command line options
     # (defaulted from config params):
-    ROWS = 10                   # number of most recent rows to look at
-    URLS = 100                  # too many urls returned
     PERIOD = conf.FAST_POLL_MINUTES  # update interval to set
 
-    # default values:
-    FRACTION = 0.8              # fraction of ROWS that need to match
+    # default values (could fetch from config!)
+    FETCHES = 10               # number of most recent rows to look at
+    FRACTION = 0.8             # fraction of ROWS that need to match
+    MAX_URLS = 100             # too many urls returned
 
     p = LogArgumentParser(SCRIPT, 'update feed poll_minutes column')
     # experiment:
@@ -166,17 +168,31 @@ if __name__ == '__main__':
                    help="reject feeds with 'no change' or 'same hash'")
     p.set_defaults(reject_no_change=True)
 
+    p.add_argument('--fetches', type=int,
+                   help=f"number of successful fetches required (default: {FETCHES})",
+                   default=FETCHES)
     p.add_argument('--fraction', type=restricted_float,
                    help=f"floating point (0,1] to fraction of fetches that must have no previously seen articles ({FRACTION})",
                    default=FRACTION)
+    p.add_argument('--max-urls', type=int,
+                   help=f"maximum URLs returned (default: {MAX_URLS})",
+                   default=MAX_URLS)
     p.add_argument('--update', action='store_true',
                    help="actually update database (else just dry run)!")
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
 
     def do_update() -> None:
+        if args.max_urls < 1:
+            logger.warning("--max-urls must be >= 1")
+            sys.exit(1)
+
+        if args.fetches < 1:
+            logger.warning("--fetches must be >= 1")
+            sys.exit(1)
+
         update_feeds(
-            ROWS, URLS, args.fraction,
+            args.fetches, args.max_urls, args.fraction,
             reject_no_change=args.reject_no_change,
             update=args.update,
             period=PERIOD
