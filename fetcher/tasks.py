@@ -843,7 +843,7 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
                 skipped_count += 1
                 continue
 
-            if SKIP_HOME_PAGES: # added test 2023-02-10
+            if SKIP_HOME_PAGES:  # added test 2023-02-10
                 try:
                     # and skip very common homepage patterns:
                     if mcmetadata.urls.is_homepage_url(link):
