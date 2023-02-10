@@ -289,8 +289,12 @@ class _Config:                  # only instantiated in this file
 
     SENTRY_DSN = conf_optional('SENTRY_DSN')
 
+    # skip all pages that look like "home pages"
+    SKIP_HOME_PAGES = conf_bool('SKIP_HOME_PAGES', False)
+
     SQLALCHEMY_DATABASE_URI = conf_required('DATABASE_URL')
 
+    # Display generated SQL
     SQLALCHEMY_ECHO = conf_bool('SQLALCHEMY_ECHO', False)
 
     # required if STATSD_URL set

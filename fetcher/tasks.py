@@ -112,6 +112,7 @@ MINIMUM_INTERVAL_MINS_304 = conf.MINIMUM_INTERVAL_MINS_304
 RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 SAVE_PARSE_ERRORS = conf.SAVE_PARSE_ERRORS
+SKIP_HOME_PAGES = conf.SKIP_HOME_PAGES
 VERIFY_CERTIFICATES = conf.VERIFY_CERTIFICATES
 
 logger = logging.getLogger(__name__)  # get_task_logger(__name__)
@@ -840,22 +841,23 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
                 skipped_count += 1
                 continue
 
-            try:
-                # and skip very common homepage patterns:
-                if mcmetadata.urls.is_homepage_url(link):
-                    # raised to info 2022-10-27
-                    logger.info(f" * skip homepage URL: {link}")
-                    if '?' in link:  # added 2022-11-04
-                        stories_incr('home_query')
-                    else:
-                        stories_incr('home')
+            if SKIP_HOME_PAGES: # added test 2023-02-10
+                try:
+                    # and skip very common homepage patterns:
+                    if mcmetadata.urls.is_homepage_url(link):
+                        # raised to info 2022-10-27
+                        if '?' in link:  # added 2022-11-04
+                            stories_incr('home_query')
+                        else:
+                            stories_incr('home')
+                            logger.info(f" * skip homepage URL: {link}")
+                        skipped_count += 1
+                        continue
+                except (ValueError, TypeError):
+                    logger.debug(f" * bad URL: {link}")
+                    stories_incr('bad')
                     skipped_count += 1
                     continue
-            except (ValueError, TypeError):
-                logger.debug(f" * bad URL: {link}")
-                stories_incr('bad')
-                skipped_count += 1
-                continue
 
             s = Story.from_rss_entry(feed['id'], now, entry)
             # skip urls from high-quantity non-news domains
