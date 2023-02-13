@@ -843,23 +843,24 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
                 skipped_count += 1
                 continue
 
-            if SKIP_HOME_PAGES:  # added test 2023-02-10
-                try:
-                    # and skip very common homepage patterns:
-                    if mcmetadata.urls.is_homepage_url(link):
-                        # raised to info 2022-10-27
-                        if '?' in link:  # added 2022-11-04
+            try:
+                # and skip very common homepage patterns:
+                if mcmetadata.urls.is_homepage_url(link):
+                    # initially skipped above test, but that exposed
+                    # subsequent code paths to unexpected errors
+                    if SKIP_HOME_PAGES:
+                        logger.info(f" * skip homepage URL: {link}")
+                        if '?' in link:
                             stories_incr('home_query')
                         else:
                             stories_incr('home')
-                            logger.info(f" * skip homepage URL: {link}")
                         skipped_count += 1
                         continue
-                except (ValueError, TypeError):
-                    logger.debug(f" * bad URL: {link}")
-                    stories_incr('bad')
-                    skipped_count += 1
-                    continue
+            except (ValueError, TypeError):
+                logger.debug(f" * bad URL: {link}")
+                stories_incr('bad')
+                skipped_count += 1
+                continue
 
             s = Story.from_rss_entry(feed['id'], now, entry)
             # skip urls from high-quantity non-news domains
