@@ -92,6 +92,7 @@ class Update(NamedTuple):
     # passed on HTTP 429:
     randomize: bool = False
 
+
 def NoUpdate(counter: str) -> Update:
     """
     update_field return value in cases
@@ -790,7 +791,8 @@ def fetch_and_process_feed(
         return Update('parse_err', Status.SOFT, 'parse error',
                       note=repr(exc))
 
-    saved, dup, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
+    saved, dup, skipped = save_stories_from_feed(
+        session, now, feed, parsed_feed)
 
     # may update feed_col_updates dict (add new "name")
     check_feed_title(feed, parsed_feed, feed_col_updates)
@@ -920,7 +922,8 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
             stories_incr('dupurl2')
             dup_count += 1
 
-    # assert len(parsed_feed.entries) == (saved_count+dup_count+skipped_count) ???
+    # assert len(parsed_feed.entries) == (saved_count+dup_count+skipped_count)
+    # ???
     return saved_count, dup_count, skipped_count
 
 
@@ -994,8 +997,18 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
     stats.timing('total', total_sec,
                  labels=[('status', u.status.name)])
 
+    # PLB experiment 2023-02-13
+    # report queue length as GAUGE (not summed)
+    # for (more) instantaneous queue length information
+    qlen = fetcher.queue.queue_length(fetcher.queue.workq())
+    if qlen > 0:
+        qlen -= 1             # subtract current (almost complete) job
+    stats.gauge('workq', qlen)
+    logger.debug(f"workq {qlen}")
+
     if u.status != Status.NOUPD:
         with Session() as session:
             update_feed(session, feed_id, start, u)
 
         # if repeated Status.TEMP errors seen, sleep here??
+        # (to avoid spinning through feeds incrementing failures)
