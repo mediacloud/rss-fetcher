@@ -85,8 +85,12 @@ class Update(NamedTuple):
     note: Optional[str] = None
     feed_col_updates: Dict[str, Any] = {}
     retry_after_min: Optional[float] = None
+    # on success:
+    saved: Optional[int] = None
+    dup: Optional[int] = None
+    skipped: Optional[int] = None
+    # passed on HTTP 429:
     randomize: bool = False
-
 
 def NoUpdate(counter: str) -> Update:
     """
@@ -786,7 +790,7 @@ def fetch_and_process_feed(
         return Update('parse_err', Status.SOFT, 'parse error',
                       note=repr(exc))
 
-    saved, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
+    saved, dup, skipped = save_stories_from_feed(session, now, feed, parsed_feed)
 
     # may update feed_col_updates dict (add new "name")
     check_feed_title(feed, parsed_feed, feed_col_updates)
@@ -803,18 +807,20 @@ def fetch_and_process_feed(
     if saved > 0:
         feed_col_updates['last_new_stories'] = now
 
+    # NOTE! scripts/poll_update.py parses note string!!!
     return Update('ok', Status.SUCC, SYS_WORKING,
-                  note=f"{skipped} skipped / {saved} added",
-                  feed_col_updates=feed_col_updates)
+                  note=f"{skipped} skipped / {dup} dup / {saved} added",
+                  feed_col_updates=feed_col_updates,
+                  saved=saved, dup=dup, skipped=skipped)
 
 
 def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimported]
                            now: dt.datetime,
                            feed: Dict,
-                           parsed_feed: feedparser.FeedParserDict) -> Tuple[int, int]:
+                           parsed_feed: feedparser.FeedParserDict) -> Tuple[int, int, int]:
     """
     Take parsed feed, so insert all the (valid) entries.
-    returns (saved_count, skipped_count)
+    returns (saved_count, dup_count, skipped_count)
     """
     stats = Stats.get()         # get singleton
 
@@ -822,7 +828,7 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
         """call exactly ONCE for each story processed"""
         stats.incr('stories', 1, labels=[('stat', status)])
 
-    skipped_count = 0
+    skipped_count = dup_count = saved_count = 0
     for entry in parsed_feed.entries:
         try:
             link = getattr(entry, 'link', None)
@@ -881,17 +887,18 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
                         session.add(s)
                         session.commit()
                     stories_incr('ok')
+                    saved_count += 1
                 else:
                     # raised to info 2022-10-27
                     logger.info(
                         f" * skip duplicate title URL: {link} | {s.normalized_title} | {s.sources_id}")
                     stories_incr('dup_title')
-                    skipped_count += 1
+                    dup_count += 1
             else:
                 logger.debug(
                     f" * skip duplicate normalized URL: {link} | {s.normalized_url}")
                 stories_incr('dup_url')
-                skipped_count += 1
+                dup_count += 1
         except (AttributeError, KeyError, ValueError, UnicodeError) as exc:
             # NOTE!! **REALLY** easy for coding errors to end up here!!!
             # couldn't parse the entry - skip it
@@ -901,6 +908,7 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
             # should be less common w/ 'nourl' and 'bad' checks.
             # PLB: want to better understand when this happens,
             # and why, and perhaps add safeguarding to code.
+            # NOTE! can end up here if is_homepage_url not called!
             logger.exception(f"bad rss entry {link}")
 
             stories_incr('bad2')
@@ -910,11 +918,10 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
             logger.debug(
                 f" * duplicate normalized URL: {s.normalized_url}")
             stories_incr('dupurl2')
-            skipped_count += 1
+            dup_count += 1
 
-    entries = len(parsed_feed.entries)
-    saved_count = entries - skipped_count
-    return saved_count, skipped_count
+    # assert len(parsed_feed.entries) == (saved_count+dup_count+skipped_count) ???
+    return saved_count, dup_count, skipped_count
 
 
 def check_feed_title(feed: Dict,  # type: ignore[no-any-unimported]

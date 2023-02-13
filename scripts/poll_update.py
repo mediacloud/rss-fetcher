@@ -36,9 +36,10 @@ def update_feeds(rows: int,     # need to see this many successes
     # print(query)
 
     last_feed = -1
-    count = skipped = 0
+    rows = count = dup = skipped = skipped_feeds = 0
     with Session() as session:
         for event in session.execute(query):
+            rows += 1
             feed_id = event.feed_id
             note = event.note
             created_at = event.created_at
@@ -72,15 +73,22 @@ def update_feeds(rows: int,     # need to see this many successes
                 continue
 
             # ['30', 'skipped', '/', '0', 'added']
+            # ['0', 'skipped', '/', '30', 'dup', '/', '0', 'added']
             toks = note.split()
             try:
-                skipped = int(toks[0])
-                added = int(toks[3])
+                if len(toks) == 5:
+                    dup = int(toks[0])  # (skipped)
+                    added = int(toks[3])
+                    total = dup + added
+                else:
+                    skipped = int(toks[0])
+                    dup = int(toks[3])
+                    added = int(toks[6])
+                    total = skipped + dup + added
             except BaseException:
                 logger.warning(f"PARSE FAILED: {note}")
                 continue
 
-            total = skipped + added
             if urls_returned == -1:  # first time
                 urls_returned = total
 
@@ -93,7 +101,7 @@ def update_feeds(rows: int,     # need to see this many successes
             if total != urls_returned:  # must always return same count
                 candidate = False
                 continue
-            elif skipped == 0:
+            elif dup == 0:
                 matches += 1
 
             # could clear "candidate" once there are enough "misses"
@@ -120,11 +128,12 @@ def update_feeds(rows: int,     # need to see this many successes
                             stats.incr('updated', count)
                         count += 1
                     else:
-                        skipped += 1
+                        skipped_feeds += 1
                 candidate = False  # ignore remaining rows
                 continue
         # end for
-        logger.info(f"found {count} feeds to update, skipped {skipped}")
+        logger.info(f"processed {rows} events")
+        logger.info(f"found {count} feeds to update, skipped {skipped_feeds}")
         if update:
             session.commit()
 
