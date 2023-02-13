@@ -1,6 +1,19 @@
 Change Log
 ==========
 
+## v0.12.13 2023-02-12
+
+* Procfile: queue feeds once a minute
+* fetcher/config.py
+    + make MAX_FAILURES default 10 (was 4)
+    + add SKIP_HOME_PAGES config (default to off)
+* fetcher/tasks.py
+    + re-raise JobTimeout in fetch_and_process_feed
+    + honor SKIP_HOME_PAGES
+* scripts/poll_update.py
+    + update feeds one at a time
+    + add --fetches and --max-urls for experimentation
+
 ## v0.12.12 2023-02-01
 
 * add HTTP_CONDITIONAL_FETCH config variable
