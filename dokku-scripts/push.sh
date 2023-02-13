@@ -42,8 +42,10 @@ fi
 # XXX handle options for real!!
 if [ "x$1" = x--force-push ]; then
     PUSH_FLAGS=--force
+elif [ "x$1" != x ]; then
+    echo "Unknown argument $1" 1>&2
+    exit 1
 fi
-
 BRANCH=$(git branch --show-current)
 
 # For someone that works on a branch in mediacloud repo,
