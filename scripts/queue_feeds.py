@@ -269,8 +269,7 @@ def loop(wq: queue.Queue, refill_period_mins: int,
         # gauges "stick" at last value, so always set:
         stats.gauge('added', added)
 
-        # experimental; if kept, and dashboards updated, remove above gauge?
-        stats.incr('added', added)
+        stats.incr('added2', added)
 
         # queries done once a minute for monitoring only!
         # statsd Gauges assume the value they are set to,
