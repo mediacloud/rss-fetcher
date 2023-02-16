@@ -142,6 +142,7 @@ class Stats:
 
             try:
                 self.statsd.incr(self._name(name, labels), value)
+                break
             except BaseException:
                 self.statsd = None
 
@@ -160,6 +161,7 @@ class Stats:
 
             try:
                 self.statsd.gauge(self._name(name, labels), value)
+                break
             except BaseException:
                 self.statsd = None
 
@@ -178,6 +180,7 @@ class Stats:
             try:
                 # statsd timings are in ms
                 self.statsd.timing(self._name(name, labels), sec * 1000)
+                break
             except BaseException:
                 self.statsd = None
 
