@@ -1,6 +1,21 @@
 Change Log
 ==========
 
+## v0.12.14 2023-02-17
+
+* fetcher/stats.py: add break to loops: fix double increments!
+* fetcher/tasks.py:
+    + split "dup" from "skipped"
+    + always call mcmetadata.urls.is_homepage_url (to detect bad urls early)
+    + keep saved_count
+    + report queue length as gauge at end of processing
+* scripts/poll_update.py: handle "new N skipped / N dup / N added" reports
+* scripts/queue_feeds.py: add "added2" counter
+* removed unused dokku-scripts/sync-feeds.sh
+* dokku-scripts/push.sh: complain about unknown arguments
+* dokku-scripts/instance.sh: run scripts using "enter"
+* Procfile: remove generator/archiver/update
+
 ## v0.12.13 2023-02-12
 
 * Procfile: queue feeds once a minute
