@@ -246,12 +246,13 @@ fi
 
 app_http_port() {
     APP=$1
+    # example DOKKU_PROXY_PORT_MAP value: http:80:5000 https:443:5000
     dokku config:get $APP DOKKU_PROXY_PORT_MAP | awk '{ print $NF }' | awk -F: '{ print $3 }'
 }
 
 app_http_url() {
     APP=$1
-    # return container IP address and port for APP's web server
+    # return docker DNS name and port for APP's web server
     # NOTE! mcweb.web wired into mcweb/settings.py ALLOWED_HOSTS list
     echo "http://$APP.web:$(app_http_port $APP)"
 }
