@@ -112,7 +112,7 @@ esac
 DOKKU_GIT_BRANCH=main
 
 case $BRANCH in
-prod) WORKERS=10;;
+prod) WORKERS=12;;
 staging) APP=staging-$APP; WORKERS=4;;
 *) APP=${LOGIN_USER}-$APP; WORKERS=1;;
 esac
