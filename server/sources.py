@@ -1,8 +1,9 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+import datetime as dt
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select, text
+from sqlalchemy import cast, func, select, text, Column, Date
 import sqlalchemy.sql.functions as f
 
 from fetcher.database import Session
@@ -87,3 +88,47 @@ def fetch_source_stories(sources_id: int) -> List[Dict[str, Any]]:
              .limit(STORY_LIMIT))
     with Session() as session:
         return [s._asdict() for s in session.execute(query)]
+
+
+def _sources_stories_by_day(sources_id: int,
+                            column: Column[Optional[dt.datetime]]) -> List[Dict[str, Any]]:
+    """
+    helper for fetch_source_stories_{fetched,published}_by_day.
+
+    NOTE! labels match return from
+        /api/stories/{fetched,published}-by-day whose dicts contain
+        type: "stories";
+    could add them in query or by hand-made dicts in comprehension
+    """
+    day = cast(column, Date).label('date')
+    query = (select([day, f.count().label('count')])
+             .where(Story.sources_id == sources_id)
+             .group_by(day)
+             .order_by(day))
+    with Session() as session:
+        return [row._asdict()
+                for row in session.execute(query)]
+
+
+@router.get("/{sources_id}/stories/fetched-by-day",
+            dependencies=[Depends(auth.write_access)])
+@api_method
+def fetch_source_stories_fetched_by_day(
+        sources_id: int) -> List[Dict[str, Any]]:
+    """
+    named like /api/stories/fetched-by-day;
+    return count of stories by fetched_by day.
+    """
+    return _sources_stories_by_day(sources_id, Story.fetched_at)
+
+
+@router.get("/{sources_id}/stories/published-by-day",
+            dependencies=[Depends(auth.write_access)])
+@api_method
+def fetch_source_stories_published_by_day(
+        sources_id: int) -> List[Dict[str, Any]]:
+    """
+    named like /api/stories/fetched-by-day;
+    return count of stories by fetched_by day.
+    """
+    return _sources_stories_by_day(sources_id, Story.published_at)
