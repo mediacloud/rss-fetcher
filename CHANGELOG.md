@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+## v0.12.15 2023-02-20
+
+* dokku-scripts/push.sh: up prod workers from 10 to 12
+* add server/sources.py: add /api/sources/N/stories/{fetched,published}_by_day}
+
 ## v0.12.14 2023-02-17
 
 * fetcher/stats.py: add break to loops: fix double increments!
