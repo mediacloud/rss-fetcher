@@ -45,7 +45,7 @@ def update_feeds(rows: int,     # need to see this many successes
             created_at = event.created_at
 
             # ignore non-weekday rows
-            if created_at.timetuple().tm_wday >= 5:  # monday is zero
+            if created_at.weekday() >= 5:  # monday is zero
                 continue
 
             # print(feed_id, created_at, note)
