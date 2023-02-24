@@ -18,9 +18,20 @@ SCRIPT = 'poll_update'
 
 logger = logging.getLogger(SCRIPT)
 
+# trace levels (cumulative) could do bitmask
+T_MATCHES = 1                   # show when matched
+T_FINAL = 2                     # show final counts
 
-def update_feeds(rows: int,     # need to see this many successes
-                 urls: int,
+T_FEED_ID = 4                   # show new feed_id
+T_COUNTS = 4                    # show counts from note
+T_REJECT = 4                    # show reject reason
+
+T_ROW = 5                       # show all rows
+
+TRACE = 0
+
+def update_feeds(successes: int, # need to see this many successes
+                 urls: int,     # max url batch to consider; zero = no batch size
                  fraction: float,  # fraction of fetches to qualify min: 1/rows, max 1
                  reject_no_change: bool,  # don't consider feeds that didn't change
                  update: bool,  # actually update rows
@@ -44,12 +55,8 @@ def update_feeds(rows: int,     # need to see this many successes
             note = event.note
             created_at = event.created_at
 
-            # ignore non-weekday rows
-            if created_at.weekday() >= 5:  # monday is zero
-                continue
-
-            # print(feed_id, created_at, note)
             if feed_id != last_feed:  # new feed?
+                if TRACE >= T_FEED_ID: print("feed", feed_id)
                 n = 0
                 matches = 0
                 last_feed = feed_id
@@ -58,7 +65,13 @@ def update_feeds(rows: int,     # need to see this many successes
                 last = created_at  # most recent
                 first = None       # earliest
 
+            if TRACE >= T_ROW: print(feed_id, created_at, note)
+
             if not candidate:
+                continue
+
+            # ignore non-weekday rows
+            if created_at.weekday() >= 5:  # monday is zero
                 continue
 
             n += 1              # row count
@@ -70,6 +83,7 @@ def update_feeds(rows: int,     # need to see this many successes
                     # (including "same hash" and "no change")
                     # must ALWAYS have changed
                     candidate = False
+                    if TRACE >= T_REJECT: print(feed_id, "reject:", note)
                 continue
 
             # ['30', 'skipped', '/', '0', 'added']
@@ -89,19 +103,26 @@ def update_feeds(rows: int,     # need to see this many successes
                 logger.warning(f"PARSE FAILED: {note}")
                 continue
 
-            if urls_returned == -1:  # first time
+            #if dup == 0 and total > 0: breakpoint()
+
+            if TRACE >= T_COUNTS: print(feed_id, note, dup, added, total)
+            if urls > 0 and urls_returned == -1:  # first time
                 urls_returned = total
 
                 # ignore feeds that ever return no URLs or too many
                 if urls_returned >= urls or urls_returned == 0:
+                    if TRACE >= T_REJECT: print(feed_id, "reject urls1", urls_returned, urls)
                     candidate = False
-                    continue
-                # fall through for "matches" check
+                continue
+            # fall through for "matches" check
 
-            if total != urls_returned:  # must always return same count
+            if urls > 0 and total != urls_returned: # must always return same count
+                if TRACE >= T_REJECT: print(feed_id, "reject urls2", urls_returned, urls)
                 candidate = False
                 continue
-            elif dup == 0:
+
+            if dup == 0 and total > 0:
+                if TRACE >= T_MATCHES: print(feed_id, "matched")
                 matches += 1
 
             # could clear "candidate" once there are enough "misses"
@@ -109,10 +130,10 @@ def update_feeds(rows: int,     # need to see this many successes
             # ((n-matches) > rows*(1-fraction))? but it's hardly
             # worth the effort.
 
-            # print(feed_id, "n:", n, "matches:", matches)
-            if n == rows:       # fetched enough data?
+            #if TRACE >= T_SO_FAR: print(feed_id, "n:", n, "/", successes, "matches:", matches)
+            if n == successes:  # fetched enough data?
                 f = matches / n
-                # print(feed_id, matches, n, f, first, last)
+                if TRACE >= T_FINAL: print(feed_id, matches, n, f)
                 if f >= fraction:
                     feed_obj = session.get(Feed, feed_id)
                     if feed_obj.poll_minutes is None or feed_obj.poll_minutes > period:
@@ -188,25 +209,29 @@ if __name__ == '__main__':
     p.add_argument('--max-urls', type=int,
                    help=f"maximum URLs returned (default: {MAX_URLS})",
                    default=MAX_URLS)
+    p.add_argument('--period', type=int,
+                   help=f"poll update period (default: {PERIOD})",
+                   default=PERIOD)
     p.add_argument('--update', action='store_true',
                    help="actually update database (else just dry run)!")
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
 
+#    if args.max_urls < 1:
+#        logger.warning("--max-urls must be >= 1")
+#        sys.exit(1)
+
+    if args.fetches < 1:
+        logger.warning("--fetches must be >= 1")
+        sys.exit(1)
+
+
     def do_update() -> None:
-        if args.max_urls < 1:
-            logger.warning("--max-urls must be >= 1")
-            sys.exit(1)
-
-        if args.fetches < 1:
-            logger.warning("--fetches must be >= 1")
-            sys.exit(1)
-
         update_feeds(
             args.fetches, args.max_urls, args.fraction,
             reject_no_change=args.reject_no_change,
             update=args.update,
-            period=PERIOD
+            period=args.period
         )
 
     if args.update:
