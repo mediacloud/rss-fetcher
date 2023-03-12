@@ -112,6 +112,7 @@ HTTP_SOFT.update(range(500, 600))   # all 5xx (server error)
 # please keep alphabetical:
 AUTO_ADJUST_MAX_DELAY_PERCENT = conf.AUTO_ADJUST_MAX_DELAY_PERCENT
 AUTO_ADJUST_MIN_DUPLICATE_PERCENT = conf.AUTO_ADJUST_MIN_DUPLICATE_PERCENT
+AUTO_ADJUST_MIN_POLL_MINUTES = conf.AUTO_ADJUST_MIN_POLL_MINUTES
 AUTO_ADJUST_MINUTES = conf.AUTO_ADJUST_MINUTES
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 HTTP_CONDITIONAL_FETCH = conf.HTTP_CONDITIONAL_FETCH
@@ -270,7 +271,7 @@ def check_auto_update(update: Update, feed: Feed, next_min: int) -> int:
         # don't auto-adjust down based on very late polls:
         delay_pct = 100 * (update.start_delay.total_seconds() / 60) / next_min
         if delay_pct > AUTO_ADJUST_MAX_DELAY_PERCENT:
-            logger.info(f"   Feed {feed.id} delay {int(delay_pct)}%")
+            logger.info(f"  Feed {feed.id} delay {int(delay_pct)}%")
             return next_min
         logger.debug(f"   Feed {feed.id} delay {int(delay_pct)}%")
 
@@ -279,27 +280,21 @@ def check_auto_update(update: Update, feed: Feed, next_min: int) -> int:
         return next_min
     dup_pct = 100 * update.dup / total
 
-    logger.info(f"   Feed {feed.id} dup {int(dup_pct)}%")  # TEMP@info?
-
     # only adjust if duplicate percentage less than goal
     if dup_pct >= AUTO_ADJUST_MIN_DUPLICATE_PERCENT:
         return next_min
 
+    logger.debug(f"  Feed {feed.id} dup {int(dup_pct)}% ({update.dup}/{total}")
     next_min -= AUTO_ADJUST_MINUTES
 
-    if feed.update_minutes is not None:
-        if next_min < feed.update_minutes:
-            logger.debug(
-                f"   Feed {feed.id} auto-adjust clamped to {next_min}")
-            next_min = feed.update_minutes
-    else:
-        # for now, use AUTO_ADJUST_MINUTES as lower bound:
-        if next_min < AUTO_ADJUST_MINUTES:
-            next_min = AUTO_ADJUST_MINUTES
+    minimum = feed.update_minutes or AUTO_ADJUST_MIN_POLL_MINUTES
+    if next_min < minimum:
+        next_min = minimum
+        logger.info(f"  Feed {feed.id} auto-adjust clamped to {next_min}")
+    elif feed.poll_minutes != next_min:
+        logger.info(f"  Feed {feed.id} auto-adjust to {next_min}")
 
-    if feed.poll_minutes != next_min:
-        logger.debug(f"   Feed {feed.id} auto-adjust to {next_min}")
-        feed.poll_minutes = next_min
+    feed.poll_minutes = next_min
 
     return next_min
 

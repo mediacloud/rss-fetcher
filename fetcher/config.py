@@ -222,7 +222,11 @@ class _Config:                  # only instantiated in this file
     AUTO_ADJUST_MIN_DUPLICATE_PERCENT = conf_int(
         'AUTO_ADJUST_MIN_DUPLICATE_PERCENT', 50)
 
-    # number of minutes to reduce poll_rate by when auto-adjusting:
+    # minimum poll interval (if no published update period)
+    AUTO_ADJUST_MIN_POLL_MINUTES = conf_int('AUTO_ADJUST_MIN_POLL_MINUTES', 60)
+
+    # number of minutes to reduce poll_rate by when auto-adjusting
+    # (could use a divisor for exponential backoff)
     AUTO_ADJUST_MINUTES = conf_int('AUTO_ADJUST_MINUTES', 60)
 
     # keep this above the number of workers (initially 2x)
