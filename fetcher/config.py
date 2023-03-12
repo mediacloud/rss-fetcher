@@ -211,8 +211,19 @@ class _Config:                  # only instantiated in this file
     # creates properties acessible in INSTANCES only!
     # (descriptors work with bare class)
 
-    # days back to check for duplicate story URLs/titles
-    NORMALIZED_TITLE_DAYS = conf_int('NORMALIZED_TITLE_DAYS', 7)
+    # maximum delay since last successful poll (as percentage
+    # of poll rate) under which to look at duplicate percentage (so we
+    # don't auto-adjust after an outage)
+    AUTO_ADJUST_MAX_DELAY_PERCENT = conf_int(
+        'AUTO_ADJUST_MAX_DELAY_PERCENT', 150)
+
+    # minimum percentage of good URLs that must be duplicates
+    # to assure ourselves that we're polling often enough:
+    AUTO_ADJUST_MIN_DUPLICATE_PERCENT = conf_int(
+        'AUTO_ADJUST_MIN_DUPLICATE_PERCENT', 50)
+
+    # number of minutes to reduce poll_rate by when auto-adjusting:
+    AUTO_ADJUST_MINUTES = conf_int('AUTO_ADJUST_MINUTES', 60)
 
     # keep this above the number of workers (initially 2x)
     DB_POOL_SIZE = conf_int('DB_POOL_SIZE', 32)
@@ -265,6 +276,9 @@ class _Config:                  # only instantiated in this file
     # responses!
     MINIMUM_INTERVAL_MINS_304 = conf_int('MINIMUM_INTERVAL_MINS_304',
                                          _DEFAULT_MINIMUM_INTERVAL_MINS_304)
+
+    # days back to check for duplicate story URLs/titles
+    NORMALIZED_TITLE_DAYS = conf_int('NORMALIZED_TITLE_DAYS', 7)
 
     # rq uses only redis for queues; use dokku-redis supplied URL
     REDIS_URL = conf_required('REDIS_URL')

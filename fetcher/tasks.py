@@ -84,13 +84,14 @@ class Update(NamedTuple):
     sys_status: str
     note: Optional[str] = None
     feed_col_updates: Dict[str, Any] = {}
-    retry_after_min: Optional[float] = None
     # on success:
     saved: Optional[int] = None
     dup: Optional[int] = None
     skipped: Optional[int] = None
-    # passed on HTTP 429:
-    randomize: bool = False
+    start_delay: Optional[dt.timedelta] = None
+    # on non-success:
+    retry_after_min: Optional[float] = None
+    randomize: bool = False     # (could now add to retry_after)
 
 
 def NoUpdate(counter: str) -> Update:
@@ -102,11 +103,16 @@ def NoUpdate(counter: str) -> Update:
 
 
 # HTTP status codes to consider "soft" errors:
-HTTP_SOFT = set([429, 500, 502, 503, 504])
+# yes, active feeds DO return 404 and come back to life!
+HTTP_SOFT = set([404, 429])
+HTTP_SOFT.update(range(500, 600))   # all 5xx (server error)
 
 # force logging on startup (actual logging deferred)
+# see fetcher/config.py for descriptions
 # please keep alphabetical:
-NORMALIZED_TITLE_DAYS = conf.NORMALIZED_TITLE_DAYS
+AUTO_ADJUST_MAX_DELAY_PERCENT = conf.AUTO_ADJUST_MAX_DELAY_PERCENT
+AUTO_ADJUST_MIN_DUPLICATE_PERCENT = conf.AUTO_ADJUST_MIN_DUPLICATE_PERCENT
+AUTO_ADJUST_MINUTES = conf.AUTO_ADJUST_MINUTES
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 HTTP_CONDITIONAL_FETCH = conf.HTTP_CONDITIONAL_FETCH
 MAX_FAILURES = conf.MAX_FAILURES
@@ -114,6 +120,7 @@ MAX_URL = conf.MAX_URL
 MAXIMUM_INTERVAL_MINS = conf.MAXIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS_304 = conf.MINIMUM_INTERVAL_MINS_304
+NORMALIZED_TITLE_DAYS = conf.NORMALIZED_TITLE_DAYS
 RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 SAVE_PARSE_ERRORS = conf.SAVE_PARSE_ERRORS
@@ -248,6 +255,55 @@ def fetches_per_minute(session: SessionType) -> float:
     return q.one()[0] or 0  # handle empty db!
 
 
+def check_auto_update(update: Update, feed: Feed, next_min: int) -> int:
+    """
+    check if auto-update to poll_minutes needed.
+    only get here on success.
+
+    NOTE: currently never auto-adjusts up
+    """
+    if update.saved is None or update.dup is None:
+        return next_min
+
+    # if adjusting up, will want to ignore early & first polls!
+    if update.start_delay is not None:
+        # don't auto-adjust down based on very late polls:
+        delay_pct = 100 * (update.start_delay.total_seconds() / 60) / next_min
+        if delay_pct > AUTO_ADJUST_MAX_DELAY_PERCENT:
+            logger.info(f"   Feed {feed.id} delay {int(delay_pct)}%")
+            return next_min
+        logger.debug(f"   Feed {feed.id} delay {int(delay_pct)}%")
+
+    total = update.saved + update.dup  # ignore "skipped"
+    if total == 0:
+        return next_min
+    dup_pct = 100 * update.dup / total
+
+    logger.info(f"   Feed {feed.id} dup {int(dup_pct)}%")  # TEMP@info?
+
+    # only adjust if duplicate percentage less than goal
+    if dup_pct >= AUTO_ADJUST_MIN_DUPLICATE_PERCENT:
+        return next_min
+
+    next_min -= AUTO_ADJUST_MINUTES
+
+    if feed.update_minutes is not None:
+        if next_min < feed.update_minutes:
+            logger.debug(
+                f"   Feed {feed.id} auto-adjust clamped to {next_min}")
+            next_min = feed.update_minutes
+    else:
+        # for now, use AUTO_ADJUST_MINUTES as lower bound:
+        if next_min < AUTO_ADJUST_MINUTES:
+            next_min = AUTO_ADJUST_MINUTES
+
+    if feed.poll_minutes != next_min:
+        logger.debug(f"   Feed {feed.id} auto-adjust to {next_min}")
+        feed.poll_minutes = next_min
+
+    return next_min
+
+
 def update_feed(session: SessionType,
                 feed_id: int,
                 start_time: dt.datetime,
@@ -317,6 +373,7 @@ def update_feed(session: SessionType,
                 setattr(f, key, value)
 
         f.last_fetch_attempt = start_time  # match fetch_event & stories
+        prev_success = f.last_fetch_success
         if status == Status.SUCC:
             f.last_fetch_success = start_time
         f.queued = False        # safe to requeue
@@ -345,7 +402,7 @@ def update_feed(session: SessionType,
                 # interested in seeing which errors are transient:
                 logger.info(
                     f" Feed {feed_id}: clearing failures (was {f.last_fetch_failures}: {prev_system_status})")
-            f.last_fetch_failures = 0
+            f.last_fetch_failures = failures = 0
             # many values come in via 'feed_col_updates'
         else:
             if status == Status.HARD:
@@ -367,16 +424,16 @@ def update_feed(session: SessionType,
                     logger.info(
                         f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
-            # no backoff if poll_minutes set (for now)
-            if next_minutes is not None and f.poll_minutes is None:
-                # result MUST NOT be less than next_minutes!!
-                if failures >= 1:
-                    # back off to be kind to servers:
-                    # with large intervals exponential backoff is extreme
-                    # (12h, 1d, 2d, 4d), so using linear backoff
-                    next_minutes *= failures
-
         if next_minutes is not None:  # rescheduling?
+            # result MUST NOT be less than next_minutes!!
+            # so only apply failures as a multiplier when >= 1!
+            if failures >= 1:
+                # back off to be kind to servers:
+                # with large intervals exponential backoff is extreme
+                # (12h, 1d, 2d, 4d), so using linear backoff
+                next_minutes *= failures
+                # cap to a maximum?? (esp w/ higher MAX_FAILURES)
+
             # clamp interval to a minimum value
 
             # Allow different (shorter) interval if server sends
@@ -386,7 +443,7 @@ def update_feed(session: SessionType,
             # advertise a one hour update interval!
 
             # NOTE!! logic here is replicated (in an SQL query)
-            # in fetches_per_minite() function above, and any
+            # in fetches_per_minute() function above, and any
             # changes need to be reflected there as well!!!
             if f.poll_minutes is None:
                 if f.http_304:
@@ -397,6 +454,7 @@ def update_feed(session: SessionType,
                         next_minutes = MINIMUM_INTERVAL_MINS
 
             # Always honor HTTP Retry-After: header if longer (but log)
+            # Only passed w/ non-success
             ram = update.retry_after_min
             if ram and ram > next_minutes:
                 # 24 hours not uncommon; have seen 317100 sec (88h!) once
@@ -409,6 +467,9 @@ def update_feed(session: SessionType,
                 # (Too Many Requests) errors.  In practice, quantized
                 # into queuer loop period sized buckets.
                 next_minutes += random.random() * 60
+
+            if status == Status.SUCC:
+                next_minutes = check_auto_update(update, f, next_minutes)
 
             f.next_fetch_attempt = next_dt = utc(next_minutes * 60)
             logger.info(
@@ -547,11 +608,20 @@ def request_exception_to_status(
         # DNS errors appear as negative errno values
         if '[Errno -' in s:
             if 'Name or service not known' in s:
+                # soft: feeds DO come back after lookup failures!!
                 # _COULD_ be a human DNS screw-up....
-                return Status.HARD, "unknown hostname"
+                return Status.SOFT, "unknown hostname"
             if 'Temporary failure in name resolution' in s:
                 return Status.TEMP, "temporary DNS error"
             return Status.SOFT, "DNS error"
+        # here with (among others):
+        # [Errno 101] Network is unreachable,
+        # [Errno 111] Connection refused,
+        # [Errno 113] No route to host,
+        # ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer'))
+        # ProtocolError('Connection aborted.', OSError(107, 'Transport endpoint is not connected')))
+        # ProtocolError('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+        # ReadTimeoutError("HTTPSConnectionPool(...): Read timed out.")
         return Status.SOFT, "connection error"
 
     # non-connection errors:
@@ -572,7 +642,7 @@ def request_exception_to_status(
 
     # if this happens, it would be a local config error:
     if isinstance(exc, requests.exceptions.ProxyError):
-        return Status.SOFT, "proxy error"
+        return Status.TEMP, "proxy error"
 
     # catch-alls:
     if isinstance(exc, (requests.exceptions.ChunkedEncodingError,
@@ -813,7 +883,8 @@ def fetch_and_process_feed(
     return Update('ok', Status.SUCC, SYS_WORKING,
                   note=f"{skipped} skipped / {dup} dup / {saved} added",
                   feed_col_updates=feed_col_updates,
-                  saved=saved, dup=dup, skipped=skipped)
+                  saved=saved, dup=dup, skipped=skipped,
+                  start_delay=start_delay)
 
 
 def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimported]
