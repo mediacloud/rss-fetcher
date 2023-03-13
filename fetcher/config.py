@@ -157,6 +157,9 @@ _DEFAULT_MINIMUM_INTERVAL_MINS_304 = _DEFAULT_DEFAULT_INTERVAL_MINS
 # default value for MAXIMUM_INTERVAL_MINS if not configured:
 _DEFAULT_MAXIMUM_INTERVAL_MINS = 24 * 60
 
+# default value for MAXIMUM_BACKOFF_MINS if not configured:
+_DEFAULT_MAXIMUM_BACKOFF_MINS = 2 * 24 * 60
+
 
 class _Config:                  # only instantiated in this file
     """
@@ -211,14 +214,15 @@ class _Config:                  # only instantiated in this file
     # creates properties acessible in INSTANCES only!
     # (descriptors work with bare class)
 
-    # maximum delay since last successful poll (as percentage
-    # of poll rate) under which to look at duplicate percentage (so we
-    # don't auto-adjust after an outage)
-    AUTO_ADJUST_MAX_DELAY_PERCENT = conf_int(
-        'AUTO_ADJUST_MAX_DELAY_PERCENT', 150)
+    # maximum deviation in minutes since last
+    # successful poll under which to look at duplicate percentage
+    # (needs to be larger than queue_feeds.py queuing interval)
+    AUTO_ADJUST_MAX_DELTA_MIN = conf_int('AUTO_ADJUST_MAX_DELTA_MIN', 20)
 
-    # minimum percentage of good URLs that must be duplicates
-    # to assure ourselves that we're polling often enough:
+    # minimum percentage of good URLs that must be duplicates to
+    # insure feed poll interval is small enough, else auto-adjust
+    # poll_minutes down: Raising this number makes auto-adjust (down)
+    # more agressive.
     AUTO_ADJUST_MIN_DUPLICATE_PERCENT = conf_int(
         'AUTO_ADJUST_MIN_DUPLICATE_PERCENT', 50)
 
@@ -256,6 +260,11 @@ class _Config:                  # only instantiated in this file
 
     # maximum length URL to accept from feeds
     MAX_URL = conf_int('MAX_URL', 2048)
+
+    # maximum delay when backing off
+    # (needed with higher MAX_FAILURES)
+    MAXIMUM_BACKOFF_MINS = conf_int('MAXIMUM_BACKOFF_MINS',
+                                    _DEFAULT_MAXIMUM_BACKOFF_MINS)
 
     # maximum requeue interval (used to clamp sy:updatePeriod/Frequency)
     MAXIMUM_INTERVAL_MINS = conf_int('MAXIMUM_INTERVAL_MINS',

@@ -110,7 +110,7 @@ HTTP_SOFT.update(range(500, 600))   # all 5xx (server error)
 # force logging on startup (actual logging deferred)
 # see fetcher/config.py for descriptions
 # please keep alphabetical:
-AUTO_ADJUST_MAX_DELAY_PERCENT = conf.AUTO_ADJUST_MAX_DELAY_PERCENT
+AUTO_ADJUST_MAX_DELTA_MIN = conf.AUTO_ADJUST_MAX_DELTA_MIN
 AUTO_ADJUST_MIN_DUPLICATE_PERCENT = conf.AUTO_ADJUST_MIN_DUPLICATE_PERCENT
 AUTO_ADJUST_MIN_POLL_MINUTES = conf.AUTO_ADJUST_MIN_POLL_MINUTES
 AUTO_ADJUST_MINUTES = conf.AUTO_ADJUST_MINUTES
@@ -118,6 +118,7 @@ DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 HTTP_CONDITIONAL_FETCH = conf.HTTP_CONDITIONAL_FETCH
 MAX_FAILURES = conf.MAX_FAILURES
 MAX_URL = conf.MAX_URL
+MAXIMUM_BACKOFF_MINS = conf.MAXIMUM_BACKOFF_MINS
 MAXIMUM_INTERVAL_MINS = conf.MAXIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS_304 = conf.MINIMUM_INTERVAL_MINS_304
@@ -256,37 +257,93 @@ def fetches_per_minute(session: SessionType) -> float:
     return q.one()[0] or 0  # handle empty db!
 
 
-def check_auto_update(update: Update, feed: Feed, next_min: int) -> int:
+def _check_auto_update_longer(
+        update: Update, feed: Feed, next_min: int) -> int:
+    """
+    here if no change in feed (all dups, not_mod, same_hash)
+    """
+    # Open question: whether to ever poll longer than the default
+    # value for this feed (might need to replicate that logic again,
+    # or factor it out), or whether to allow slowing down to some
+    # global maximum.  Slowing WAY down could mean MANY LOOONG poll
+    # periods to get back to "normal" for a zombie feed, so that might
+    # warrent a special check in _check_auto_update when making the
+    # interval shorter.
+
+    # Testing using days without new stories as a proxy for a feed
+    # column with a count of uninterrupted polls with minimal or no
+    # new content.  This would mean never adjusting feeds that always
+    # return empty (maybe use created_at if last_new_stories is
+    # NULL???)
+
+    if not feed.last_new_stories:
+        return next_min
+
+    since_new_stories = dt.datetime.utcnow() - feed.last_new_stories
+    days = since_new_stories.days
+    if days > 1:
+        # just a debug message for now, would need config params for
+        # the threshold, and max poll interval.
+        logger.debug(f"  Feed {feed.id} no new stories in {days} days")
+
+    return next_min
+
+
+def _check_auto_update(update: Update, feed: Feed,
+                       next_min: int,
+                       prev_success: Optional[dt.datetime]) -> int:
     """
     check if auto-update to poll_minutes needed.
-    only get here on success.
+    only called on success.
 
-    NOTE: currently never auto-adjusts up
+    separate function for easy exit, and to avoid clutter.
+
+    NOTE: currently only auto-adjusts poll_minutes down.
     """
-    if update.saved is None or update.dup is None:
+
+    if update.status != Status.SUCC:  # paranoia
         return next_min
 
-    # if adjusting up, will want to ignore early & first polls!
-    if update.start_delay is not None:
-        # don't auto-adjust down based on very late polls:
-        delay_pct = 100 * (update.start_delay.total_seconds() / 60) / next_min
-        if delay_pct > AUTO_ADJUST_MAX_DELAY_PERCENT:
-            logger.info(f"  Feed {feed.id} delay {int(delay_pct)}%")
-            return next_min
-        logger.debug(f"   Feed {feed.id} delay {int(delay_pct)}%")
+    if update.saved is None or update.dup is None:
+        # check Status.counter in ('not_mod', 'same_hash')?
+        return _check_auto_update_longer(update, feed, next_min)
 
-    total = update.saved + update.dup  # ignore "skipped"
+    total = update.saved + update.dup  # ignoring "skipped" (bad) urls
     if total == 0:
         return next_min
+    if update.dup == total:
+        return _check_auto_update_longer(update, feed, next_min)
+
     dup_pct = 100 * update.dup / total
 
-    # only adjust if duplicate percentage less than goal
+    # if duplicate rate high enough, no need for adjustment
     if dup_pct >= AUTO_ADJUST_MIN_DUPLICATE_PERCENT:
+        return next_min
+
+    # only want to look at results after TWO successful polls IN A ROW,
+    # where second poll happened close to on time (about "next_min" ago).
+    # NOTE: start_delay is system lantency (only) for current poll.
+    if prev_success is None:
+        return next_min
+
+    # get timedelta since previous successful poll:
+    since_prev_success = dt.datetime.utcnow() - prev_success
+
+    # get delta from expected poll period
+    # (will almost always average one queue scan period late)
+    delta_min = since_prev_success.total_seconds() / 60 - next_min
+
+    # disregard polls that are significantly early or delayed, due to
+    # system outage, intervening failures, or manual triggering:
+    if abs(delta_min) >= AUTO_ADJUST_MAX_DELTA_MIN:
+        logger.info(f"  Feed {feed.id} delta {delta_min} min")
         return next_min
 
     logger.debug(f"  Feed {feed.id} dup {int(dup_pct)}% ({update.dup}/{total}")
     next_min -= AUTO_ADJUST_MINUTES
 
+    # use advertized update period (if any) as minimum
+    # (lots of feeds advertize 1hr period)
     minimum = feed.update_minutes or AUTO_ADJUST_MIN_POLL_MINUTES
     if next_min < minimum:
         next_min = minimum
@@ -427,7 +484,8 @@ def update_feed(session: SessionType,
                 # with large intervals exponential backoff is extreme
                 # (12h, 1d, 2d, 4d), so using linear backoff
                 next_minutes *= failures
-                # cap to a maximum?? (esp w/ higher MAX_FAILURES)
+                if next_minutes > MAXIMUM_BACKOFF_MINS:
+                    next_minutes = MAXIMUM_BACKOFF_MINS
 
             # clamp interval to a minimum value
 
@@ -464,7 +522,8 @@ def update_feed(session: SessionType,
                 next_minutes += random.random() * 60
 
             if status == Status.SUCC:
-                next_minutes = check_auto_update(update, f, next_minutes)
+                next_minutes = _check_auto_update(
+                    update, f, next_minutes, prev_success)
 
             f.next_fetch_attempt = next_dt = utc(next_minutes * 60)
             logger.info(
@@ -819,10 +878,6 @@ def fetch_and_process_feed(
     # BAIL: no changes since last time
     # treated as success
     if new_hash == feed['last_fetch_hash']:
-        if feed['http_304']:
-            # considering setting http_304 to 'f'
-            # (disabling faster fetching when both "no change" and "same hash" occur)
-            logger.info(f"   Feed {feed_id} same hash w/ http_304 set")
         return Update('same_hash', Status.SUCC, SYS_WORKING,
                       note="same hash",
                       feed_col_updates=feed_col_updates)
