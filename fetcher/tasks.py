@@ -342,10 +342,13 @@ def _check_auto_update(update: Update, feed: Feed,
     logger.debug(f"  Feed {feed.id} dup {int(dup_pct)}% ({update.dup}/{total}")
     next_min -= AUTO_ADJUST_MINUTES
 
-    # Was feed.update_minutes or AUTO_ADJUST_MIN_POLL_MINUTES
-    # but feed 6231 (denverpost top news stories) advertises
-    # an update period of two minutes(!!)
-    minimum = max(feed.update_minutes, AUTO_ADJUST_MIN_POLL_MINUTES)
+    if feed.update_minutes:
+        # feed 6231 (denverpost top news stories)
+        # advertises an update period of two minutes(!!)
+        # so use a maximal minimum value
+        minimum = max(feed.update_minutes, AUTO_ADJUST_MIN_POLL_MINUTES)
+    else:
+        minimum = AUTO_ADJUST_MIN_POLL_MINUTES
     if next_min < minimum:
         next_min = minimum
         logger.info(f"  Feed {feed.id} auto-adjust clamped to {next_min}")
