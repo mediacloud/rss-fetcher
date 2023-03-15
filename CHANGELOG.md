@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.13.0 2023-03-14
+
+Implement auto-adjustment of Feed.poll_minutes
+
 ## v0.12.15 2023-02-20
 
 * dokku-scripts/push.sh: up prod workers from 10 to 12
