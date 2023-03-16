@@ -257,43 +257,47 @@ def fetches_per_minute(session: SessionType) -> float:
     return q.one()[0] or 0  # handle empty db!
 
 
-def _check_auto_update_longer(
+def _auto_adjust_stat(dir: str) -> None:
+    stats = Stats.get()         # get singleton
+    stats.incr('adjust', 1, labels=[('stat', dir)])
+
+
+def _check_auto_adjust_longer(
         update: Update, feed: Feed, next_min: int) -> int:
     """
     here if no change in feed (all dups, not_mod, same_hash)
     """
-    # Open question: whether to ever poll longer than the default
-    # value for this feed (might need to replicate that logic again,
-    # or factor it out), or whether to allow slowing down to some
-    # global maximum.  Slowing WAY down could mean MANY LOOONG poll
-    # periods to get back to "normal" for a zombie feed, so that might
-    # warrent a special check in _check_auto_update when making the
-    # interval shorter.
-
-    # Testing using days without new stories as a proxy for a feed
-    # column with a count of uninterrupted polls with minimal or no
-    # new content.  This would mean never adjusting feeds that always
-    # return empty (maybe use created_at if last_new_stories is
-    # NULL???)
-
-    if not feed.last_new_stories:
+    if feed.last_new_stories:
+        last = feed.last_new_stories
+    elif feed.created_at:
+        last = feed.created_at
+    else:
+        # should not happen!
         return next_min
 
-    since_new_stories = dt.datetime.utcnow() - feed.last_new_stories
-    days = since_new_stories.days
-    if days > 1:
-        # just a debug message for now, would need config params for
-        # the threshold, and max poll interval.
-        logger.debug(f"  Feed {feed.id} no new stories in {days} days")
+    since = dt.datetime.utcnow() - last
+    if since.days < 7:
+        logger.info(f"  Feed {feed.id} last {since.days} days")
+        return next_min
 
+    next_min += AUTO_ADJUST_MINUTES // 10  # raise
+    if next_min > MAXIMUM_INTERVAL_MINS:
+        next_min = MAXIMUM_INTERVAL_MINS
+        logger.info(f"  Feed {feed.id} auto-adjust clamped to {next_min}")
+        _auto_adjust_stat('max')
+    elif feed.poll_minutes != next_min:
+        _auto_adjust_stat('up')
+        logger.info(f"  Feed {feed.id} auto-adjust to {next_min}")
+
+    feed.poll_minutes = next_min
     return next_min
 
 
-def _check_auto_update(update: Update, feed: Feed,
+def _check_auto_adjust(update: Update, feed: Feed,
                        next_min: int,
                        prev_success: Optional[dt.datetime]) -> int:
     """
-    check if auto-update to poll_minutes needed.
+    check if auto-adjust to poll_minutes needed.
     only called on success.
 
     separate function for easy exit, and to avoid clutter.
@@ -305,14 +309,15 @@ def _check_auto_update(update: Update, feed: Feed,
         return next_min
 
     if update.saved is None or update.dup is None:
-        # check Status.counter in ('not_mod', 'same_hash')?
-        return _check_auto_update_longer(update, feed, next_min)
+        # check Update.counter in ('not_mod', 'same_hash')?
+        return _check_auto_adjust_longer(update, feed, next_min)
 
     total = update.saved + update.dup  # ignoring "skipped" (bad) urls
     if total == 0:
         return next_min
-    if update.dup == total:
-        return _check_auto_update_longer(update, feed, next_min)
+
+    if update.dup == total:     # all dups?
+        return _check_auto_adjust_longer(update, feed, next_min)
 
     dup_pct = 100 * update.dup / total
 
@@ -321,7 +326,8 @@ def _check_auto_update(update: Update, feed: Feed,
         return next_min
 
     # only want to look at results after TWO successful polls IN A ROW,
-    # where second poll happened close to on time (about "next_min" ago).
+    # where second poll happened close to on time (about "next_min" ago),
+    # and is representative.
     # NOTE: start_delay is system lantency (only) for current poll.
     if prev_success is None:
         return next_min
@@ -329,7 +335,7 @@ def _check_auto_update(update: Update, feed: Feed,
     # get timedelta since previous successful poll:
     since_prev_success = dt.datetime.utcnow() - prev_success
 
-    # get delta from expected poll period
+    # get delta in minutes from expected poll period
     # (will almost always average one queue scan period late)
     delta_min = since_prev_success.total_seconds() / 60 - next_min
 
@@ -340,7 +346,12 @@ def _check_auto_update(update: Update, feed: Feed,
         return next_min
 
     logger.debug(f"  Feed {feed.id} dup {int(dup_pct)}% ({update.dup}/{total}")
-    next_min -= AUTO_ADJUST_MINUTES
+    if next_min > DEFAULT_INTERVAL_MINS:
+        next_min = DEFAULT_INTERVAL_MINS  # bring back to earth if very large
+        stat = 'reset'
+    else:
+        next_min -= AUTO_ADJUST_MINUTES
+        stat = 'down'
 
     if feed.update_minutes:
         # feed 6231 (denverpost top news stories)
@@ -349,11 +360,14 @@ def _check_auto_update(update: Update, feed: Feed,
         minimum = max(feed.update_minutes, AUTO_ADJUST_MIN_POLL_MINUTES)
     else:
         minimum = AUTO_ADJUST_MIN_POLL_MINUTES
+
     if next_min < minimum:
         next_min = minimum
         logger.info(f"  Feed {feed.id} auto-adjust clamped to {next_min}")
+        _auto_adjust_stat('min')
     elif feed.poll_minutes != next_min:
         logger.info(f"  Feed {feed.id} auto-adjust to {next_min}")
+        _auto_adjust_stat(stat)
 
     feed.poll_minutes = next_min
 
@@ -526,7 +540,7 @@ def update_feed(session: SessionType,
                 next_minutes += random.random() * 60
 
             if status == Status.SUCC:
-                next_minutes = _check_auto_update(
+                next_minutes = _check_auto_adjust(
                     update, f, next_minutes, prev_success)
 
             f.next_fetch_attempt = next_dt = utc(next_minutes * 60)
