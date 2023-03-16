@@ -287,7 +287,7 @@ def _check_auto_adjust_longer(
         _auto_adjust_stat('max')
     elif feed.poll_minutes != next_min:
         _auto_adjust_stat('up')
-        logger.info(f"  Feed {feed.id} auto-adjust to {next_min}")
+        logger.info(f"  Feed {feed.id} auto-adjust up to {next_min}")
 
     feed.poll_minutes = next_min
     return next_min
@@ -313,10 +313,7 @@ def _check_auto_adjust(update: Update, feed: Feed,
         return _check_auto_adjust_longer(update, feed, next_min)
 
     total = update.saved + update.dup  # ignoring "skipped" (bad) urls
-    if total == 0:
-        return next_min
-
-    if update.dup == total:     # all dups?
+    if update.dup == total or total == 0:  # all dups or nothing at all?
         return _check_auto_adjust_longer(update, feed, next_min)
 
     dup_pct = 100 * update.dup / total
@@ -348,10 +345,10 @@ def _check_auto_adjust(update: Update, feed: Feed,
     logger.debug(f"  Feed {feed.id} dup {int(dup_pct)}% ({update.dup}/{total}")
     if next_min > DEFAULT_INTERVAL_MINS:
         next_min = DEFAULT_INTERVAL_MINS  # bring back to earth if very large
-        stat = 'reset'
+        dir = 'reset'
     else:
         next_min -= AUTO_ADJUST_MINUTES
-        stat = 'down'
+        dir = 'down'
 
     if feed.update_minutes:
         # feed 6231 (denverpost top news stories)
@@ -366,8 +363,8 @@ def _check_auto_adjust(update: Update, feed: Feed,
         logger.info(f"  Feed {feed.id} auto-adjust clamped to {next_min}")
         _auto_adjust_stat('min')
     elif feed.poll_minutes != next_min:
-        logger.info(f"  Feed {feed.id} auto-adjust to {next_min}")
-        _auto_adjust_stat(stat)
+        logger.info(f"  Feed {feed.id} auto-adjust {dir} to {next_min}")
+        _auto_adjust_stat(dir)
 
     feed.poll_minutes = next_min
 
