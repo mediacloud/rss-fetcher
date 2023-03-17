@@ -293,7 +293,7 @@ def _check_auto_adjust_longer(
     # 3. or just fetched some stories (should trigger case 1).
     since = dt.datetime.utcnow() - last
     logger.info(                # TEMP
-            f"  Feed {feed.id} next {next_min} days {since.days} dup_pct {dup_pct:.1f}")
+        f"  Feed {feed.id} next {next_min} days {since.days} dup_pct {dup_pct:.1f}")
     if since.days <= AUTO_ADJUST_SMALL_DAYS or dup_pct < 100:
         next_min += AUTO_ADJUST_SMALL_MINS
     else:
@@ -337,7 +337,9 @@ def _check_auto_adjust(update: Update, feed: Feed,
             dup_pct = 100 * update.dup / total
         else:
             dup_pct = 102.0
+
     if dup_pct >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
+        # too many dups? make poll period longer
         return _check_auto_adjust_longer(update, feed, next_min, dup_pct)
 
     # if duplicate rate high enough, no need for adjustment
@@ -366,7 +368,7 @@ def _check_auto_adjust(update: Update, feed: Feed,
 
     if next_min > DEFAULT_INTERVAL_MINS:
         # here to bring long poll intervals back to earth quickly
-        next_min = DEFAULT_INTERVAL_MINS  # XXX
+        next_min = DEFAULT_INTERVAL_MINS
         dir = 'reset'
     else:
         next_min -= AUTO_ADJUST_MINUTES
