@@ -173,7 +173,7 @@ class _Config:                  # only instantiated in this file
     def __init__(self) -> None:
         self.values: Dict[str, Any] = {}  # cache
         self.engine = None
-        self.msgs: List[str] = []
+        self.msgs: List[str] = []  # saved initial log messages
         self.logging = False
 
     def _set(self, name: str, value: Any) -> None:
@@ -211,35 +211,42 @@ class _Config:                  # only instantiated in this file
 
     # config variable properties in alphabetical order
     # (maybe split up into section by script??)
-    # creates properties acessible in INSTANCES only!
-    # (descriptors work with bare class)
 
-    # maximum deviation in minutes since last
+    # maximum absoulte deviation in minutes since last
     # successful poll under which to look at duplicate percentage
     # (needs to be larger than queue_feeds.py queuing interval)
     AUTO_ADJUST_MAX_DELTA_MIN = conf_int('AUTO_ADJUST_MAX_DELTA_MIN', 20)
 
     # maximum percentage of good URLs to allow to be duplicates before
     # considering adjusting poll_minutes up.  Lowering this number
-    # makes auto-adjust (up/longer) more agressive.
-    # ***MUST*** be > AUTO_ADJUST_MIN_DUPLICATE_PERCENT
+    # makes auto-adjust (up/longer) more agressive.  No stories
+    # returned, or no change in feed document are counted as 100%.
+    # NOTE: Lowering to 90 would only trigger for with feeds returning
+    # 10 or more stories, 80% when 5 or more stories, 75% when 4 or
+    # more, 66% when 3 or more....
     AUTO_ADJUST_MAX_DUPLICATE_PERCENT = conf_int(
-        'AUTO_ADJUST_MAX_DUPLICATE_PERCENT', 100)
+        'AUTO_ADJUST_MAX_DUPLICATE_PERCENT', round(100 * 2 / 3))
 
     # minimum percentage of good URLs that must be duplicates to
     # insure feed poll interval is small enough, else auto-adjust
     # poll_minutes down: Raising this number makes auto-adjust
     # (down/shorter) more agressive.
-    # ***MUST*** be < AUTO_ADJUST_MAX_DUPLICATE_PERCENT
     AUTO_ADJUST_MIN_DUPLICATE_PERCENT = conf_int(
-        'AUTO_ADJUST_MIN_DUPLICATE_PERCENT', 50)
+        'AUTO_ADJUST_MIN_DUPLICATE_PERCENT', round(100 / 3))
 
     # minimum poll interval (if no published update period)
     AUTO_ADJUST_MIN_POLL_MINUTES = conf_int('AUTO_ADJUST_MIN_POLL_MINUTES', 60)
 
-    # number of minutes to reduce poll_rate by when auto-adjusting
-    # (could use a divisor for exponential backoff)
+    # number of minutes to reduce/increase poll_rate by when auto-adjusting
     AUTO_ADJUST_MINUTES = conf_int('AUTO_ADJUST_MINUTES', 60)
+
+    # number of days after last new stories seen (or feed creation)
+    # in which to use AUTO_ADJUST_SMALL_MINUTES when auto-adjusting up
+    AUTO_ADJUST_SMALL_DAYS = conf_int('AUTO_ADJUST_SMALL_DAYS', 31)
+
+    # number of minutes to increase poll_rate by when auto-adjusting
+    # and stories seen within AUTO_ADJUST_SMALL_DAYS
+    AUTO_ADJUST_SMALL_MINS = conf_int('AUTO_ADJUST_SMALL_MINS', 10)
 
     # keep this above the number of workers (initially 2x)
     DB_POOL_SIZE = conf_int('DB_POOL_SIZE', 32)
@@ -254,18 +261,24 @@ class _Config:                  # only instantiated in this file
     # number of fetch_event rows to keep for each feed
     FETCH_EVENT_ROWS = conf_int('FETCH_EVENT_ROWS', 30)
 
-    # Use saved ETag or Last-Modified for conditional feed fetch
+    # Use saved ETag or Last-Modified for conditional feed fetch.
+    # Some feeds return same ETag and/or Last-Modified even
+    # when feed has changed, so this is disabled by default!
+    # ETag may be useless, but could consider using Last-Modified
+    # if the value isn't too long ago????
     HTTP_CONDITIONAL_FETCH = conf_bool('HTTP_CONDITIONAL_FETCH', False)
 
     # number of old log files to keep
     LOG_BACKUP_COUNT = conf_int('LOG_BACKUP_COUNT', 7)
 
-    # failures before disabling feed
-    # a surprising number of feeds come back from what looks like death
-    # (including 404, host not found, HTML)
+    # Number of failures before disabling feed. A surprising number of
+    # feeds come back from what looks like death (including 404, host
+    # not found, HTML).  Was originally 4, raised to 10, and then 30.
+    # NOTE! "soft" and "temporary" failures increment
+    # last_fetch_failures by fractional values.
     MAX_FAILURES = conf_int('MAX_FAILURES', 30)
 
-    # feeds to queue before quitting (if not looping)
+    # feeds for queuer to queue before quitting (if not looping)
     MAX_FEEDS = conf_int('MAX_FEEDS', 10000)
 
     # maximum length URL to accept from feeds
@@ -276,7 +289,7 @@ class _Config:                  # only instantiated in this file
     MAXIMUM_BACKOFF_MINS = conf_int('MAXIMUM_BACKOFF_MINS',
                                     _DEFAULT_MAXIMUM_BACKOFF_MINS)
 
-    # maximum requeue interval (used to clamp sy:updatePeriod/Frequency)
+    # maximum interval to accept from sy:update{Period,Frequency}
     MAXIMUM_INTERVAL_MINS = conf_int('MAXIMUM_INTERVAL_MINS',
                                      _DEFAULT_MAXIMUM_INTERVAL_MINS)
 
@@ -286,7 +299,8 @@ class _Config:                  # only instantiated in this file
     MCWEB_TOKEN = conf_optional('MCWEB_TOKEN', hidden=True)
 
     # minimum requeue interval (used to clamp sy:updatePeriod/Frequency)
-    # if server has never sent a 304 "Not Modified" response.
+    # if server has never sent a 304 "Not Modified" response,
+    # and auto-adjust has never been applied:
     MINIMUM_INTERVAL_MINS = conf_int('MINIMUM_INTERVAL_MINS',
                                      _DEFAULT_MINIMUM_INTERVAL_MINS)
 
@@ -295,8 +309,10 @@ class _Config:                  # only instantiated in this file
     # when cost is lower).  An initial look shows that the majority of
     # feeds on servers returning 304, have update periods that are an
     # hour or less; It's doubtful we would ever want to poll THAT
-    # often.  CAUTION!  Faster polling could cause more 429 (throttling)
-    # responses!
+    # often.
+    # CAUTION!  Faster polling could cause more 429 (throttling)
+    # Only applies if auto-adjust has never happened,
+    # and HTTP_CONDITIONAL_FETCH is enabled (off by default).
     MINIMUM_INTERVAL_MINS_304 = conf_int('MINIMUM_INTERVAL_MINS_304',
                                          _DEFAULT_MINIMUM_INTERVAL_MINS_304)
 

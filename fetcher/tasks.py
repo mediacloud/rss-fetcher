@@ -121,6 +121,9 @@ if AUTO_ADJUST_MIN_DUPLICATE_PERCENT >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
 
 AUTO_ADJUST_MIN_POLL_MINUTES = conf.AUTO_ADJUST_MIN_POLL_MINUTES
 AUTO_ADJUST_MINUTES = conf.AUTO_ADJUST_MINUTES
+AUTO_ADJUST_SMALL_DAYS = conf.AUTO_ADJUST_SMALL_DAYS
+AUTO_ADJUST_SMALL_MINS = conf.AUTO_ADJUST_SMALL_MINS
+
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 HTTP_CONDITIONAL_FETCH = conf.HTTP_CONDITIONAL_FETCH
 MAX_FAILURES = conf.MAX_FAILURES
@@ -284,18 +287,18 @@ def _check_auto_adjust_longer(
         # should not happen!
         return next_min
 
-    incr = AUTO_ADJUST_MINUTES
-    since = dt.datetime.utcnow() - last
-
     # adjust by smaller increment if:
-    # 1. stories seen in last week,
-    # 2. or if no stories ever seen, feed is younger than one week,
+    # 1. stories seen in last AUTO_ADJUST_SMALL_DAYS (AASD)
+    # 2. or if no stories ever seen, feed is younger than AASD
     # 3. or just fetched some stories (should trigger case 1).
-    if since.days < 7 or dup_pct < 100.0:
-        logger.info(f"  Feed {feed.id} days {since.days} dup_pct {dup_pct:.1f}")
-        incr //= 6              # get from config?
+    since = dt.datetime.utcnow() - last
+    if since.days <= AUTO_ADJUST_SMALL_DAYS or dup_pct < 100:
+        logger.info(
+            f"  Feed {feed.id} days {since.days} dup_pct {dup_pct:.1f}")  # TEMP
+        next_min += AUTO_ADJUST_SMALL_MINS
+    else:
+        next_min += AUTO_ADJUST_MINUTES
 
-    next_min += incr
     if next_min > MAXIMUM_INTERVAL_MINS:
         next_min = MAXIMUM_INTERVAL_MINS
         logger.info(f"  Feed {feed.id} auto-adjust clamped to {next_min}")
@@ -323,8 +326,10 @@ def _check_auto_adjust(update: Update, feed: Feed,
         return next_min
 
     if update.saved is None or update.dup is None:
-        if Update.counter not in ('not_mod', 'same_hash'):
-            logger.info(f"  Feed {feed.id} unexpected counter {Update.counter}")
+        if update.counter not in ('not_mod', 'same_hash'):
+            logger.info(
+                f"  Feed {feed.id} unexpected counter {update.counter}")
+            breakpoint()
         dup_pct = 101.0
     else:
         total = update.saved + update.dup  # ignoring "skipped" (bad) urls
@@ -356,13 +361,12 @@ def _check_auto_adjust(update: Update, feed: Feed,
     # system outage, intervening failures, or manual triggering:
     # (will almost always average one queue scan period late)
     if abs(delta_min) >= AUTO_ADJUST_MAX_DELTA_MIN:
-        logger.info(f"  Feed {feed.id} delta {delta_min} min")
+        logger.info(f"  Feed {feed.id} delta {delta_min:.1f} min")
         return next_min
 
-    logger.debug(f"  Feed {feed.id} dup {int(dup_pct)}% ({update.dup}/{total}")
     if next_min > DEFAULT_INTERVAL_MINS:
-        # here to quickly bring long poll intervals back to earth
-        next_min = DEFAULT_INTERVAL_MINS
+        # here to bring long poll intervals back to earth quickly
+        next_min = DEFAULT_INTERVAL_MINS  # XXX
         dir = 'reset'
     else:
         next_min -= AUTO_ADJUST_MINUTES
@@ -510,13 +514,18 @@ def update_feed(session: SessionType,
                         f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
         if next_minutes is not None:  # rescheduling?
+            # back off to be kind to servers:
+            # with large intervals exponential backoff is extreme:
+            # (1x, 2x, 4x, 8x, 16x)
+            # so using linear backoff (1x, 2x, 3x, 4x, 5x)
+            mult = failures
+
             # result MUST NOT be less than next_minutes!!
             # so only apply failures as a multiplier when >= 1!
-            if failures >= 1:
-                # back off to be kind to servers:
-                # with large intervals exponential backoff is extreme
-                # (12h, 1d, 2d, 4d), so using linear backoff
-                next_minutes *= failures
+            if mult >= 1:
+                next_minutes *= mult
+
+                # but cap interval
                 if next_minutes > MAXIMUM_BACKOFF_MINS:
                     next_minutes = MAXIMUM_BACKOFF_MINS
 
@@ -1158,7 +1167,8 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
     if qlen > 0:
         qlen -= 1             # subtract current (almost complete) job
     stats.gauge('workq', qlen)
-    logger.debug(f"workq {qlen}")
+    if qlen == 0:               # for debugging
+        logger.debug(f"workq EMPTY")
 
     if u.status != Status.NOUPD:
         with Session() as session:
