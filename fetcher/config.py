@@ -253,7 +253,9 @@ class _Config:                  # only instantiated in this file
     LOG_BACKUP_COUNT = conf_int('LOG_BACKUP_COUNT', 7)
 
     # failures before disabling feed
-    MAX_FAILURES = conf_int('MAX_FAILURES', 10)
+    # a surprising number of feeds come back from what looks like death
+    # (including 404, host not found, HTML)
+    MAX_FAILURES = conf_int('MAX_FAILURES', 30)
 
     # feeds to queue before quitting (if not looping)
     MAX_FEEDS = conf_int('MAX_FEEDS', 10000)
