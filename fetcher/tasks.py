@@ -107,11 +107,18 @@ def NoUpdate(counter: str) -> Update:
 HTTP_SOFT = set([404, 429])
 HTTP_SOFT.update(range(500, 600))   # all 5xx (server error)
 
+logger = logging.getLogger(__name__)  # get_task_logger(__name__)
+
 # force logging on startup (actual logging deferred)
 # see fetcher/config.py for descriptions
 # please keep alphabetical:
 AUTO_ADJUST_MAX_DELTA_MIN = conf.AUTO_ADJUST_MAX_DELTA_MIN
+AUTO_ADJUST_MAX_DUPLICATE_PERCENT = conf.AUTO_ADJUST_MAX_DUPLICATE_PERCENT
 AUTO_ADJUST_MIN_DUPLICATE_PERCENT = conf.AUTO_ADJUST_MIN_DUPLICATE_PERCENT
+if AUTO_ADJUST_MIN_DUPLICATE_PERCENT >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
+    logger.error(f"AUTO_ADJUST_MIN_DUPLICATE_PERCENT ({AUTO_ADJUST_MIN_DUPLICATE_PERCENT}) >= "
+                 f"AUTO_ADJUST_MAX_DUPLICATE_PERCENT ({AUTO_ADJUST_MAX_DUPLICATE_PERCENT})")
+
 AUTO_ADJUST_MIN_POLL_MINUTES = conf.AUTO_ADJUST_MIN_POLL_MINUTES
 AUTO_ADJUST_MINUTES = conf.AUTO_ADJUST_MINUTES
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
@@ -128,8 +135,6 @@ SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 SAVE_PARSE_ERRORS = conf.SAVE_PARSE_ERRORS
 SKIP_HOME_PAGES = conf.SKIP_HOME_PAGES
 VERIFY_CERTIFICATES = conf.VERIFY_CERTIFICATES
-
-logger = logging.getLogger(__name__)  # get_task_logger(__name__)
 
 # disable SSL verification warnings w/ requests verify=False
 if not VERIFY_CERTIFICATES:
@@ -258,14 +263,18 @@ def fetches_per_minute(session: SessionType) -> float:
 
 
 def _auto_adjust_stat(dir: str) -> None:
+    """
+    increment an auto-adjust counter
+    (try to only call once for a given feed/fetch
+    """
     stats = Stats.get()         # get singleton
     stats.incr('adjust', 1, labels=[('stat', dir)])
 
 
 def _check_auto_adjust_longer(
-        update: Update, feed: Feed, next_min: int) -> int:
+        update: Update, feed: Feed, next_min: int, dup_pct: float) -> int:
     """
-    here if no change in feed (all dups, not_mod, same_hash)
+    here to consider rasing poll_minutues
     """
     if feed.last_new_stories:
         last = feed.last_new_stories
@@ -275,12 +284,18 @@ def _check_auto_adjust_longer(
         # should not happen!
         return next_min
 
+    incr = AUTO_ADJUST_MINUTES
     since = dt.datetime.utcnow() - last
-    if since.days < 7:
-        logger.info(f"  Feed {feed.id} last {since.days} days")
-        return next_min
 
-    next_min += AUTO_ADJUST_MINUTES // 10  # raise
+    # adjust by smaller increment if:
+    # 1. stories seen in last week,
+    # 2. or if no stories ever seen, feed is younger than one week,
+    # 3. or just fetched some stories (should trigger case 1).
+    if since.days < 7 or dup_pct < 100.0:
+        logger.info(f"  Feed {feed.id} days {since.days} dup_pct {dup_pct:.1f}")
+        incr //= 6              # get from config?
+
+    next_min += incr
     if next_min > MAXIMUM_INTERVAL_MINS:
         next_min = MAXIMUM_INTERVAL_MINS
         logger.info(f"  Feed {feed.id} auto-adjust clamped to {next_min}")
@@ -304,19 +319,21 @@ def _check_auto_adjust(update: Update, feed: Feed,
 
     NOTE: currently only auto-adjusts poll_minutes down.
     """
-
     if update.status != Status.SUCC:  # paranoia
         return next_min
 
     if update.saved is None or update.dup is None:
-        # check Update.counter in ('not_mod', 'same_hash')?
-        return _check_auto_adjust_longer(update, feed, next_min)
-
-    total = update.saved + update.dup  # ignoring "skipped" (bad) urls
-    if update.dup == total or total == 0:  # all dups or nothing at all?
-        return _check_auto_adjust_longer(update, feed, next_min)
-
-    dup_pct = 100 * update.dup / total
+        if Update.counter not in ('not_mod', 'same_hash'):
+            logger.info(f"  Feed {feed.id} unexpected counter {Update.counter}")
+        dup_pct = 101.0
+    else:
+        total = update.saved + update.dup  # ignoring "skipped" (bad) urls
+        if total > 0:
+            dup_pct = 100 * update.dup / total
+        else:
+            dup_pct = 102.0
+    if dup_pct >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
+        return _check_auto_adjust_longer(update, feed, next_min, dup_pct)
 
     # if duplicate rate high enough, no need for adjustment
     if dup_pct >= AUTO_ADJUST_MIN_DUPLICATE_PERCENT:
@@ -332,19 +349,20 @@ def _check_auto_adjust(update: Update, feed: Feed,
     # get timedelta since previous successful poll:
     since_prev_success = dt.datetime.utcnow() - prev_success
 
-    # get delta in minutes from expected poll period
-    # (will almost always average one queue scan period late)
+    # get delta in minutes from expected/current poll period
     delta_min = since_prev_success.total_seconds() / 60 - next_min
 
     # disregard polls that are significantly early or delayed, due to
     # system outage, intervening failures, or manual triggering:
+    # (will almost always average one queue scan period late)
     if abs(delta_min) >= AUTO_ADJUST_MAX_DELTA_MIN:
         logger.info(f"  Feed {feed.id} delta {delta_min} min")
         return next_min
 
     logger.debug(f"  Feed {feed.id} dup {int(dup_pct)}% ({update.dup}/{total}")
     if next_min > DEFAULT_INTERVAL_MINS:
-        next_min = DEFAULT_INTERVAL_MINS  # bring back to earth if very large
+        # here to quickly bring long poll intervals back to earth
+        next_min = DEFAULT_INTERVAL_MINS
         dir = 'reset'
     else:
         next_min -= AUTO_ADJUST_MINUTES

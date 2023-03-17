@@ -219,10 +219,18 @@ class _Config:                  # only instantiated in this file
     # (needs to be larger than queue_feeds.py queuing interval)
     AUTO_ADJUST_MAX_DELTA_MIN = conf_int('AUTO_ADJUST_MAX_DELTA_MIN', 20)
 
+    # maximum percentage of good URLs to allow to be duplicates before
+    # considering adjusting poll_minutes up.  Lowering this number
+    # makes auto-adjust (up/longer) more agressive.
+    # ***MUST*** be > AUTO_ADJUST_MIN_DUPLICATE_PERCENT
+    AUTO_ADJUST_MAX_DUPLICATE_PERCENT = conf_int(
+        'AUTO_ADJUST_MAX_DUPLICATE_PERCENT', 100)
+
     # minimum percentage of good URLs that must be duplicates to
     # insure feed poll interval is small enough, else auto-adjust
-    # poll_minutes down: Raising this number makes auto-adjust (down)
-    # more agressive.
+    # poll_minutes down: Raising this number makes auto-adjust
+    # (down/shorter) more agressive.
+    # ***MUST*** be < AUTO_ADJUST_MAX_DUPLICATE_PERCENT
     AUTO_ADJUST_MIN_DUPLICATE_PERCENT = conf_int(
         'AUTO_ADJUST_MIN_DUPLICATE_PERCENT', 50)
 
