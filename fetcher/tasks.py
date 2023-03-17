@@ -292,9 +292,9 @@ def _check_auto_adjust_longer(
     # 2. or if no stories ever seen, feed is younger than AASD
     # 3. or just fetched some stories (should trigger case 1).
     since = dt.datetime.utcnow() - last
+    logger.info(                # TEMP
+            f"  Feed {feed.id} next {next_min} days {since.days} dup_pct {dup_pct:.1f}")
     if since.days <= AUTO_ADJUST_SMALL_DAYS or dup_pct < 100:
-        logger.info(
-            f"  Feed {feed.id} days {since.days} dup_pct {dup_pct:.1f}")  # TEMP
         next_min += AUTO_ADJUST_SMALL_MINS
     else:
         next_min += AUTO_ADJUST_MINUTES
