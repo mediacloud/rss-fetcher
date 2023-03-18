@@ -64,6 +64,19 @@ SOFT_FAILURE_INCREMENT = 0.5
 TEMP_FAILURE_INCREMENT = 0.25
 
 
+class DupPct:
+    """
+    synthetic dup_pct values passed to _check_auto_adjust_longer
+    (All above 100%)
+
+    Values **NOT** intended to be used for comparison (ie; as "magic"
+    values), which could lead to lots of special case checks.  Add
+    additional args to _check_auto_adjust_longer instead!!!
+    """
+    NO_CHANGE = 101.0
+    NO_STORIES = 102.0
+
+
 class Status(Enum):
     # .value used for logging:
     SUCC = 'Success'            # success
@@ -274,10 +287,14 @@ def _auto_adjust_stat(dir: str) -> None:
     stats.incr('adjust', 1, labels=[('stat', dir)])
 
 
-def _check_auto_adjust_longer(
-        update: Update, feed: Feed, next_min: int, dup_pct: float) -> int:
+def _check_auto_adjust_longer(update: Update, feed: Feed,
+                              next_min: int, dup_pct: float) -> int:
     """
-    here to consider rasing poll_minutues
+    here to consider rasing poll_minutues.
+
+    A function to:
+    Allow calling in multiple places.
+    Reduce length of other functions.
     """
     if feed.last_new_stories:
         last = feed.last_new_stories
@@ -293,7 +310,7 @@ def _check_auto_adjust_longer(
     # 3. or just fetched some stories (should trigger case 1).
     since = dt.datetime.utcnow() - last
     logger.info(                # TEMP
-        f"  Feed {feed.id} next {next_min} days {since.days} dup_pct {dup_pct:.1f}")
+        f"  Feed {feed.id} next: {next_min} days: {since.days} dup_pct: {dup_pct:.1f}")
     if since.days <= AUTO_ADJUST_SMALL_DAYS or dup_pct < 100:
         next_min += AUTO_ADJUST_SMALL_MINS
     else:
@@ -322,21 +339,22 @@ def _check_auto_adjust(update: Update, feed: Feed,
 
     NOTE: currently only auto-adjusts poll_minutes down.
     """
-    if update.status != Status.SUCC:  # paranoia
+    if update.status != Status.SUCC:
+        # should not (currently) get here, but no need to lengthen
+        # period, let backoff do the work
         return next_min
 
     if update.saved is None or update.dup is None:
         if update.counter not in ('not_mod', 'same_hash'):
             logger.info(
                 f"  Feed {feed.id} unexpected counter {update.counter}")
-            breakpoint()
-        dup_pct = 101.0
+        dup_pct = DupPct.NO_CHANGE
     else:
         total = update.saved + update.dup  # ignoring "skipped" (bad) urls
         if total > 0:
             dup_pct = 100 * update.dup / total
         else:
-            dup_pct = 102.0
+            dup_pct = DupPct.NO_STORIES
 
     if dup_pct >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
         # too many dups? make poll period longer
@@ -809,7 +827,7 @@ def fetch_and_process_feed(
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt} qt {qtime}")
             # tempting to clear f.queued here if set, but that
-            # increases risk of the queue being queued twice
+            # increases risk of the feed being queued twice.
             # instead rely on "stray feed catcher" in scripts/queue_feeds.py
             return NoUpdate('insane')
 
