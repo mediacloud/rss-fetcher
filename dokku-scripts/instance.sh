@@ -472,11 +472,6 @@ $PERIODIC
 # generate RSS output files (try multiple times a day, in case of bad code, or downtime)
 30 */6 * * * root $DOKKU_RUN_PERIODIC ./run-gen-daily-story-rss.sh > $LOGDIR/$APP-generator.log 2>&1
 #
-# disabled 2023-03-12 in favor of auto-adjust:
-# Update poll rates for "short fast" feeds.
-# Looks at fetch_events table, so run before archiver (just in case):
-#6 1 * * * root $DOKKU_RUN_PERIODIC python -m scripts.poll_update --verbose --update > $LOGDIR/$APP-poll_update.log 2>&1
-#
 # archive old DB table entries (non-critical); production aws s3 sync should run after this
 # (before 2am standard time rollback, in case we never get rid of time changes, and server not configured in UTC)
 30 1 * * * root $DOKKU_RUN_PERIODIC python -m scripts.db_archive --verbose --delete > $LOGDIR/$APP-archiver.log 2>&1
