@@ -307,8 +307,8 @@ def _check_auto_adjust_longer(update: Update, feed: Feed,
     # 2. or if no stories ever seen, feed is younger than AASD
     # 3. or just fetched some stories (should trigger case 1).
     since = dt.datetime.utcnow() - last
-    logger.info(                # TEMP
-        f"  Feed {feed.id} next: {next_min} days: {since.days} dup_pct: {dup_pct:.1f}")
+    logger.info(                # TEMP (lower to debug?)
+        f"  Feed {feed.id} next: {next_min} min; {since.days} days; {dup_pct:.1f}% dup")
     if since.days <= AUTO_ADJUST_SMALL_DAYS or dup_pct < 100:
         next_min += AUTO_ADJUST_SMALL_MINS
     else:
@@ -886,12 +886,6 @@ def fetch_and_process_feed(
                       retry_after_min=rretry_after,
                       randomize=(rsc == 429))
 
-    # NOTE! 304 response will not have a body (terminated by end of headers)
-    # so the last hash isn't (over)written below
-    # (tho presumably if we get 304 responses, the next feed we get
-    # will be different).
-    new_hash = hashlib.md5(response.content).hexdigest()
-
     # Entity Tag may be W/"value" or "value", so keep as-is
     etag = response.headers.get('ETag', None)
 
@@ -931,15 +925,6 @@ def fetch_and_process_feed(
         logger.error(
             f"  Feed {feed_id} - unexpected status {response.status_code}")
 
-    # BAIL: no changes since last time
-    # treated as success
-    if new_hash == feed['last_fetch_hash']:
-        return Update('same_hash', Status.SUCC, SYS_WORKING,
-                      note="same hash",
-                      feed_col_updates=feed_col_updates)
-
-    feed_col_updates['last_fetch_hash'] = new_hash
-
     # try to parse the content, parsing all the stories
     try:
         # NOTE! passing undecoded bytes!
@@ -954,7 +939,7 @@ def fetch_and_process_feed(
             if top.find(b'<!doctype html') or top.find(b'<html'):
                 raise Exception("html?")
             raise Exception("no version")
-        logger.info(f"  Feed {feed_id} version {vers}")
+        logger.debug(f"  Feed {feed_id} version {vers}")
     except fetcher.queue.JobTimeoutException:
         raise
     except Exception as exc:    # RARE catch-all!
@@ -966,6 +951,17 @@ def fetch_and_process_feed(
                             feed, response, note=repr(exc))
         return Update('parse_err', Status.SOFT, 'parse error',
                       note=repr(exc))
+
+    # Moved after parse (at the cost of CPU time),
+    # but means feed URLs that are replaced with HTML
+    # will back off, and eventually be disabled.
+    new_hash = hashlib.md5(response.content).hexdigest()
+    if new_hash == feed['last_fetch_hash']:
+        # BAIL: no changes since last time
+        return Update('same_hash', Status.SUCC, SYS_WORKING,
+                      note="same hash",
+                      feed_col_updates=feed_col_updates)
+    feed_col_updates['last_fetch_hash'] = new_hash
 
     saved, dup, skipped = save_stories_from_feed(
         session, now, feed, parsed_feed)
@@ -985,7 +981,6 @@ def fetch_and_process_feed(
     if saved > 0:
         feed_col_updates['last_new_stories'] = now
 
-    # NOTE! scripts/poll_update.py parses note string!!!
     return Update('ok', Status.SUCC, SYS_WORKING,
                   note=f"{skipped} skipped / {dup} dup / {saved} added",
                   feed_col_updates=feed_col_updates,
