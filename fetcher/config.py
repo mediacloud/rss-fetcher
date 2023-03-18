@@ -151,9 +151,6 @@ _DEFAULT_DEFAULT_INTERVAL_MINS = 6 * 60
 # default value for MINIMUM_INTERVAL_MINS if not configured:
 _DEFAULT_MINIMUM_INTERVAL_MINS = _DEFAULT_DEFAULT_INTERVAL_MINS
 
-# default value for MINIMUM_INTERVAL_MINS_304 if not configured:
-_DEFAULT_MINIMUM_INTERVAL_MINS_304 = _DEFAULT_DEFAULT_INTERVAL_MINS
-
 # default value for MAXIMUM_INTERVAL_MINS if not configured:
 _DEFAULT_MAXIMUM_INTERVAL_MINS = 24 * 60
 
@@ -303,18 +300,6 @@ class _Config:                  # only instantiated in this file
     # and auto-adjust has never been applied:
     MINIMUM_INTERVAL_MINS = conf_int('MINIMUM_INTERVAL_MINS',
                                      _DEFAULT_MINIMUM_INTERVAL_MINS)
-
-    # minimum requeue interval (if feed sends 304 "Not Modified"
-    # responses) (allow honoring shorter intervals advertised by feed
-    # when cost is lower).  An initial look shows that the majority of
-    # feeds on servers returning 304, have update periods that are an
-    # hour or less; It's doubtful we would ever want to poll THAT
-    # often.
-    # CAUTION!  Faster polling could cause more 429 (throttling)
-    # Only applies if auto-adjust has never happened,
-    # and HTTP_CONDITIONAL_FETCH is enabled (off by default).
-    MINIMUM_INTERVAL_MINS_304 = conf_int('MINIMUM_INTERVAL_MINS_304',
-                                         _DEFAULT_MINIMUM_INTERVAL_MINS_304)
 
     # days back to check for duplicate story URLs/titles
     NORMALIZED_TITLE_DAYS = conf_int('NORMALIZED_TITLE_DAYS', 7)

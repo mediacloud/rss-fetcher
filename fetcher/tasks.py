@@ -144,7 +144,6 @@ MAX_URL = conf.MAX_URL
 MAXIMUM_BACKOFF_MINS = conf.MAXIMUM_BACKOFF_MINS
 MAXIMUM_INTERVAL_MINS = conf.MAXIMUM_INTERVAL_MINS
 MINIMUM_INTERVAL_MINS = conf.MINIMUM_INTERVAL_MINS
-MINIMUM_INTERVAL_MINS_304 = conf.MINIMUM_INTERVAL_MINS_304
 NORMALIZED_TITLE_DAYS = conf.NORMALIZED_TITLE_DAYS
 RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
@@ -268,8 +267,7 @@ def fetches_per_minute(session: SessionType) -> float:
                         func.coalesce(
                             Feed.update_minutes,
                             DEFAULT_INTERVAL_MINS),
-                        case([(Feed.http_304, MINIMUM_INTERVAL_MINS_304)],
-                             else_=MINIMUM_INTERVAL_MINS)
+                        MINIMUM_INTERVAL_MINS
                     )  # greatest
                 )  # func.coalesce
             )  # sum
@@ -561,12 +559,8 @@ def update_feed(session: SessionType,
             # in fetches_per_minute() function above, and any
             # changes need to be reflected there as well!!!
             if f.poll_minutes is None:
-                if f.http_304:
-                    if next_minutes < MINIMUM_INTERVAL_MINS_304:
-                        next_minutes = MINIMUM_INTERVAL_MINS_304
-                else:
-                    if next_minutes < MINIMUM_INTERVAL_MINS:
-                        next_minutes = MINIMUM_INTERVAL_MINS
+                if next_minutes < MINIMUM_INTERVAL_MINS:
+                    next_minutes = MINIMUM_INTERVAL_MINS
 
             # Always honor HTTP Retry-After: header if longer (but log)
             # Only passed w/ non-success
