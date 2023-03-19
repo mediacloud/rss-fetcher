@@ -260,8 +260,7 @@ def fetches_per_minute(session: SessionType) -> float:
                 func.coalesce(
                     # poll_minutes overrides all else if non-NULL
                     Feed.poll_minutes,
-                    # else never faster than minimum interval
-                    # (but allow lower minimum if server sends HTTP 304)
+                    # else never faster than minimum interval:
                     greatest(
                         # use DEFAULT_INTERVAL_MINS if update_minutes is NULL
                         func.coalesce(
@@ -288,11 +287,12 @@ def _auto_adjust_stat(dir: str) -> None:
 def _check_auto_adjust_longer(update: Update, feed: Feed,
                               next_min: int, dup_pct: float) -> int:
     """
-    here to consider rasing poll_minutues.
+    here to consider raising poll_minutues..
 
-    A function to:
-    Allow calling in multiple places.
-    Reduce length of other functions.
+    Was originally called from multiple places,
+    but kept a function for:
+    1. easy exit
+    2. limit size of _check_auto_adjust
     """
     if feed.last_new_stories:
         last = feed.last_new_stories
@@ -316,13 +316,12 @@ def _check_auto_adjust_longer(update: Update, feed: Feed,
 
     if next_min > MAXIMUM_INTERVAL_MINS:
         next_min = MAXIMUM_INTERVAL_MINS
-        logger.info(f"  Feed {feed.id} auto-adjust clamped to {next_min}")
+        logger.info(f"  Feed {feed.id} auto-adjust clamped down to {next_min}")
         _auto_adjust_stat('max')
     elif feed.poll_minutes != next_min:
         _auto_adjust_stat('up')
         logger.info(f"  Feed {feed.id} auto-adjust up to {next_min}")
 
-    feed.poll_minutes = next_min
     return next_min
 
 
@@ -330,41 +329,17 @@ def _check_auto_adjust(update: Update, feed: Feed,
                        next_min: int,
                        prev_success: Optional[dt.datetime]) -> int:
     """
-    check if auto-adjust to poll_minutes needed.
-    only called on success.
-
-    separate function for easy exit, and to avoid clutter.
-
-    NOTE: currently only auto-adjusts poll_minutes down.
+    Check if auto-adjust to poll_minutes needed.
+    Returns (possibly updated) next_min (minutes to next fetch).
+    Separate function for easy exit, and to avoid clutter.
     """
     if update.status != Status.SUCC:
-        # should not (currently) get here, but no need to lengthen
-        # period, let backoff do the work
+        # let backoff do the work
         return next_min
 
-    if update.saved is None or update.dup is None:
-        if update.counter not in ('not_mod', 'same_hash'):
-            logger.info(
-                f"  Feed {feed.id} unexpected counter {update.counter}")
-        dup_pct = DupPct.NO_CHANGE
-    else:
-        total = update.saved + update.dup  # ignoring "skipped" (bad) urls
-        if total > 0:
-            dup_pct = 100 * update.dup / total
-        else:
-            dup_pct = DupPct.NO_STORIES
-
-    if dup_pct >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
-        # too many dups? make poll period longer
-        return _check_auto_adjust_longer(update, feed, next_min, dup_pct)
-
-    # if duplicate rate high enough, no need for adjustment
-    if dup_pct >= AUTO_ADJUST_MIN_DUPLICATE_PERCENT:
-        return next_min
-
-    # only want to look at results after TWO successful polls IN A ROW,
+    # Only want to look at results after TWO successful polls IN A ROW,
     # where second poll happened close to on time (about "next_min" ago),
-    # and is representative.
+    # and so is representative.
     # NOTE: start_delay is system lantency (only) for current poll.
     if prev_success is None:
         return next_min
@@ -382,6 +357,33 @@ def _check_auto_adjust(update: Update, feed: Feed,
         logger.info(f"  Feed {feed.id} delta {delta_min:.1f} min")
         return next_min
 
+    # Original version only adjusted poll rate up (shorter intervals)
+    # to make sure we got enough duplicates to ensure that there was
+    # good overlap (no missing stories) between polls, so it
+    # calculated the percentage of duplicates (and not the new/added
+    # percentage).
+
+    if update.saved is None or update.dup is None:
+        if update.counter not in ('not_mod', 'same_hash'):
+            logger.info(
+                f"  Feed {feed.id} unexpected counter {update.counter}")
+        dup_pct = DupPct.NO_CHANGE
+    else:
+        total = update.saved + update.dup  # ignoring "skipped" (bad) urls
+        if total > 0:
+            dup_pct = 100 * update.dup / total
+        else:
+            dup_pct = DupPct.NO_STORIES
+
+    if dup_pct >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
+        # too many dups? make poll period longer
+        # XXX Look at prev_fetch_attempt to see
+        return _check_auto_adjust_longer(update, feed, next_min, dup_pct)
+
+    # if duplicate rate high enough, no need for adjustment
+    if dup_pct >= AUTO_ADJUST_MIN_DUPLICATE_PERCENT:
+        return next_min
+
     if next_min > DEFAULT_INTERVAL_MINS:
         # here to bring long poll intervals back to earth quickly
         next_min = DEFAULT_INTERVAL_MINS
@@ -391,22 +393,19 @@ def _check_auto_adjust(update: Update, feed: Feed,
         dir = 'down'
 
     if feed.update_minutes:
-        # feed 6231 (denverpost top news stories)
-        # advertises an update period of two minutes(!!)
-        # so use a maximal minimum value
+        # Feed 6231 (denverpost top news stories) advertises an update
+        # period of two minutes(!!), so apply a lower bound!!
         minimum = max(feed.update_minutes, AUTO_ADJUST_MIN_POLL_MINUTES)
     else:
         minimum = AUTO_ADJUST_MIN_POLL_MINUTES
 
     if next_min < minimum:
         next_min = minimum
-        logger.info(f"  Feed {feed.id} auto-adjust clamped to {next_min}")
+        logger.info(f"  Feed {feed.id} auto-adjust clamped up to {next_min}")
         _auto_adjust_stat('min')
     elif feed.poll_minutes != next_min:
         logger.info(f"  Feed {feed.id} auto-adjust {dir} to {next_min}")
-        _auto_adjust_stat(dir)
-
-    feed.poll_minutes = next_min
+        _auto_adjust_stat(dir)  # report "dir" as counter
 
     return next_min
 
@@ -538,22 +537,14 @@ def update_feed(session: SessionType,
             # so using linear backoff (1x, 2x, 3x, 4x, 5x)
             mult = failures
 
-            # result MUST NOT be less than next_minutes!!
-            # so only apply failures as a multiplier when >= 1!
+            # backoff result MUST NOT be less than next_minutes!!
+            # so only apply multiplier when >= 1!
             if mult >= 1:
                 next_minutes *= mult
 
                 # but cap interval
                 if next_minutes > MAXIMUM_BACKOFF_MINS:
                     next_minutes = MAXIMUM_BACKOFF_MINS
-
-            # clamp interval to a minimum value
-
-            # Allow different (shorter) interval if server sends
-            # HTTP 304 Not Modified (no data transferred if ETag
-            # or Last-Modified not changed).  Initial observation
-            # is that 304's are most common on feeds that
-            # advertise a one hour update interval!
 
             # NOTE!! logic here is replicated (in an SQL query)
             # in fetches_per_minute() function above, and any
@@ -566,7 +557,9 @@ def update_feed(session: SessionType,
             # Only passed w/ non-success
             ram = update.retry_after_min
             if ram and ram > next_minutes:
-                # 24 hours not uncommon; have seen 317100 sec (88h!) once
+                # 24 hours not uncommon; saw 317100 sec (88h!) once
+                if ram > _DAY_MINS:
+                    ram = _DAY_MINS  # limit to one day (log???)
                 logger.info(
                     f"  Feed {feed_id} - using retry_after {ram} ({next_minutes})")
                 next_minutes = ram
@@ -577,9 +570,12 @@ def update_feed(session: SessionType,
                 # into queuer loop period sized buckets.
                 next_minutes += random.random() * 60
 
-            if status == Status.SUCC:
-                next_minutes = _check_auto_adjust(
-                    update, f, next_minutes, prev_success)
+            # check if auto-adjust needed
+            next_minutes = _check_auto_adjust(
+                update, f, next_minutes, prev_success)
+
+            if f.poll_minutes != next_minutes:
+                f.poll_minutes = next_minutes
 
             f.next_fetch_attempt = next_dt = utc(next_minutes * 60)
             logger.info(
