@@ -377,7 +377,6 @@ def _check_auto_adjust(update: Update, feed: Feed,
 
     if dup_pct >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
         # too many dups? make poll period longer
-        # XXX Look at prev_fetch_attempt to see
         return _check_auto_adjust_longer(update, feed, next_min, dup_pct)
 
     # if duplicate rate high enough, no need for adjustment
