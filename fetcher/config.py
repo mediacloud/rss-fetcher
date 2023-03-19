@@ -222,27 +222,30 @@ class _Config:                  # only instantiated in this file
     # 10 or more stories, 80% when 5 or more stories, 75% when 4 or
     # more, 66% when 3 or more....
     AUTO_ADJUST_MAX_DUPLICATE_PERCENT = conf_int(
-        'AUTO_ADJUST_MAX_DUPLICATE_PERCENT', round(100 * 2 / 3))
+        'AUTO_ADJUST_MAX_DUPLICATE_PERCENT', 67)
 
     # minimum percentage of good URLs that must be duplicates to
     # insure feed poll interval is small enough, else auto-adjust
     # poll_minutes down: Raising this number makes auto-adjust
     # (down/shorter) more agressive.
     AUTO_ADJUST_MIN_DUPLICATE_PERCENT = conf_int(
-        'AUTO_ADJUST_MIN_DUPLICATE_PERCENT', round(100 / 3))
+        'AUTO_ADJUST_MIN_DUPLICATE_PERCENT', 33)
 
-    # minimum poll interval (if no published update period)
+    # minimum poll interval when auto-adjusting
     AUTO_ADJUST_MIN_POLL_MINUTES = conf_int('AUTO_ADJUST_MIN_POLL_MINUTES', 60)
 
-    # number of minutes to reduce/increase poll_rate by when auto-adjusting
+    # number of minutes to reduce poll_rate by when auto-adjusting.
+    # also used for SOME increases, see AUTO_ADJUST_SMALL_{DAYS,MINS}.
     AUTO_ADJUST_MINUTES = conf_int('AUTO_ADJUST_MINUTES', 60)
 
     # number of days after last new stories seen (or feed creation)
-    # in which to use AUTO_ADJUST_SMALL_MINUTES when auto-adjusting up
+    # in which to use AUTO_ADJUST_SMALL_MINUTES when auto-adjusting up.
+    # after AUTO_ADJUST_SMALL_DAYS have passed, use AUTO_ADJUST_MINUTES.
     AUTO_ADJUST_SMALL_DAYS = conf_int('AUTO_ADJUST_SMALL_DAYS', 31)
 
     # number of minutes to increase poll_rate by when auto-adjusting
-    # and stories seen within AUTO_ADJUST_SMALL_DAYS
+    # up/longer and new stories seen within AUTO_ADJUST_SMALL_DAYS
+    # (adjust up by small increments when feed is returning stories)
     AUTO_ADJUST_SMALL_MINS = conf_int('AUTO_ADJUST_SMALL_MINS', 10)
 
     # keep this above the number of workers (initially 2x)
