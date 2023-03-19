@@ -232,9 +232,10 @@ class _Config:                  # only instantiated in this file
         'AUTO_ADJUST_MIN_DUPLICATE_PERCENT', 33)
 
     # minimum poll interval when auto-adjusting
-    AUTO_ADJUST_MIN_POLL_MINUTES = conf_int('AUTO_ADJUST_MIN_POLL_MINUTES', 60)
+    # (but not lower than Feed.update_period)
+    AUTO_ADJUST_MIN_POLL_MINUTES = conf_int('AUTO_ADJUST_MIN_POLL_MINUTES', 30)
 
-    # number of minutes to reduce poll_rate by when auto-adjusting.
+    # number of minutes to reduce poll_rate by when auto-adjusting down.
     # also used for SOME increases, see AUTO_ADJUST_SMALL_{DAYS,MINS}.
     AUTO_ADJUST_MINUTES = conf_int('AUTO_ADJUST_MINUTES', 60)
 
