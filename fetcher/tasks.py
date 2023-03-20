@@ -350,10 +350,18 @@ def _check_auto_adjust(update: Update, feed: Feed,
     # get delta in minutes from expected/current poll period
     delta_min = since_prev_success.total_seconds() / 60 - next_min
 
-    # disregard polls that are significantly early or delayed, due to
-    # system outage, intervening failures, or manual triggering:
-    # (will almost always average one queue scan period late)
+    # Disregard polls that are significantly early or delayed (due to
+    # system outage, intervening failures, or manual triggering).
+    # Polls will average one queue scan period late, and are
+    # frequently late when fetches_per_minute drops due to feeds being
+    # disabled, or poll_minute reductions and ready entries pile up.
+    # Consider using late (delta > 0) results for adjust
+    # up/longer/slower (since late polls should be biased towards
+    # fewer dup (more new) stories?  Also OK to use early (delta < 0)
+    # results for down/shorter/faster (but those should only result
+    # from triggered fetches).
     if abs(delta_min) >= AUTO_ADJUST_MAX_DELTA_MIN:
+        # display "early"/"late" instead of signed "delta"?
         logger.info(f"  Feed {feed.id} delta {delta_min:.1f} min")
         return next_min
 
