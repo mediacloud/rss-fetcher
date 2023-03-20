@@ -529,11 +529,18 @@ def update_feed(session: SessionType,
                     logger.info(
                         f" Feed {feed_id}: upped last_fetch_failures to {failures}")
 
-        if next_minutes is not None:  # rescheduling?
-            # back off to be kind to servers:
-            # with large intervals exponential backoff is extreme:
-            # (1x, 2x, 4x, 8x, 16x)
-            # so using linear backoff (1x, 2x, 3x, 4x, 5x)
+        if next_minutes is not None:  # rescheduling?  back off to be
+            # check if auto-adjust needed, before backoff, or
+            # retry-after, and update poll_minutes.
+            next_minutes = _check_auto_adjust(
+                update, f, next_minutes, prev_success)
+
+            if f.poll_minutes != next_minutes:
+                f.poll_minutes = next_minutes
+
+            # kind to servers: with large intervals exponential
+            # backoff (mult = N**failures) is extreme (1x, 2x, 4x, 8x)
+            # so using linear backoff (1x, 2x, 3x, 4x)
             mult = failures
 
             # backoff result MUST NOT be less than next_minutes!!
@@ -568,13 +575,6 @@ def update_feed(session: SessionType,
                 # (Too Many Requests) errors.  In practice, quantized
                 # into queuer loop period sized buckets.
                 next_minutes += random.random() * 60
-
-            # check if auto-adjust needed
-            next_minutes = _check_auto_adjust(
-                update, f, next_minutes, prev_success)
-
-            if f.poll_minutes != next_minutes:
-                f.poll_minutes = next_minutes
 
             f.next_fetch_attempt = next_dt = utc(next_minutes * 60)
             logger.info(
