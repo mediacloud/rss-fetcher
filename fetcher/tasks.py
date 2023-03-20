@@ -317,11 +317,11 @@ def _check_auto_adjust_longer(update: Update, feed: Feed,
 
     if next_min > MAXIMUM_INTERVAL_MINS:
         next_min = MAXIMUM_INTERVAL_MINS
-        logger.info(f"  Feed {feed.id} auto-adjust clamped down to {next_min}")
+        logger.info(f"  Feed {feed.id} poll_minutes clamped down to {next_min}")
         _auto_adjust_stat('max')
     elif feed.poll_minutes != next_min:
         _auto_adjust_stat('up')
-        logger.info(f"  Feed {feed.id} auto-adjust up to {next_min}")
+        logger.info(f"  Feed {feed.id} adjust poll_minutes up to {next_min}")
 
     return next_min
 
@@ -334,10 +334,10 @@ def _check_auto_adjust_shorter(update: Update, feed: Feed,
     if next_min > DEFAULT_INTERVAL_MINS:
         # here to bring long poll intervals back to earth quickly
         next_min = DEFAULT_INTERVAL_MINS
-        dir = 'reset'
+        how = 'reset'
     else:
         next_min -= AUTO_ADJUST_MINUTES
-        dir = 'down'
+        how = 'adjust'
 
     if feed.update_minutes:
         # Saw adjustment down to two minutes for feed 6231 (denverpost
@@ -349,11 +349,11 @@ def _check_auto_adjust_shorter(update: Update, feed: Feed,
 
     if next_min < minimum:
         next_min = minimum
-        logger.info(f"  Feed {feed.id} auto-adjust clamped up to {next_min}")
+        logger.info(f"  Feed {feed.id} poll_minutes clamped up to {next_min}")
         _auto_adjust_stat('min')
     elif feed.poll_minutes != next_min:
-        logger.info(f"  Feed {feed.id} auto-adjust {dir} to {next_min}")
-        _auto_adjust_stat(dir)  # report "dir" as counter
+        logger.info(f"  Feed {feed.id} {how} poll_minutes down to {next_min}")
+        _auto_adjust_stat(how)  # report "how" as counter
 
     return next_min
 
