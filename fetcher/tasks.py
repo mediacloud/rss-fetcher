@@ -277,15 +277,16 @@ def fetches_per_minute(session: SessionType) -> float:
 
 def _auto_adjust_stat(dir: str) -> None:
     """
-    increment an auto-adjust counter
-    (try to only call once for a given feed/fetch
+    increment an auto-adjust status counter
+    (try to only call once for a given feed/fetch)
     """
     stats = Stats.get()         # get singleton
     stats.incr('adjust', 1, labels=[('stat', dir)])
 
 
 def _check_auto_adjust_longer(update: Update, feed: Feed,
-                              next_min: int, dup_pct: float) -> int:
+                              next_min: int, dup_pct: float,
+                              delta_min: float) -> int:
     """
     here to consider raising poll_minutues..
 
@@ -325,6 +326,37 @@ def _check_auto_adjust_longer(update: Update, feed: Feed,
     return next_min
 
 
+def _check_auto_adjust_shorter(update: Update, feed: Feed,
+                               next_min: int, dup_pct: float,
+                               delta_min: float) -> int:
+
+    # Here to increase poll rate (adjust poll_minutes down/shorter).
+    if next_min > DEFAULT_INTERVAL_MINS:
+        # here to bring long poll intervals back to earth quickly
+        next_min = DEFAULT_INTERVAL_MINS
+        dir = 'reset'
+    else:
+        next_min -= AUTO_ADJUST_MINUTES
+        dir = 'down'
+
+    if feed.update_minutes:
+        # Saw adjustment down to two minutes for feed 6231 (denverpost
+        # top news stories which advertises an update period of two
+        # minutes!), so apply a lower bound!!
+        minimum = max(feed.update_minutes, AUTO_ADJUST_MIN_POLL_MINUTES)
+    else:
+        minimum = AUTO_ADJUST_MIN_POLL_MINUTES
+
+    if next_min < minimum:
+        next_min = minimum
+        logger.info(f"  Feed {feed.id} auto-adjust clamped up to {next_min}")
+        _auto_adjust_stat('min')
+    elif feed.poll_minutes != next_min:
+        logger.info(f"  Feed {feed.id} auto-adjust {dir} to {next_min}")
+        _auto_adjust_stat(dir)  # report "dir" as counter
+
+    return next_min
+
 def _check_auto_adjust(update: Update, feed: Feed,
                        next_min: int,
                        prev_success: Optional[dt.datetime]) -> int:
@@ -355,21 +387,24 @@ def _check_auto_adjust(update: Update, feed: Feed,
     # Polls will average one queue scan period late, and are
     # frequently late when fetches_per_minute drops due to feeds being
     # disabled, or poll_minute reductions and ready entries pile up.
+
     # Consider using late (delta > 0) results for adjust
     # up/longer/slower (since late polls should be biased towards
     # fewer dup (more new) stories?  Also OK to use early (delta < 0)
     # results for down/shorter/faster (but those should only result
     # from triggered fetches).
+
     if abs(delta_min) >= AUTO_ADJUST_MAX_DELTA_MIN:
         # display "early"/"late" instead of signed "delta"?
         logger.info(f"  Feed {feed.id} delta {delta_min:.1f} min")
         return next_min
 
-    # Original version only adjusted poll rate up (shorter intervals)
-    # to make sure we got enough duplicates to ensure that there was
-    # good overlap (no missing stories) between polls, so it
-    # calculated the percentage of duplicates (and not the new/added
-    # percentage).
+    # Original version of auto-adjust only adjusted poll rate
+    # up/shorter/faster to make sure we got enough duplicates to
+    # ensure that there was good duplication/overlap (no missing
+    # stories) between polls, so it calculated the percentage of
+    # duplicates (and not the new/added percentage), and the dup_pct
+    # variable has persisted.
 
     if update.saved is None or update.dup is None:
         if update.counter not in ('not_mod', 'same_hash'):
@@ -385,35 +420,13 @@ def _check_auto_adjust(update: Update, feed: Feed,
 
     if dup_pct >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
         # too many dups? make poll period longer
-        return _check_auto_adjust_longer(update, feed, next_min, dup_pct)
+        return _check_auto_adjust_longer(update, feed, next_min, dup_pct, delta_min)
 
-    # if duplicate rate high enough, no need for adjustment
-    if dup_pct >= AUTO_ADJUST_MIN_DUPLICATE_PERCENT:
-        return next_min
+    if dup_pct < AUTO_ADJUST_MIN_DUPLICATE_PERCENT:
+        # too few duplicates, make poll period shorter
+        return _check_auto_adjust_shorter(update, feed, next_min, dup_pct, delta_min)
 
-    if next_min > DEFAULT_INTERVAL_MINS:
-        # here to bring long poll intervals back to earth quickly
-        next_min = DEFAULT_INTERVAL_MINS
-        dir = 'reset'
-    else:
-        next_min -= AUTO_ADJUST_MINUTES
-        dir = 'down'
-
-    if feed.update_minutes:
-        # Feed 6231 (denverpost top news stories) advertises an update
-        # period of two minutes(!!), so apply a lower bound!!
-        minimum = max(feed.update_minutes, AUTO_ADJUST_MIN_POLL_MINUTES)
-    else:
-        minimum = AUTO_ADJUST_MIN_POLL_MINUTES
-
-    if next_min < minimum:
-        next_min = minimum
-        logger.info(f"  Feed {feed.id} auto-adjust clamped up to {next_min}")
-        _auto_adjust_stat('min')
-    elif feed.poll_minutes != next_min:
-        logger.info(f"  Feed {feed.id} auto-adjust {dir} to {next_min}")
-        _auto_adjust_stat(dir)  # report "dir" as counter
-
+    # no need for adjustment
     return next_min
 
 
