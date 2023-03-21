@@ -334,10 +334,11 @@ def _check_auto_adjust_shorter(update: Update, feed: Feed,
     if next_min > DEFAULT_INTERVAL_MINS:
         # here to bring long poll intervals back to earth quickly
         next_min = DEFAULT_INTERVAL_MINS
-        how = 'reset'
+        how = ctr = 'reset'
     else:
         next_min -= AUTO_ADJUST_MINUTES
         how = 'adjust'
+        ctr = 'down'
 
     if feed.update_minutes:
         # Saw adjustment down to two minutes for feed 6231 (denverpost
@@ -353,7 +354,7 @@ def _check_auto_adjust_shorter(update: Update, feed: Feed,
         _auto_adjust_stat('min')
     elif feed.poll_minutes != next_min:
         logger.info(f"  Feed {feed.id} {how} poll_minutes down to {next_min}")
-        _auto_adjust_stat(how)  # report "how" as counter
+        _auto_adjust_stat(ctr)  # report "how" as counter
 
     return next_min
 
