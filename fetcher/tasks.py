@@ -321,7 +321,7 @@ def _check_auto_adjust_longer(update: Update, feed: Feed,
     # 3. or just fetched some stories (should trigger case 1).
     since = dt.datetime.utcnow() - last
     logger.info(                # TEMP (lower to debug?)
-        f"  Feed {feed.id} next: {next_min} m; {since.days} d; {dup_pct:.1f}% dup; delta {delta_min} m")
+        f"  Feed {feed.id} next: {next_min} m; {since.days} d; {dup_pct:.1f}% dup; delta {delta_min:.1f} m")
     if since.days <= AUTO_ADJUST_SMALL_DAYS or dup_pct < 100:
         next_min += AUTO_ADJUST_SMALL_MINS
     else:
