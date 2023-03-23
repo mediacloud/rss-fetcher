@@ -354,7 +354,7 @@ def _check_auto_adjust_shorter(update: Update, feed: Feed,
         _auto_adjust_stat('min')
     elif feed.poll_minutes != next_min:
         logger.info(f"  Feed {feed.id} {how} poll_minutes down to {next_min}")
-        _auto_adjust_stat(ctr)  # report "how" as counter
+        _auto_adjust_stat(ctr)
 
     return next_min
 
