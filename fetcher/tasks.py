@@ -1,7 +1,7 @@
 """
 Code for tasks run in worker processes.
 
-NOTE!! Great effort has been made to avoid catching all
+NOTE!! Great effort has been made to avoid catching
 (Base)Exception all over the place because queued tasks can be
 interrupted by a fetcher.queue.JobTimeoutException, and rq also
 handles SystemExit exceptions for orderly (warm) shutdown.
@@ -275,32 +275,44 @@ def fetches_per_minute(session: SessionType) -> float:
     return q.one()[0] or 0  # handle empty db!
 
 
-def _auto_adjust_stat(dir: str) -> None:
+def _auto_adjust_stat(counter: str) -> None:
     """
     increment an auto-adjust status counter
     (try to only call once for a given feed/fetch)
     """
     stats = Stats.get()         # get singleton
-    stats.incr('adjust', 1, labels=[('stat', dir)])
+    stats.incr('adjust', 1, labels=[('stat', counter)])
 
 
 def _check_auto_adjust_longer(update: Update, feed: Feed,
                               next_min: int, dup_pct: float,
                               delta_min: float) -> int:
     """
-    here to consider raising poll_minutues..
-
-    Was originally called from multiple places,
-    but kept a function for:
-    1. easy exit
-    2. limit size of _check_auto_adjust
+    here to consider raising poll_minutues (too many dups)
     """
+    # limit consideration of early polls, but late is ok.
+
+    # NOTE: This may be a positive feedback loop: if polls are late
+    # because "high water" is dropping, (and "ready" feeds backing
+    # up), allowing ALL late polls will increase the number of time
+    # poll_minutes is adjusted up, and increase the rate of decrease
+    # of the "high water" mark (and increase the number of late polls,
+    # which prohibits shortening poll periods.  Since the system is
+    # written to avoid early polls (except when triggered), perhaps
+    # this is an argument for primarily adjusting "up", and resetting
+    # periods to a minimal value??
+    if delta_min < -AUTO_ADJUST_MAX_DELTA_MIN:
+        logger.info(f"  Feed {feed.id} {-delta_min:.1f} min early")
+        _auto_adjust_stat('early')
+        return next_min
+
     if feed.last_new_stories:
         last = feed.last_new_stories
     elif feed.created_at:
         last = feed.created_at
     else:
         # should not happen!
+        _auto_adjust_stat('no_last')
         return next_min
 
     # adjust by smaller increment if:
@@ -317,7 +329,8 @@ def _check_auto_adjust_longer(update: Update, feed: Feed,
 
     if next_min > MAXIMUM_INTERVAL_MINS:
         next_min = MAXIMUM_INTERVAL_MINS
-        logger.info(f"  Feed {feed.id} poll_minutes clamped down to {next_min}")
+        logger.info(
+            f"  Feed {feed.id} poll_minutes clamped down to {next_min}")
         _auto_adjust_stat('max')
     elif feed.poll_minutes != next_min:
         _auto_adjust_stat('up')
@@ -329,8 +342,16 @@ def _check_auto_adjust_longer(update: Update, feed: Feed,
 def _check_auto_adjust_shorter(update: Update, feed: Feed,
                                next_min: int, dup_pct: float,
                                delta_min: float) -> int:
+    """
+    Here to increase poll rate (adjust poll_minutes down/shorter).
+    due to too few duplicate (too many new stories)
+    """
+    # early is ok, but too late is not
+    if delta_min > AUTO_ADJUST_MAX_DELTA_MIN:
+        logger.info(f"  Feed {feed.id} {delta_min:.1f} min late")
+        _auto_adjust_stat('late')
+        return next_min
 
-    # Here to increase poll rate (adjust poll_minutes down/shorter).
     if next_min > DEFAULT_INTERVAL_MINS:
         # here to bring long poll intervals back to earth quickly
         next_min = DEFAULT_INTERVAL_MINS
@@ -358,6 +379,7 @@ def _check_auto_adjust_shorter(update: Update, feed: Feed,
 
     return next_min
 
+
 def _check_auto_adjust(update: Update, feed: Feed,
                        next_min: int,
                        prev_success: Optional[dt.datetime]) -> int:
@@ -381,24 +403,9 @@ def _check_auto_adjust(update: Update, feed: Feed,
     since_prev_success = dt.datetime.utcnow() - prev_success
 
     # get delta in minutes from expected/current poll period
+    # negative means polled early, positive means late.
+    # polls tend to be one queue scan period late.
     delta_min = since_prev_success.total_seconds() / 60 - next_min
-
-    # Disregard polls that are significantly early or delayed (due to
-    # system outage, intervening failures, or manual triggering).
-    # Polls will average one queue scan period late, and are
-    # frequently late when fetches_per_minute drops due to feeds being
-    # disabled, or poll_minute reductions and ready entries pile up.
-
-    # Consider using late (delta > 0) results for adjust
-    # up/longer/slower (since late polls should be biased towards
-    # fewer dup (more new) stories?  Also OK to use early (delta < 0)
-    # results for down/shorter/faster (but those should only result
-    # from triggered fetches).
-
-    if abs(delta_min) >= AUTO_ADJUST_MAX_DELTA_MIN:
-        # display "early"/"late" instead of signed "delta"?
-        logger.info(f"  Feed {feed.id} delta {delta_min:.1f} min")
-        return next_min
 
     # Original version of auto-adjust only adjusted poll rate
     # up/shorter/faster to make sure we got enough duplicates to
@@ -420,12 +427,14 @@ def _check_auto_adjust(update: Update, feed: Feed,
             dup_pct = DupPct.NO_STORIES
 
     if dup_pct >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
-        # too many dups? make poll period longer
-        return _check_auto_adjust_longer(update, feed, next_min, dup_pct, delta_min)
+        # too many dups: make poll period longer
+        return _check_auto_adjust_longer(
+            update, feed, next_min, dup_pct, delta_min)
 
     if dup_pct < AUTO_ADJUST_MIN_DUPLICATE_PERCENT:
-        # too few duplicates, make poll period shorter
-        return _check_auto_adjust_shorter(update, feed, next_min, dup_pct, delta_min)
+        # too few dups: make poll period shorter
+        return _check_auto_adjust_shorter(
+            update, feed, next_min, dup_pct, delta_min)
 
     # no need for adjustment
     return next_min
