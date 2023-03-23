@@ -100,9 +100,14 @@ def find_and_queue_feeds(wq: queue.Queue, limit: int, timeout: int) -> int:
         #  but not available in sqlalchemy-stubs 0.4
 
         # XXX lock rows for update?
+
+        # 2023-03-23: trying primary sort by poll_minutes, so fast
+        # polling feeds go first.
+
         rows = \
             _ready_ids(session)\
-            .order_by(Feed.next_fetch_attempt.asc().nullsfirst(),
+            .order_by(Feed.poll_minutes.asc().nullslast(),
+                      Feed.next_fetch_attempt.asc().nullsfirst(),
                       (Feed.id % 1001).desc())\
             .limit(limit)\
             .all()  # all rows
