@@ -92,9 +92,6 @@ def find_and_queue_feeds(wq: queue.Queue, limit: int, timeout: int) -> int:
     Find some active, undisabled, unqueued feeds
     that have not been checked, or are past due for a check (oldest first).
     """
-    # Maybe order by (id % 100) instead of id
-    #  to help break up clumps?
-
     with Session.begin() as session:  # type: ignore[attr-defined]
         # NOTE nulls_first is preferred in sqlalchemy 1.4
         #  but not available in sqlalchemy-stubs 0.4
@@ -102,7 +99,15 @@ def find_and_queue_feeds(wq: queue.Queue, limit: int, timeout: int) -> int:
         # XXX lock rows for update?
 
         # 2023-03-23: trying primary sort by poll_minutes, so fast
-        # polling feeds go first.
+        # polling feeds go first (and avoid missing stories), this
+        # should not (in theory) cause indefinite delay for slower
+        # polling feeds, since fetches_per_minute query should
+        # guarantee that there are enough queue "slots" for all feeds
+        # (BUT it may mean that the auto-adjust code won't reset
+        # poll_minutes back to "normal" if the feed is excessively
+        # delayed), but it could lead to excessive delay. Perhaps
+        # using `next_fetch_attempt + poll_minutes` for order would be
+        # fairer (but handling NULLs might require coalesce function).
 
         rows = \
             _ready_ids(session)\
