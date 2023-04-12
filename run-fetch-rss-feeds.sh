@@ -1,2 +1,2 @@
 #!/bin/sh
-python -m scripts.queue_feeds "$@"
+python -m scripts.fetcher "$@"
