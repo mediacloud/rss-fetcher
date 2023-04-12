@@ -23,7 +23,6 @@ from fetcher.logargparse import LogArgumentParser
 from fetcher.database.models import Feed, FetchEvent, utc
 import fetcher.queue as queue
 from fetcher.stats import Stats
-import fetcher.tasks as tasks
 
 SCRIPT = 'queue_feeds'          # NOTE! used for stats!
 logger = logging.getLogger(SCRIPT)
@@ -337,11 +336,6 @@ if __name__ == '__main__':
         logger.info("Clearing Queue")
         queue.clear_queue()
         sys.exit(0)
-
-    if args.fetches_per_minute:
-        with Session() as session:
-            print(tasks.fetches_per_minute(session))
-            sys.exit(0)
 
     if args.loop is not None:
         if args.feeds:

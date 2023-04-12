@@ -3,8 +3,7 @@ Code for tasks run in worker processes.
 
 NOTE!! Great effort has been made to avoid catching
 (Base)Exception all over the place because queued tasks can be
-interrupted by a fetcher.queue.JobTimeoutException, and rq also
-handles SystemExit exceptions for orderly (warm) shutdown.
+interrupted by a JobTimeoutException
 """
 
 import datetime as dt
@@ -27,7 +26,6 @@ from psycopg2.errors import UniqueViolation
 import requests
 import requests.exceptions
 # NOTE! All references to rq belong in queue.py!
-from setproctitle import setproctitle
 from sqlalchemy import literal
 from sqlalchemy.exc import (    # type: ignore[attr-defined]
     IntegrityError, PendingRollbackError)
@@ -41,11 +39,11 @@ from fetcher.config import conf
 from fetcher.database import Session, SessionType
 from fetcher.database.functions import greatest
 from fetcher.database.models import Feed, FetchEvent, Story, utc
+from fetcher.direct import JobTimeoutException
 import fetcher.path as path
-import fetcher.queue
 from fetcher.stats import Stats
-import fetcher.queue
 import fetcher.util as util
+
 
 # Increase Python3 http header limit (default is 100):
 setattr(http.client, '_MAXHEADERS', 1000)
@@ -181,6 +179,9 @@ UPDATE_PERIODS_MINS = {
 DEFAULT_UPDATE_PERIOD = 'daily'  # specified in Syndication spec
 DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
 
+
+def cancel_job_timeout():
+    pass
 
 def _save_rss_files(dir: str, fname: Any, feed: Dict,
                     response: requests.Response, note: Optional[str] = None) -> None:
@@ -791,20 +792,12 @@ def request_exception_to_status(
 
 
 def fetch_and_process_feed(
-        session: SessionType, feed_id: int, now: dt.datetime, queue_ts_iso: str) -> Update:
+        session: SessionType, feed_id: int, now: dt.datetime) -> Update:
     """
     Was fetch_feed_content: this is THE routine called in a worker.
     Made a single routine for clarity/communication.
     """
-
-    try:
-        qtime = dt.datetime.fromisoformat(queue_ts_iso)
-        stats = Stats.get()     # get singleton
-        stats.timing_td('time_in_queue', now - qtime)
-    except (ValueError, TypeError) as e:
-        # not important enough to log w/o rate limiting
-        qtime = None
-
+    stats = Stats.get()         # get singleton
     with session.begin():
         # lock row for duration of (sanity-check) transaction:
         # atomically checks if timestamp from queue matches
@@ -813,8 +806,7 @@ def fetch_and_process_feed(
         # exclusive access, it's a bit of added paranoia
         # (search for "tri-state" below for an alternatve).
 
-        f = session.get(        # type: ignore[attr-defined]
-            Feed, feed_id, with_for_update=True)
+        f = session.get(Feed, feed_id)  # type: ignore[attr-defined]
         if f is None:
             logger.warning(f"feed_worker: feed {feed_id} not found")
             return NoUpdate('missing')
@@ -824,11 +816,6 @@ def fetch_and_process_feed(
         # * db entry marked inactive by human
         # * db entry disabled by fetcher
         # * db entry not marked as queued
-        # * db entry last_fetch_attempt does not match queue entry
-        #       (depends on isoformat/fromisoformat fidelity,
-        #        and matching DB dt granularity. rq allows passing
-        #        of datetime (uses pickle rather than json)
-        #        if deemed necessary, but logging is ugly).
         # * db entry next_fetch_attempt set, and in the future.
 
         #     Driftwood (Groucho):
@@ -839,24 +826,19 @@ def fetch_and_process_feed(
         #       There ain't no Sanity Clause!
         #     Marx Brothers' "Night at the Opera" (1935)
 
-        if (not f.active or
-            not f.system_enabled or
-            not f.queued or
-            (qtime and f.last_fetch_attempt != qtime) or
-                (f.next_fetch_attempt and f.next_fetch_attempt > now)):
+        if (not f.active
+            or not f.system_enabled
+            or not f.queued
+            #or f.next_fetch_attempt and f.next_fetch_attempt > now
+            ):
             logger.info(
-                f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt} qt {qtime}")
+                f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
             # tempting to clear f.queued here if set, but that
             # increases risk of the feed being queued twice.
             # instead rely on "stray feed catcher" in scripts/queue_feeds.py
             return NoUpdate('insane')
 
-        # mark time of actual attempt (start)
-        # above `f.last_fetch_attempt != qtime` depends on this
-        # (could also replace "queued" with a tri-state: IDLE, QUEUED, ACTIVE):
-        f.last_fetch_attempt = now
         feed = f.as_dict()      # code below expects dict
-        session.commit()
         # end with session.begin() & with_for_update
 
     start_delay = None
@@ -966,7 +948,7 @@ def fetch_and_process_feed(
                 raise Exception("html?")
             raise Exception("no version")
         logger.debug(f"  Feed {feed_id} version {vers}")
-    except fetcher.queue.JobTimeoutException:
+    except JobTimeoutException:
         raise
     except Exception as exc:    # RARE catch-all!
         # BAIL: couldn't parse it correctly
@@ -1143,7 +1125,7 @@ def check_feed_title(feed: Dict,  # type: ignore[no-any-unimported]
 ################
 
 
-def feed_worker(feed_id: int, ts_iso: str) -> None:
+def feed_worker(feed_id: int) -> None:
     """
     called via rq:
 
@@ -1152,21 +1134,19 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
     Fetch a feed, parse out stories, store them
     :param self: this maintains the single session to use for all DB operations
     :param feed_id: integer Feed id
-    :param ts_iso: str datetime.isoformat of time queued (Feed.last_fetch_attempt)
     """
 
-    setproctitle(f"{APP} {DYNO} feed {feed_id}")
     start = dt.datetime.utcnow()
     try:
         # here is where the actual work is done:
         with Session() as session:
-            u = fetch_and_process_feed(session, feed_id, start, ts_iso)
+            u = fetch_and_process_feed(session, feed_id, start)
     except requests.exceptions.RequestException as exc:
         status, system_status = request_exception_to_status(feed_id, exc)
         u = Update(system_status.lower().replace(' ', '_'),
                    status, system_status,
                    note=repr(exc))
-    except fetcher.queue.JobTimeoutException:
+    except JobTimeoutException:
         u = Update('job_timeout', Status.SOFT, 'job timeout')
     except Exception as exc:
         # This is the ONE place that catches ALL exceptions;
@@ -1177,7 +1157,7 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
         u = Update('exception', Status.SOFT, 'caught exception',
                    note=repr(exc))
 
-    fetcher.queue.cancel_job_timeout()
+    cancel_job_timeout()
     # fetch + processing time:
     total_td = dt.datetime.utcnow() - start
     total_sec = total_td.total_seconds()
@@ -1194,16 +1174,6 @@ def feed_worker(feed_id: int, ts_iso: str) -> None:
     # is a count of all successful fetches.
     stats.timing('total', total_sec,
                  labels=[('status', u.status.name)])
-
-    # PLB experiment 2023-02-13
-    # report queue length as GAUGE (not summed)
-    # for (more) instantaneous queue length information
-    qlen = fetcher.queue.queue_length(fetcher.queue.workq())
-    if qlen > 0:
-        qlen -= 1             # subtract current (almost complete) job
-    stats.gauge('workq', qlen)
-    if qlen == 0:               # for debugging
-        logger.debug(f"workq EMPTY")
 
     if u.status != Status.NOUPD:
         with Session() as session:

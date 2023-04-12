@@ -1,18 +1,21 @@
 """
-"direct drive" (no queue) worker subprocess management
+"direct drive" worker subprocess management
 
 No queue so that scheduler can have absolute knowledge of what work is
-being done, and avoid conflicts.
+being done, and immediately schedule replacement work (avoiding excessive
+concurrent fetches from the same source).
 
 And unlike multiprocessing process pool which "applies" a function to
 a bounded list of work items (and like queued work scenarios like
-celery and rq), the work stream is open-ended.
+celery and rq), the work stream is open ended.
 
 Manager is written as a class for encapsulation/extension,
 it is not currenly possible to have two active Manager objects
 (depends on exclusive use/access to SIGALRM)
 """
 
+# Python
+import logging
 import json
 import os
 import select
@@ -22,9 +25,14 @@ import sys
 from types import FrameType
 from typing import Any, Dict, Optional, Tuple
 
+# PyPI:
+from setproctitle import setproctitle
 
 MAXJSON = 32 * 1024
 TIMEOUT = 30.0
+
+logger = logging.getLogger(__name__)
+
 
 class JobTimeoutException(Exception):
     """class for job timeout exception"""
@@ -32,12 +40,18 @@ class JobTimeoutException(Exception):
 
 class Worker:
     """
+    Represents a Worker process:
     must subclass with additional methods for work.
+
+    NOTE! *MOST* methods are callable from Manager process ONLY
+    unless otherwise noted!!!
 
     WISH: have an async decorator for the work methods that
         performs a "call" and returns the result.
+
+    Pass timeout (as _timeout?) to call method??
     """
-    def __init__(self, n: int, timeout: float = TIMEOUT):
+    def __init__(self, manager: "Manager", n: int, timeout: float = TIMEOUT):
         """
         forks child process (running infinite loop),
         returns in parent process only.
@@ -46,6 +60,7 @@ class Worker:
         #       make timeout a class var?
         # XXX wrap in try??
 
+        self.manager = manager
         self.n = n
 
         # single bidirectional socketpair instead of two pipes:
@@ -53,19 +68,20 @@ class Worker:
         self.pid = os.fork()
         if self.pid == 0:       # child/worker
             psock.close()       # close parent/manager end
-            self._child(csock, timeout)
+            self._child(n, csock, timeout)
             # should not be reached!
         else:                   # manager/parent
+            logger.info(f"Worker {n}: pid {self.pid}")
             csock.close()       # close child/worker end
             self.sock = psock
             self.wactive = False
 
-    def _child(self, csock, timeout) -> None:
+    def _child(self, n: int, csock: socket.socket, timeout: float) -> None:
         """
         child: loop reading method & args, returning result.
         called from __init__, and never returns.
         """
-        # XXX close log file, and open new one based on "self.n"
+        # XXX close log file, and open new one based on "n"
         #   (basing file name on pid would mean pruning of
         #   files from a previous run would not occur)???
 
@@ -74,6 +90,7 @@ class Worker:
         signal.signal(signal.SIGALRM, alarm_handler)
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         while True:
+            setproctitle(f"Worker {n}: idle")
             try:
                 msg = csock.recv(MAXJSON)
             except ConnectionResetError:  # remote fully closed?
@@ -85,6 +102,7 @@ class Worker:
                    'args': args,
                    'kw': kw}
 
+            setproctitle(f"Worker {n}: {method_name} {args} {kw}")
             try:
                 if timeout:
                     self.set_job_timeout(timeout)
@@ -104,11 +122,11 @@ class Worker:
                 csock.send(json.dumps(ret).encode('utf8'))
             except BrokenPipeError:  # remote closed for read
                 break
-            except TypeError:
+            except TypeError:   # json encoding error
                 break
         sys.exit(0)
 
-    def set_job_timeout(self, sec=0) -> None:
+    def set_job_timeout(self, sec: float = 0.0) -> None:
         """
         for use in child process ONLY!
         may be called by used defined methods!!
@@ -117,6 +135,7 @@ class Worker:
         signal.setitimer(signal.ITIMER_REAL, sec)
 
     def shut_wr(self) -> None:
+        """called from Manager: Worker will see EOF"""
         if self.sock:
             self.sock.shutdown(socket.SHUT_WR)
 
@@ -136,12 +155,12 @@ class Worker:
         # XXX wrap in try?
         self.sock.send(msg.encode('utf8'))
         self.wactive = True
+        self.manager.active_workers += 1
 
     def recv(self) -> Tuple[bool, Any]:
         """
-        call ONLY after a "call" to wait for result
+        call ONLY after a "call" to wait for result (or on EOF)
         """
-        assert self.wactive
         # XXX use buffered I/O?
         msg = self.sock.recv(8192)
         if msg:
@@ -155,6 +174,7 @@ class Worker:
         """wait for child process (after reading EOF)"""
         pid, status = os.waitpid(self.pid, os.WNOHANG)
         return status
+
 
 class Manager:
     """
@@ -173,14 +193,14 @@ class Manager:
         self.timeout = timeout
 
         self.cworkers = 0         # current number of workers
-        self.active = 0           # workers w/ work
+        self.active_workers = 0           # workers w/ work
         self.worker_by_fd: Dict[int, Worker] = {}
 
         for i in range(0, nworkers):
             self._create_worker(i)
 
     def _create_worker(self, n: int) -> Worker:
-        w = self.worker_class(n, self.timeout)
+        w = self.worker_class(self, n, self.timeout)
         self.worker_by_fd[w.fileno()] = w
         self.cworkers += 1
         return w
@@ -191,7 +211,7 @@ class Manager:
         for fd in r:
             w: Worker = self.worker_by_fd[fd]
             ok, ret = w.recv()
-            self.active -= 1
+            self.active_workers -= 1
             if ok:
                 if (m := ret.get('method')):
                     # if Worker <method>_done method exists,
@@ -200,15 +220,16 @@ class Manager:
                         done(ret)
                 w.wactive = False
             else:               # saw EOF (from child exit)
+                # XXX log???
                 n = w.n
                 w.close()
                 del w
-                # XXX log???
                 self._create_worker(n)  # (unless shutting down)!!
 
     def find_available_worker(self) -> Optional[Worker]:
-        if self.active == self.nworkers:
+        if self.active_workers == self.nworkers:
             return None
+        # possible optimization: keep set of inactive workers?
         for w in self.worker_by_fd.values():
             if not w.wactive:
                 return w
@@ -220,6 +241,10 @@ class Manager:
             w.shut_wr()         # close for write
         self.poll(timeout)
 
+    def finish(self, timeout: Optional[float] = None) -> None:
+        while self.active_workers > 0:
+            self.poll()
+        self.close_all(timeout)
 
 if __name__ == '__main__':
     import time
