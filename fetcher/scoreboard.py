@@ -85,9 +85,8 @@ class ScoreBoard:
         if index is None:
             return
 
+        assert index in self.board
         sbitem = self.board[index]
-        print("completed", index, sbitem.current)
         sbitem.current -= 1
         assert sbitem.current >= 0
         # XXX if any saved dependencies, mark as unblocked?
-

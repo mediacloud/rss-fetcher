@@ -97,7 +97,7 @@ class HeadHunter:
             for item in self.ready:
                 for key, sb in self.scoreboards.items():
                     if not sb.safe(item[key]):
-                        print(item, "not safe", key)
+                        print("UNSAFE", key, item[key], "***")
                         break   # check next item
                 else:
                     # made it through the gauntlet.
@@ -120,5 +120,6 @@ class HeadHunter:
         called when an issued item is no longer active
         """
         for key, sb in self.scoreboards.items():
+            print("completed", key, item[key])
             sb.completed(item[key])
 
