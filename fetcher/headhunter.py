@@ -48,7 +48,9 @@ def _where_ready(q):
 
 def ready_feeds(session: SessionType):
     return session.scalar(
-        _where_ready(select(func.count())))
+        _where_ready(
+            _where_active(
+                select(func.count()))))
 
 def fqdn(url):
     """hopefully faster than any formal URL parser."""
