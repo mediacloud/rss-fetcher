@@ -54,9 +54,9 @@ class HeadHunter:
     def reset(self, feeds: Optional[List[int]] = None):
         # start DB query
         # XXX want Feed._where_active
-        q = Feed.select([Feed.id, Feed.sources_id, Feed.url])\
-                .where(Feed.active.is_(True),
-                       Feed.system_enabled.is_(True))
+        q = select([Feed.id, Feed.sources_id, Feed.url])\
+            .where(Feed.active.is_(True),
+                   Feed.system_enabled.is_(True))
 
         if feeds:
             q = q.where(Feed.id.in_(feeds),
