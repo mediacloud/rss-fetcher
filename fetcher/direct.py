@@ -164,7 +164,7 @@ class Worker:
         # XXX use buffered I/O?
         msg = self.sock.recv(8192)
         if msg:
-            print(self.fileno(), '->', msg)
+            # print(self.fileno(), '->', msg)
             self.wactive = False
             return True, json.loads(msg)
         # XXX mark as closed
@@ -207,7 +207,7 @@ class Manager:
 
     def poll(self, timeout: Optional[float] = None) -> None:
         r, w_, x_ = select.select(self.worker_by_fd.keys(), [], [], timeout)
-        print("r:", r)
+        # print("r:", r)
         for fd in r:
             w: Worker = self.worker_by_fd[fd]
             ok, ret = w.recv()
@@ -251,11 +251,11 @@ if __name__ == '__main__':
 
     class TestWorker(Worker):
         def f(self, x: int) -> None:
-            print("f:", x)
+            print("f:", x)      # TEST
             time.sleep(0.5)
 
         def f_done(self, x: Dict[str,Any]) -> None:
-            print("f_done:", x)
+            print("f_done:", x)  # TEST
 
     m = Manager(2, TestWorker)
     i = 0

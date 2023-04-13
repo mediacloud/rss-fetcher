@@ -1,10 +1,9 @@
 """
-Scheduling score boards for HeadHunter
+Scheduling scoreboards for HeadHunter
 
-    The term Score Board was first used in the first
-    supercomputer, Seymour Cray's CDC 6600 to control
-    out of order issue of instructions:
-    https://en.wikipedia.org/wiki/Scoreboarding
+The term scoreboard was first used in Seymour Cray's CDC 6600 (the
+first supercomputer) to safely issue instructions out of order:
+https://en.wikipedia.org/wiki/Scoreboarding
 """
 
 from typing import Any, Dict
@@ -17,9 +16,9 @@ class SBItem:
     """
     def __init__(self):
         self.current = 0
-        # XXX keep queue of blocked feeds?
-        # XXX keep time of last issue? last completion??
-        # XXX implement rate limiting?
+        # XXX keep queue of blocked feeds (would add complexity)
+        # XXX keep time of last issue and/or completion?
+        # XXX implement full rate limiting???
         #   https://levelup.gitconnected.com/implement-rate-limiting-in-python-d4f86b09259f
         #   https://gist.github.com/daanzu/d34fa69e0094a3f5be6a
         #   https://builtin.com/software-engineering-perspectives/rate-limiter
@@ -30,17 +29,20 @@ class ScoreBoard:
     """
     Scheduling score board for HeadHunter
 
-    NOTE!  Does not (yet) keep track of dependencies
-    that keep a feed from being issued.
+    NOTE!  Starting simple:
 
-    Written as a class so that issue can be controlled on multiple
-    dimensions (sources_id, domain, FQDN,...)  [tho could just
-    "qualify" index with string prefixes "srcid:"]
+    Does not (yet) keep track of dependencies
+    that keep a feed from being issued.
+    This makes the "find next feed" operation O(n^2)
+    (times the number of scoreboards!)
 
     Wants to be a Generic? Subclasses can have different index types.
     Currently: SBIndex used instead of bare "Any"
 
     *OR* could always index by "str"
+
+    NOTE! index of None means the value was unavailable
+    (fqdn failed), so skip testing.
     """
 
     # XXX take delay (from last issue? last completion???) max rate???
@@ -50,8 +52,7 @@ class ScoreBoard:
 
     def safe(self, index: SBIndex):
         """
-        see if safe to issue feed named by "index".
-        Index can be any attribute of feed: sources_id, fqdn, etc.
+        index can be any attribute of feed: sources_id, fqdn, etc.
         """
         if index is None:
             return True
@@ -61,6 +62,7 @@ class ScoreBoard:
             # XXX if not currently safe, add dependency
             return self.board[index].current < self.concurrency
         else:
+            # unknown index value; a priori safe
             return True
 
     def issue(self, index: SBIndex):
@@ -89,4 +91,5 @@ class ScoreBoard:
         sbitem = self.board[index]
         sbitem.current -= 1
         assert sbitem.current >= 0
+        # XXX if current == 0, could delete item (save memory, cost time)
         # XXX if any saved dependencies, mark as unblocked?

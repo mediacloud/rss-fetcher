@@ -314,6 +314,9 @@ class _Config:                  # only instantiated in this file
     # timeout in sec. for fetching an RSS file
     RSS_FETCH_TIMEOUT_SECS = conf_int('RSS_FETCH_TIMEOUT_SECS', 30)
 
+    # number of worker processes
+    RSS_FETCH_WORKERS = conf_int('RSS_FETCH_WORKERS', 2) # raise in production
+
     # user/password for Basic Authentication for rss-fetcher API service
     RSS_FETCHER_USER = conf_optional('RSS_FETCHER_USER', hidden=True)
     RSS_FETCHER_PASS = conf_optional('RSS_FETCHER_PASS', hidden=True)

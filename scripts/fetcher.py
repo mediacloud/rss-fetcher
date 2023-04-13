@@ -15,12 +15,12 @@ from sqlalchemy import update
 
 # app
 from fetcher.config import conf
-from fetcher.database import Session, SessionType
+from fetcher.database import Session
 from fetcher.database.models import Feed, utc
 from fetcher.direct import Manager, Worker
-from fetcher.headhunter import HeadHunter
+from fetcher.headhunter import HeadHunter, ready_feeds
 from fetcher.logargparse import LogArgumentParser
-from fetcher.stats import Stats
+#from fetcher.stats import Stats
 from fetcher.tasks import feed_worker
 
 SCRIPT = 'fetcher'
@@ -30,10 +30,11 @@ if __name__ == '__main__':
     task_timeout = conf.TASK_TIMEOUT_SECONDS
 
     p = LogArgumentParser(SCRIPT, 'Feed Fetcher')
+    # XXX add pid to log formatting????
 
-    WORKERS = 2 # XXX get from conf.RSS_FETCHER_WORKERS so rebuild not needed!!
-    p.add_argument('--workers', default=WORKERS, type=int,
-                   help=f"number of worker processes (default: {WORKERS})")
+    workers = conf.RSS_FETCH_WORKERS
+    p.add_argument('--workers', default=workers, type=int,
+                   help=f"number of worker processes (default: {workers})")
 
     # positional arguments:
     p.add_argument('feeds', metavar='FEED_ID', nargs='*', type=int,
@@ -45,63 +46,70 @@ if __name__ == '__main__':
 
     # here for access to hunter!
     class FetcherWorker(Worker):
-        def fetch(self, item):
+        def fetch(self, item):  # called in Worker to do work
             """
             passed entire item (as dict) for use by fetch_done
             """
             return feed_worker(item['id'])
 
-        def fetch_done(self, ret):  # callback
-            print("fetch_done", ret)
+        def fetch_done(self, ret):  # callback in Manager
+            # print("fetch_done", ret)
             item = ret['args'][0]  # recover "fetch" first arg (dict)
             hunter.completed(item)
 
     manager = Manager(args.workers, FetcherWorker)
 
     if args.feeds:
-        hunter.reset(args.feeds)
+        # force feed with feed ids from command line
+        hunter.refill(args.feeds)
     else:
         # clear all Feed.queued columns
         with Session() as session:
-            session.execute(update(Feed).values(queued=False).where(Feed.queued.is_(True)))
+            session.execute(update(Feed)
+                            .values(queued=False)
+                            .where(Feed.queued.is_(True)))
+            hunter.get_ready(session) # prime total_ready
             session.commit()
 
-    t0 = time.time()
+    next_wakeup = 0
     while hunter.have_work():
+        # here initially, or after manager.poll()
+        # (will starve when tons of work available?!)
+        t0 = time.time()
+        if t0 > next_wakeup:
+            with Session() as session:
+                # XXX report as "ready" gauge:
+                logger.info(f"ready: {ready_feeds(session)} {hunter.total_ready}")
+
         while w := manager.find_available_worker():
             item = hunter.find_work()
             if item is None:
+                # XXX counter?
                 break
 
+            # NOTE! returned item has been already been marked as "issued"
             feed_id = item['id']
-            print("here", item, feed_id)
             with Session() as session:
                 session.execute(
                     update(Feed)
                     .where(Feed.id == feed_id)
                     .values(queued=True)) # now means active!!
                 session.commit()
-            # XXX call hunter.issue(item)?????
 
             # pass entire item as dict for use by fetch_done callback
             w.call('fetch', dict(item))
 
-        # XXX report manager.active_workers as "active" gauge
+        # XXX report as "active" gauge
+        logger.info(f"active: {manager.active_workers}/{manager.nworkers} {hunter.total_ready}")
+
         next_wakeup = t0 - (t0 % 60) + 60
         # XXX use hunter.next_db_check instead of next_wakeup if smaller??
-        now = time.time()
-        stime = next_wakeup - now
-        logger.debug(f"poll: t0 {t0} now {now} nw {next_wakeup} sleep {stime}")
 
+        # sleep until next_wakeup, or a worker finishes a feed
+        stime = next_wakeup - time.time()
         manager.poll(stime)
 
-        now = time.time()
-        logger.debug(f"awake: now {now} nw {next_wakeup}")
-        if now > next_wakeup:
-            logger.debug("DING!")
-        t0 = now
-
-    # here when feeds given on command line
+    # here when feeds given command line
     while manager.active_workers > 0:
         manager.poll()
 
