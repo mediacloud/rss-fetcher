@@ -29,6 +29,7 @@ SCOREBOARDS = ['sources_id', 'fqdn']
 DB_READY_SEC = 60
 
 # ready items to return: if too small could return ONLY unissuable feeds.
+# more than can be fetched in DB_READY_SEC wastes effort.
 DB_READY_LIMIT = 1000
 
 def fqdn(url):
@@ -63,9 +64,8 @@ class HeadHunter:
                         Feed.queued.is_(False))
             self.fixed = True
         else:
-            now = utc()
-
             # XXX move to Feed._where_ready??
+            now = utc()
             q = q.where(Feed.queued.is_(False),
                         or_(Feed.next_fetch_attempt <= now,
                             Feed.next_fetch_attempt.is_(None)))\
@@ -74,6 +74,7 @@ class HeadHunter:
         # add Feed.poll_minutes.asc().nullslast() to preference fast feeds
         q = q.order_by(Feed.next_fetch_attempt.asc().nullsfirst())
 
+        self.ready = []
         with Session() as session:
             for feed in session.execute(q):
                 d = dict(feed)
@@ -82,8 +83,14 @@ class HeadHunter:
 
         # query DB no more than once a DB_INTERVAL
         # XXX this could result in idle time
-        #    when there are DB entries that have ripened?
-        self.next_db_check = int(time.time() + DB_READY_SEC)
+        #    when there are DB entries that have ripened:
+        #    to do better would require getting next_fetch_attempt
+        #    from fetched feeds, and refetching at that time???
+        if self.ready:
+            wait = DB_READY_SEC
+        else:
+            wait = 10           # XXX
+        self.next_db_check = int(time.time() + wait)
 
     def have_work(self):
         # loop unless fixed list (command line) and now empty
