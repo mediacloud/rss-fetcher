@@ -855,7 +855,7 @@ def fetch_and_process_feed(
 
     if SAVE_RSS_FILES:
         # NOTE! saves one file per SOURCE!  bug and feature?!
-        _save_rss_files(path.INPUT_RSS_DIR, feed['source_id'], feed, response)
+        _save_rss_files(path.INPUT_RSS_DIR, feed['sources_id'], feed, response)
 
     # BAIL: HTTP failed (not full response or "Not Changed")
     rsc = response.status_code
