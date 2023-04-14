@@ -10,10 +10,12 @@ from typing import Any, Dict
 
 # currently limited to concurrency control ONLY
 
+
 class SBItem:
     """
     Score Board Item
     """
+
     def __init__(self) -> None:
         self.current = 0
         # XXX keep queue of blocked feeds (would add complexity)
@@ -24,7 +26,10 @@ class SBItem:
         #   https://builtin.com/software-engineering-perspectives/rate-limiter
         #   PyPI ratelimiter: https://github.com/RazerM/ratelimiter/
 
+
 SBIndex = Any
+
+
 class ScoreBoard:
     """
     Scheduling score board for HeadHunter

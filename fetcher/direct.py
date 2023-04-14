@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 class JobTimeoutException(Exception):
     """class for job timeout exception"""
 
+
 def set_job_timeout(sec: float = 0.0) -> None:
     """
     for use in Worker process ONLY!
@@ -59,6 +60,7 @@ class Worker:
 
     Pass timeout (as _timeout?) to call method??
     """
+
     def __init__(self, manager: "Manager", n: int, timeout: float = TIMEOUT):
         """
         forks child process (running infinite loop),
@@ -246,6 +248,7 @@ class Manager:
             self.poll()
         self.close_all(timeout)
 
+
 if __name__ == '__main__':
     import time
 
@@ -254,7 +257,7 @@ if __name__ == '__main__':
             print("f:", x)      # TEST
             time.sleep(0.5)
 
-        def f_done(self, x: Dict[str,Any]) -> None:
+        def f_done(self, x: Dict[str, Any]) -> None:
             print("f_done:", x)  # TEST
 
     m = Manager(2, TestWorker)

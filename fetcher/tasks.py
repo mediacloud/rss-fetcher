@@ -826,7 +826,7 @@ def fetch_and_process_feed(
         if (not f.active
             or not f.system_enabled
             or not f.queued
-            #or f.next_fetch_attempt and f.next_fetch_attempt > now
+            # or f.next_fetch_attempt and f.next_fetch_attempt > now
             ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")

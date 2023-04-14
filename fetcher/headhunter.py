@@ -85,7 +85,7 @@ class HeadHunter:
             sb: ScoreBoard() for sb in SCOREBOARDS
         }
 
-    def refill(self, feeds: Optional[List[int]] = None) -> None:
+    def refill(self, feeds: Optional[List[int]]=None) -> None:
         # start DB query
         q = _where_active(select(ITEM_COLS))
 
@@ -147,7 +147,7 @@ class HeadHunter:
                         sb.issue(item[key])
                     # print("find_work ->", item)
                     self.ready_list.remove(item)
-                    self.total_ready -= 1 # XXX check >= 0?
+                    self.total_ready -= 1  # XXX check >= 0?
                     return item
                 # here when "break" executed for some scoreboard
                 # (not safe to issue): continue to next item in ready list

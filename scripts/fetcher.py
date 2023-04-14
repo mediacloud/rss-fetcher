@@ -68,7 +68,7 @@ if __name__ == '__main__':
             session.execute(update(Feed)
                             .values(queued=False)
                             .where(Feed.queued.is_(True)))
-            hunter.get_ready(session) # prime total_ready
+            hunter.get_ready(session)  # prime total_ready
             session.commit()
 
     next_wakeup = 0.0
@@ -79,7 +79,8 @@ if __name__ == '__main__':
         if t0 > next_wakeup:
             with Session() as session:
                 # XXX report as "ready" gauge:
-                logger.info(f"ready: {ready_feeds(session)} {hunter.total_ready}")
+                logger.info(
+                    f"ready: {ready_feeds(session)} {hunter.total_ready}")
 
         while w := manager.find_available_worker():
             item = hunter.find_work()
@@ -93,14 +94,15 @@ if __name__ == '__main__':
                 session.execute(
                     update(Feed)
                     .where(Feed.id == feed_id)
-                    .values(queued=True)) # now means active!!
+                    .values(queued=True))  # now means active!!
                 session.commit()
 
             # pass entire item as dict for use by fetch_done callback
             w.call('fetch', dict(item))
 
         # XXX report as "active" gauge
-        logger.info(f"active: {manager.active_workers}/{manager.nworkers} {hunter.total_ready}")
+        logger.info(
+            f"active: {manager.active_workers}/{manager.nworkers} {hunter.total_ready}")
 
         next_wakeup = t0 - (t0 % 60) + 60
         # XXX use hunter.next_db_check instead of next_wakeup if smaller??
@@ -112,4 +114,3 @@ if __name__ == '__main__':
     # here when feeds given command line
     while manager.active_workers > 0:
         manager.poll()
-
