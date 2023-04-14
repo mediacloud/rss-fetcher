@@ -1,3 +1,4 @@
+# XXX use pidfile lock & clear next_fetch_attempt on command line feeds???
 """
 "direct drive" feed fetcher: runs fetches in subprocesses using
 fetcher.direct without queuing so that the exact number of concurrent
@@ -19,7 +20,7 @@ from fetcher.database.models import Feed, utc
 from fetcher.direct import Manager, Worker
 from fetcher.headhunter import HeadHunter, Item, ready_feeds
 from fetcher.logargparse import LogArgumentParser
-#from fetcher.stats import Stats
+from fetcher.stats import Stats
 from fetcher.tasks import feed_worker
 
 SCRIPT = 'fetcher'
@@ -51,6 +52,7 @@ if __name__ == '__main__':
             """
             passed entire item (as dict) for use by fetch_done
             """
+            print("fetch", item, "***")
             feed_worker(item['id'])
 
         def fetch_done(self, ret: Dict) -> None:  # callback in Manager
@@ -58,7 +60,7 @@ if __name__ == '__main__':
             item = ret['args'][0]  # recover "fetch" first arg (dict)
             hunter.completed(item)
 
-    # pass command line args for concurrency, fetches/sec
+    # XXX pass command line args for concurrency, fetches/sec??
     manager = Manager(args.workers, FetcherWorker)
 
     if args.feeds:
@@ -67,9 +69,11 @@ if __name__ == '__main__':
     else:
         # clear all Feed.queued columns
         with Session() as session:
-            session.execute(update(Feed)
-                            .values(queued=False)
-                            .where(Feed.queued.is_(True)))
+            res = session.execute(
+                update(Feed)
+                .values(queued=False)
+                .where(Feed.queued.is_(True)))
+            # res.rowcount is number of effected rows?
             hunter.get_ready(session)  # prime total_ready
             session.commit()
 
@@ -87,21 +91,25 @@ if __name__ == '__main__':
 
         while w := manager.find_available_worker():
             item = hunter.find_work()
-            if item is None:
+            if item is None:    # no issuable work available
                 # XXX counter?
                 break
 
-            # NOTE! returned item has been already been marked as "issued"
+            # NOTE! returned item has been already been marked as
+            # "issued" by headhunter
+
             feed_id = item['id']
             with Session() as session:
-                session.execute(
+                # "queued" now means "currently being fetched"
+                res = session.execute(
                     update(Feed)
                     .where(Feed.id == feed_id)
-                    .values(queued=True))  # now means active!!
+                    .values(queued=True, last_fetch_attempt=utc()))
+                # res.rowcount is number of effected rows?
                 session.commit()
 
             # pass entire item as dict for use by fetch_done callback
-            w.call('fetch', dict(item))
+            w.call('fetch', item)
 
         # XXX report as "active" gauge
         logger.info(

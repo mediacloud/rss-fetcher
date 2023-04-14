@@ -37,9 +37,16 @@ DB_READY_SEC = 60
 # (lots of unissuable feeds)!!!
 DB_READY_LIMIT = 1000
 
-ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url]
+ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url,
+             Feed.last_fetch_attempt, Feed.last_fetch_success]
 
-Item = Dict[str, Union[int, str, Optional[str]]]
+class Item(TypedDict):
+    id: int
+    sources_id: int
+    url: str
+    # calculated:
+    fqdn: str
+    last_success: bool
 
 # these belong as Feed static methods; XXX FIXME after sqlalchemy 2.x upgrade
 def _where_active(q):
@@ -94,19 +101,22 @@ class HeadHunter:
                         Feed.queued.is_(False))
             self.fixed = True
         else:
-            # XXX send "ready" count here????
             q = _where_ready(q).limit(DB_READY_LIMIT)
 
-        # add Feed.poll_minutes.asc().nullslast() to preference fast feeds
         q = q.order_by(Feed.next_fetch_attempt.asc().nullsfirst())
+        # add Feed.poll_minutes.asc().nullslast() to preference fast feeds??
 
         self.ready_list = []
         with Session() as session:
-            self.get_ready(session)
+            self.get_ready(session) # refresh total_ready
+            # XXX send counters (queued too!)
 
             for feed in session.execute(q):
-                d: Item = dict(feed)
-                d['fqdn'] = fqdn(d['url'])  # mostly for aggregator urls!
+                d = Item(id=feed.id, sources_id=feed.sources_id, url=feed.url,
+                         # calculated:
+                         fqdn=fqdn(feed.url),
+                         prev_success=(feed.last_fetch_attempt is not None and
+                                       feed.last_fetch_attempt == feed.last_fetch_success))
                 self.ready_list.append(d)
 
         # query DB no more than once a DB_INTERVAL

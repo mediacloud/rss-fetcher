@@ -506,8 +506,8 @@ def update_feed(session: SessionType,
                     lf(f"  Feed {feed_id} updating {key} from {curr} to {value}")
                 setattr(f, key, value)
 
+        prev_success_time = f.last_fetch_success
         f.last_fetch_attempt = start_time  # match fetch_event & stories
-        prev_success = f.last_fetch_success
         if status == Status.SUCC:
             f.last_fetch_success = start_time
         f.queued = False        # safe to requeue
@@ -562,7 +562,7 @@ def update_feed(session: SessionType,
             # check if auto-adjust needed, before backoff, or
             # retry-after, and update poll_minutes.
             next_minutes = _check_auto_adjust(
-                update, f, next_minutes, prev_success)
+                update, f, next_minutes, prev_success_time)
 
             if f.poll_minutes != next_minutes:
                 f.poll_minutes = next_minutes
@@ -826,6 +826,7 @@ def fetch_and_process_feed(
         if (not f.active
             or not f.system_enabled
             or not f.queued
+            # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
             # or f.next_fetch_attempt and f.next_fetch_attempt > now
             ):
             logger.info(
