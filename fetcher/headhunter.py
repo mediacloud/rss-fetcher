@@ -39,7 +39,7 @@ DB_READY_LIMIT = 1000
 
 ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url]
 
-Item = Dict[str, Union[int, str, Optional[str]]
+Item = Dict[str, Union[int, str, Optional[str]]]
 
 # these belong as Feed static methods; XXX FIXME after sqlalchemy 2.x upgrade
 def _where_active(q):
