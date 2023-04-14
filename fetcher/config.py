@@ -311,6 +311,9 @@ class _Config:                  # only instantiated in this file
     # rq uses only redis for queues; use dokku-redis supplied URL
     REDIS_URL = conf_required('REDIS_URL')
 
+    # minimum interval between starting fetches for the same scoreboard entry
+    RSS_FETCH_FEED_SECS = conf_int('RSS_FETCH_FEED_SECS', 5) # 5s = 12/min
+
     # timeout in sec. for fetching an RSS file
     RSS_FETCH_TIMEOUT_SECS = conf_int('RSS_FETCH_TIMEOUT_SECS', 30)
 

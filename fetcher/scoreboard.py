@@ -1,14 +1,21 @@
 """
 Scheduling scoreboards for HeadHunter
 
-The term scoreboard was first used in Seymour Cray's CDC 6600 (the
-first supercomputer) to safely issue instructions out of order:
+The term scoreboard was first used in Seymour Cray's CDC 6600
+(the first supercomputer) to safely issue instructions out of order:
 https://en.wikipedia.org/wiki/Scoreboarding
 """
 
+# Python
+import logging
+import time
 from typing import Any, Dict
 
-# currently limited to concurrency control ONLY
+# app:
+from fetcher.config import conf
+
+RSS_FETCH_FEED_SECS = conf.RSS_FETCH_FEED_SECS
+
 
 
 class SBItem:
@@ -19,7 +26,7 @@ class SBItem:
     def __init__(self) -> None:
         self.current = 0
         # XXX keep queue of blocked feeds (would add complexity)
-        # XXX keep time of last issue and/or completion?
+        self.next_start = 0     # next time safe to issue
         # XXX implement full rate limiting???
         #   https://levelup.gitconnected.com/implement-rate-limiting-in-python-d4f86b09259f
         #   https://gist.github.com/daanzu/d34fa69e0094a3f5be6a
@@ -62,13 +69,15 @@ class ScoreBoard:
         if index is None:
             return True
 
-        if index in self.board:
-            # XXX check rate/timers!!!!
-            # XXX if not currently safe, add dependency
-            return self.board[index].current < self.concurrency
-        else:
-            # unknown index value; a priori safe
-            return True
+        entry = self.board.get(index)
+        if entry:
+            if entry.current >= self.concurrency:
+                # XXX counter?
+                return False
+            if time.time() < entry.next_start:
+                # XXX counter?
+                return False
+        return True
 
     def issue(self, index: SBIndex) -> None:
         """
@@ -84,6 +93,7 @@ class ScoreBoard:
         if not item:
             item = self.board[index] = SBItem()
         item.current += 1
+        item.next_time = time.time() + RSS_FETCH_FEED_SECS
 
     def completed(self, index: SBIndex) -> None:
         """

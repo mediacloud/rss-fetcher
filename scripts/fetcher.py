@@ -1,9 +1,8 @@
-# XXX add fetch_done method to worker to update scoreboard
-
 """
-"direct drive" feed fetcher: runs fetches in subprocesses without
-queuing so that the exact number of concurrent requests for a given
-source can be managed directly.
+"direct drive" feed fetcher: runs fetches in subprocesses using
+fetcher.direct without queuing so that the exact number of concurrent
+requests for a given source can be managed directly by
+fetcher.headhunter.
 """
 
 import logging
@@ -36,6 +35,8 @@ if __name__ == '__main__':
     p.add_argument('--workers', default=workers, type=int,
                    help=f"number of worker processes (default: {workers})")
 
+    # XXX take command line args for concurrency, fetches/sec
+
     # positional arguments:
     p.add_argument('feeds', metavar='FEED_ID', nargs='*', type=int,
                    help='Fetch specific feeds and exit.')
@@ -57,6 +58,7 @@ if __name__ == '__main__':
             item = ret['args'][0]  # recover "fetch" first arg (dict)
             hunter.completed(item)
 
+    # pass command line args for concurrency, fetches/sec
     manager = Manager(args.workers, FetcherWorker)
 
     if args.feeds:
@@ -78,7 +80,8 @@ if __name__ == '__main__':
         t0 = time.time()
         if t0 > next_wakeup:
             with Session() as session:
-                # XXX report as "ready" gauge:
+                # XXX report as "ready" gauge(s):
+                hunter.get_ready(session) # prime total_ready
                 logger.info(
                     f"ready: {ready_feeds(session)} {hunter.total_ready}")
 
