@@ -37,6 +37,14 @@ logger = logging.getLogger(__name__)
 class JobTimeoutException(Exception):
     """class for job timeout exception"""
 
+def set_job_timeout(sec: float = 0.0) -> None:
+    """
+    for use in Worker process ONLY!
+    may be called by used defined methods!!
+    by default clears timeout.
+    """
+    signal.setitimer(signal.ITIMER_REAL, sec)
+
 
 class Worker:
     """
@@ -105,7 +113,7 @@ class Worker:
             setproctitle(f"Worker {n}: {method_name} {args} {kw}")
             try:
                 if timeout:
-                    self.set_job_timeout(timeout)
+                    set_job_timeout(timeout)
                 # will raise AttributeError for unknown method_name
                 method = getattr(self, method_name)
                 ret['ret'] = method(*args, **kw)
@@ -114,7 +122,7 @@ class Worker:
                 ret['info'] = str(e)
 
             if timeout:
-                self.set_job_timeout()
+                set_job_timeout()
 
             # XXX do json.dumps under separate try (so can report error!)?
 
@@ -125,14 +133,6 @@ class Worker:
             except TypeError:   # json encoding error
                 break
         sys.exit(0)
-
-    def set_job_timeout(self, sec: float = 0.0) -> None:
-        """
-        for use in child process ONLY!
-        may be called by used defined methods!!
-        by default clears timeout.
-        """
-        signal.setitimer(signal.ITIMER_REAL, sec)
 
     def shut_wr(self) -> None:
         """called from Manager: Worker will see EOF"""

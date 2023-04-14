@@ -39,7 +39,7 @@ from fetcher.config import conf
 from fetcher.database import Session, SessionType
 from fetcher.database.functions import greatest
 from fetcher.database.models import Feed, FetchEvent, Story, utc
-from fetcher.direct import JobTimeoutException
+from fetcher.direct import JobTimeoutException, set_job_timeout
 import fetcher.path as path
 from fetcher.stats import Stats
 import fetcher.util as util
@@ -179,9 +179,6 @@ UPDATE_PERIODS_MINS = {
 DEFAULT_UPDATE_PERIOD = 'daily'  # specified in Syndication spec
 DEFAULT_UPDATE_FREQUENCY = 1    # specified in Syndication spec
 
-
-def cancel_job_timeout():
-    pass
 
 def _save_rss_files(dir: str, fname: Any, feed: Dict,
                     response: requests.Response, note: Optional[str] = None) -> None:
@@ -1157,7 +1154,7 @@ def feed_worker(feed_id: int) -> None:
         u = Update('exception', Status.SOFT, 'caught exception',
                    note=repr(exc))
 
-    cancel_job_timeout()
+    set_job_timeout()
     # fetch + processing time:
     total_td = dt.datetime.utcnow() - start
     total_sec = total_td.total_seconds()

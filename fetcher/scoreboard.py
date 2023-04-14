@@ -14,7 +14,7 @@ class SBItem:
     """
     Score Board Item
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.current = 0
         # XXX keep queue of blocked feeds (would add complexity)
         # XXX keep time of last issue and/or completion?
@@ -50,7 +50,7 @@ class ScoreBoard:
         self.concurrency = concurrency
         self.board: Dict[SBIndex, SBItem] = {}
 
-    def safe(self, index: SBIndex):
+    def safe(self, index: SBIndex) -> bool:
         """
         index can be any attribute of feed: sources_id, fqdn, etc.
         """
@@ -65,7 +65,7 @@ class ScoreBoard:
             # unknown index value; a priori safe
             return True
 
-    def issue(self, index: SBIndex):
+    def issue(self, index: SBIndex) -> None:
         """
         Mark a feed as issued (started).
         Only call after "safe" in all dimensions.
@@ -80,7 +80,7 @@ class ScoreBoard:
             item = self.board[index] = SBItem()
         item.current += 1
 
-    def completed(self, index: SBIndex):
+    def completed(self, index: SBIndex) -> None:
         """
         Mark a feed as completed.
         """

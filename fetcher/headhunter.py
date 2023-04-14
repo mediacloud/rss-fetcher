@@ -10,7 +10,7 @@ not super-efficient [O(n^3)]!!
 
 import logging
 import time
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional, TypedDict, Union
 
 # PyPI
 from sqlalchemy import func, select, or_, over, update
@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 # (make named tuple w/: name, concurrency?)
 SCOREBOARDS = ['sources_id', 'fqdn']
 
+ScoreBoardsDict = Dict[str, ScoreBoard]
+
 # how often to query DB for ready entries
 DB_READY_SEC = 60
 
@@ -34,6 +36,10 @@ DB_READY_SEC = 60
 # *AND* the current algorithm is O(n^2 - n) in the WORST case
 # (lots of unissuable feeds)!!!
 DB_READY_LIMIT = 1000
+
+ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url]
+
+Item = Dict[str, Union[int, str, Optional[str]]
 
 # these belong as Feed static methods; XXX FIXME after sqlalchemy 2.x upgrade
 def _where_active(q):
@@ -46,13 +52,14 @@ def _where_ready(q):
                    or_(Feed.next_fetch_attempt <= now,
                        Feed.next_fetch_attempt.is_(None)))
 
-def ready_feeds(session: SessionType):
-    return session.scalar(
-        _where_ready(
-            _where_active(
-                select(func.count()))))
+def ready_feeds(session: SessionType) -> int:
+    return int(
+        session.scalar(
+            _where_ready(
+                _where_active(
+                    select(func.count())))))
 
-def fqdn(url):
+def fqdn(url: str) -> Optional[str]:
     """hopefully faster than any formal URL parser."""
     try:
         items = url.split('/', 3)
@@ -61,23 +68,26 @@ def fqdn(url):
     except:                     # malformed URL
         return None             # special cased for ScoreBoard
 
+
 class HeadHunter:
     """
     finds work for Workers.
     perhaps subclass into ListHeadHunter?
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.total_ready = 0
 
         # make all private?
-        self.ready_list = []
+        self.ready_list: List[Item] = []
         self.next_db_check = 0
         self.fixed = False      # fixed length (command line list)
-        self.scoreboards = {sb: ScoreBoard() for sb in SCOREBOARDS}
+        self.scoreboards: ScoreBoardsDict = {
+            sb: ScoreBoard() for sb in SCOREBOARDS
+        }
 
-    def refill(self, feeds: Optional[List[int]] = None):
+    def refill(self, feeds: Optional[List[int]] = None) -> None:
         # start DB query
-        q = _where_active(select([Feed.id, Feed.sources_id, Feed.url]))
+        q = _where_active(select(ITEM_COLS))
 
         if feeds:
             q = q.where(Feed.id.in_(feeds),
@@ -95,7 +105,7 @@ class HeadHunter:
             self.get_ready(session)
 
             for feed in session.execute(q):
-                d = dict(feed)
+                d: Item = dict(feed)
                 d['fqdn'] = fqdn(d['url'])  # mostly for aggregator urls!
                 self.ready_list.append(d)
 
@@ -109,11 +119,11 @@ class HeadHunter:
         # at next wakeup.
         self.next_db_check = int(time.time() + DB_READY_SEC)
 
-    def have_work(self):
+    def have_work(self) -> bool:
         # loop unless fixed list (command line) and now empty
-        return not self.fixed or self.ready_list
+        return not self.fixed or len(self.ready_list) > 0
 
-    def find_work(self):        # XXX returns "item" make a defined Dict?
+    def find_work(self) -> Optional[Item]:
         if self.fixed:          # command line list of feeds
             if not self.ready_list:
                 # log EOL?
@@ -146,10 +156,10 @@ class HeadHunter:
         logger.debug(f"no issuable work: {len(self.ready_list)} ready")
         return None
 
-    def ready_count(self):
+    def ready_count(self) -> int:
         return len(self.ready_list)
 
-    def completed(self, item):
+    def completed(self, item: Item) -> None:
         """
         called when an issued item is no longer active
         """
@@ -157,6 +167,6 @@ class HeadHunter:
             logger.debug(f"  completed {key} {item[key]}")
             sb.completed(item[key])
 
-    def get_ready(self, session: SessionType):
+    def get_ready(self, session: SessionType) -> int:
         self.total_ready = ready_feeds(session)
         return self.total_ready

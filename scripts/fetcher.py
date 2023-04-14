@@ -8,7 +8,7 @@ source can be managed directly.
 
 import logging
 import time
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 # PyPI:
 from sqlalchemy import update
@@ -18,7 +18,7 @@ from fetcher.config import conf
 from fetcher.database import Session
 from fetcher.database.models import Feed, utc
 from fetcher.direct import Manager, Worker
-from fetcher.headhunter import HeadHunter, ready_feeds
+from fetcher.headhunter import HeadHunter, Item, ready_feeds
 from fetcher.logargparse import LogArgumentParser
 #from fetcher.stats import Stats
 from fetcher.tasks import feed_worker
@@ -46,13 +46,13 @@ if __name__ == '__main__':
 
     # here for access to hunter!
     class FetcherWorker(Worker):
-        def fetch(self, item):  # called in Worker to do work
+        def fetch(self, item: Item) -> None:  # called in Worker to do work
             """
             passed entire item (as dict) for use by fetch_done
             """
-            return feed_worker(item['id'])
+            feed_worker(item['id'])
 
-        def fetch_done(self, ret):  # callback in Manager
+        def fetch_done(self, ret: Dict) -> None:  # callback in Manager
             # print("fetch_done", ret)
             item = ret['args'][0]  # recover "fetch" first arg (dict)
             hunter.completed(item)
@@ -71,7 +71,7 @@ if __name__ == '__main__':
             hunter.get_ready(session) # prime total_ready
             session.commit()
 
-    next_wakeup = 0
+    next_wakeup = 0.0
     while hunter.have_work():
         # here initially, or after manager.poll()
         # (will starve when tons of work available?!)
