@@ -123,6 +123,9 @@ class HeadHunter:
         # loop unless fixed list (command line) and now empty
         return not self.fixed or len(self.ready_list) > 0
 
+    def on_hand(self) -> int:
+        return len(self.ready_list)
+
     def find_work(self) -> Optional[Item]:
         if self.fixed:          # command line list of feeds
             if not self.ready_list:
@@ -147,7 +150,6 @@ class HeadHunter:
                         sb.issue(item[key])
                     # print("find_work ->", item)
                     self.ready_list.remove(item)
-                    self.total_ready -= 1  # XXX check >= 0?
                     return item
                 # here when "break" executed for some scoreboard
                 # (not safe to issue): continue to next item in ready list

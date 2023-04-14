@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
         # XXX report as "active" gauge
         logger.info(
-            f"active: {manager.active_workers}/{manager.nworkers} {hunter.total_ready}")
+            f"active: {manager.active_workers}/{manager.nworkers} ready: {hunter.on_hand()} {hunter.total_ready}")
 
         next_wakeup = t0 - (t0 % 60) + 60
         # XXX use hunter.next_db_check instead of next_wakeup if smaller??
