@@ -140,6 +140,9 @@ if __name__ == '__main__':
         next_wakeup = t0 - (t0 % 60) + 60
         # sleep until then:
         stime = next_wakeup - time.time()
+        if stime <= 0:
+            logger.info("sleep time {stime:.6f}")
+            stime = 0.5         # XXX avoid hard loop?
         manager.poll(stime)
 
     # here when feeds given command line
