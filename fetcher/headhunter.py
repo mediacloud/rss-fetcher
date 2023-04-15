@@ -162,12 +162,21 @@ class HeadHunter:
 
         if self.ready_list:
             # print("ready", self.ready_list)
+
+            # reported as gauge, so only last count counts (use timer?)
+            blocked = 0
+            def blocked_stats(stalled):
+                self.stats.gauge('hunter.blocked', blocked)
+                if stalled:
+                    self.stats.incr('hunter.stalled')
+
             for item in self.ready_list:
                 for sbname in SCOREBOARDS:
                     sb = self.scoreboards[sbname]
                     if not sb.safe(item[sbname]):
                         # XXX counter??
                         logger.debug(f"  UNSAFE {sbname} {item[sbname]}")
+                        blocked += 1
                         break   # check next item
                 else:
                     # made it through the gauntlet.
@@ -178,13 +187,15 @@ class HeadHunter:
                         sb.issue(item[sbname])
                     # print("find_work ->", item)
                     self.ready_list.remove(item)
-                    self.on_hand_stats()
+                    self.on_hand_stats()  # report updated list length
+                    blocked_stats(False)
                     return item
                 # here when "break" executed for some scoreboard
                 # (not safe to issue): continue to next item in ready list
 
         # here with empty ready list, or nothing issuable (stall)
         logger.debug(f"no issuable work: {self.on_hand()} on hand")
+        blocked_stats(True)
         return None
 
     def ready_count(self) -> int:
