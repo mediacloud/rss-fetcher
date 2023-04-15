@@ -43,7 +43,7 @@ def main():
     p.add_argument('feeds', metavar='FEED_ID', nargs='*', type=int,
                    help='Fetch specific feeds and exit.')
 
-    args = p.my_parse_args()       # parse logging args, output start message
+    args = p.my_parse_args(pid=True)  # parse logging args, output start message
 
     hunter = HeadHunter()
 

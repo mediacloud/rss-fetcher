@@ -83,7 +83,7 @@ class LogArgumentParser(argparse.ArgumentParser):
 
     # PLB: wanted to override parse_args, but couldn't get typing right for
     # mypy
-    def my_parse_args(self) -> argparse.Namespace:
+    def my_parse_args(self, pid=False) -> argparse.Namespace:
         args = self.parse_args()
 
         if args.set:
@@ -103,7 +103,10 @@ class LogArgumentParser(argparse.ArgumentParser):
         else:
             level = level.upper()
 
-        log_format = '%(asctime)s | %(levelname)s | %(name)s | %(message)s'
+        log_format = '%(asctime)s | %(levelname)s | %(name)s | '
+        if pid:
+            log_format += '%(process)d | '
+        log_format += '%(message)s'
         logging.basicConfig(format=log_format, level=level)
 
         if args.log_config:
