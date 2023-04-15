@@ -103,6 +103,8 @@ class HeadHunter:
         """
         called with non-empty list with command line feed ids
         """
+        self.stats.incr('hunter.refill')
+
         # start DB query
         q = _where_active(select(ITEM_COLS))
 
@@ -200,6 +202,7 @@ class HeadHunter:
 
     def get_ready(self, session: SessionType) -> None:
         # XXX keep timer to avoid querying too often??
+        self.stats.incr('hunter.get_ready')
 
         ready = ready_feeds(session)
         self.stats.gauge('db.ready', ready)
@@ -208,8 +211,6 @@ class HeadHunter:
         running = running_feeds(session)
         self.stats.gauge('db.running', running)
         # print("db.running", running)
-
-        # XXX return two-tuple
 
     def on_hand_stats(self) -> None:
         self.stats.gauge('on_hand', x := self.on_hand())
