@@ -151,6 +151,12 @@ class HeadHunter:
             self.ready_list = []
 
     def find_work(self) -> Optional[Item]:
+        blocked = 0
+        def blocked_stats(stalled):
+            self.stats.gauge('hunter.blocked', blocked)
+            if stalled:
+                self.stats.incr('hunter.stalled')
+
         if self.fixed:          # command line list of feeds
             if not self.ready_list:
                 # log EOL?
@@ -164,12 +170,6 @@ class HeadHunter:
             # print("ready", self.ready_list)
 
             # reported as gauge, so only last count counts (use timer?)
-            blocked = 0
-            def blocked_stats(stalled):
-                self.stats.gauge('hunter.blocked', blocked)
-                if stalled:
-                    self.stats.incr('hunter.stalled')
-
             for item in self.ready_list:
                 for sbname in SCOREBOARDS:
                     sb = self.scoreboards[sbname]
