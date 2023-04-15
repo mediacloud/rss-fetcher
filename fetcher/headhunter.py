@@ -19,11 +19,11 @@ from sqlalchemy import func, select, or_, over, update
 from fetcher.database import Session, SessionType
 from fetcher.database.models import Feed, utc
 from fetcher.scoreboard import ScoreBoard
+from fetcher.stats import Stats
 
 logger = logging.getLogger(__name__)
 
-# used as indices to "item" and HeadHunter.scoreboards
-# (make named tuple w/: name, concurrency?)
+# used as indices to Item and HeadHunter.scoreboards[]
 SCOREBOARDS = ['sources_id', 'fqdn']
 
 ScoreBoardsDict = Dict[str, ScoreBoard]
@@ -40,13 +40,14 @@ DB_READY_LIMIT = 1000
 ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url,
              Feed.last_fetch_attempt, Feed.last_fetch_success]
 
+# passed as JSON from Manager to Worker
 class Item(TypedDict):
     id: int
     sources_id: int
     url: str
     # calculated:
     fqdn: str
-    last_success: bool
+
 
 # these belong as Feed static methods; XXX FIXME after sqlalchemy 2.x upgrade
 def _where_active(q):
@@ -66,6 +67,11 @@ def ready_feeds(session: SessionType) -> int:
                 _where_active(
                     select(func.count())))))
 
+def running_feeds(session: SessionType) -> int:
+    return int(
+        session.scalar(select(func.count())
+                       .where(Feed.queued.is_(True))))
+
 def fqdn(url: str) -> Optional[str]:
     """hopefully faster than any formal URL parser."""
     try:
@@ -79,10 +85,11 @@ def fqdn(url: str) -> Optional[str]:
 class HeadHunter:
     """
     finds work for Workers.
-    perhaps subclass into ListHeadHunter?
+    perhaps subclass into ListHeadHunter and DBHeadHunter?
+    (and don't report stats in ListHeadHunter??)
     """
     def __init__(self) -> None:
-        self.total_ready = 0
+        self.stats = Stats.get() # singleton
 
         # make all private?
         self.ready_list: List[Item] = []
@@ -93,6 +100,9 @@ class HeadHunter:
         }
 
     def refill(self, feeds: Optional[List[int]]=None) -> None:
+        """
+        called with non-empty list with command line feed ids
+        """
         # start DB query
         q = _where_active(select(ITEM_COLS))
 
@@ -108,16 +118,14 @@ class HeadHunter:
 
         self.ready_list = []
         with Session() as session:
-            self.get_ready(session) # refresh total_ready
-            # XXX send counters (queued too!)
+            self.get_ready(session)  # send stats
 
             for feed in session.execute(q):
                 d = Item(id=feed.id, sources_id=feed.sources_id, url=feed.url,
                          # calculated:
-                         fqdn=fqdn(feed.url),
-                         prev_success=(feed.last_fetch_attempt is not None and
-                                       feed.last_fetch_attempt == feed.last_fetch_success))
+                         fqdn=fqdn(feed.url))
                 self.ready_list.append(d)
+            self.on_hand_stats()
 
         # query DB no more than once a DB_INTERVAL
         # XXX this could result in idle time
@@ -136,36 +144,45 @@ class HeadHunter:
     def on_hand(self) -> int:
         return len(self.ready_list)
 
+    def check_stale(self):
+        if time.time() > self.next_db_check:
+            self.ready_list = []
+
     def find_work(self) -> Optional[Item]:
         if self.fixed:          # command line list of feeds
             if not self.ready_list:
                 # log EOL?
                 return None
-        elif not self.ready_list or time.time() > self.next_db_check:
-            self.refill()
+        else:
+            self.check_stale()  # may clear ready_list
+            if not self.ready_list:
+                self.refill()
 
         if self.ready_list:
             # print("ready", self.ready_list)
             for item in self.ready_list:
-                for key, sb in self.scoreboards.items():
-                    if not sb.safe(item[key]):
+                for sbname in SCOREBOARDS:
+                    sb = self.scoreboards[sbname]
+                    if not sb.safe(item[sbname]):
                         # XXX counter??
-                        logger.debug(f"  UNSAFE {key} {item[key]}")
+                        logger.debug(f"  UNSAFE {sbname} {item[sbname]}")
                         break   # check next item
                 else:
                     # made it through the gauntlet.
                     # mark item as issued on all scoreboards:
-                    for key, sb in self.scoreboards.items():
-                        logger.debug(f"  issue {key} {item[key]}")
-                        sb.issue(item[key])
+                    for sbname in SCOREBOARDS:
+                        sb = self.scoreboards[sbname]
+                        logger.debug(f"  issue {sbname} {item[sbname]}")
+                        sb.issue(item[sbname])
                     # print("find_work ->", item)
                     self.ready_list.remove(item)
+                    self.on_hand_stats()
                     return item
                 # here when "break" executed for some scoreboard
                 # (not safe to issue): continue to next item in ready list
 
         # here with empty ready list, or nothing issuable (stall)
-        logger.debug(f"no issuable work: {len(self.ready_list)} ready")
+        logger.debug(f"no issuable work: {self.on_hand()} on hand")
         return None
 
     def ready_count(self) -> int:
@@ -175,10 +192,25 @@ class HeadHunter:
         """
         called when an issued item is no longer active
         """
-        for key, sb in self.scoreboards.items():
-            logger.debug(f"  completed {key} {item[key]}")
-            sb.completed(item[key])
+        for sbname in SCOREBOARDS:
+            sb = self.scoreboards[sbname]
 
-    def get_ready(self, session: SessionType) -> int:
-        self.total_ready = ready_feeds(session)
-        return self.total_ready
+            logger.debug(f"  completed {sbname} {item[sbname]}")
+            sb.completed(item[sbname])
+
+    def get_ready(self, session: SessionType) -> None:
+        # XXX keep timer to avoid querying too often??
+
+        ready = ready_feeds(session)
+        self.stats.gauge('db.ready', ready)
+        # print("db.ready", ready)
+
+        running = running_feeds(session)
+        self.stats.gauge('db.running', running)
+        # print("db.running", running)
+
+        # XXX return two-tuple
+
+    def on_hand_stats(self) -> None:
+        self.stats.gauge('on_hand', x := self.on_hand())
+        # print("on_hand", x)

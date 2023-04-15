@@ -195,7 +195,7 @@ class Manager:
         self.timeout = timeout
 
         self.cworkers = 0         # current number of workers
-        self.active_workers = 0           # workers w/ work
+        self.active_workers = 0   # workers w/ work
         self.worker_by_fd: Dict[int, Worker] = {}
 
         for i in range(0, nworkers):
@@ -231,11 +231,11 @@ class Manager:
     def find_available_worker(self) -> Optional[Worker]:
         if self.active_workers == self.nworkers:
             return None
-        # possible optimization: keep set of inactive workers?
+        # OPT: keep dequeue of inactive workers to avoid linear search
         for w in self.worker_by_fd.values():
             if not w.wactive:
                 return w
-        # XXX should not happen
+        # COUNTER
         return None
 
     def close_all(self, timeout: Optional[float] = None) -> None:

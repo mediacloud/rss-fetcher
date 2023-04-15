@@ -93,7 +93,7 @@ class ScoreBoard:
         if not item:
             item = self.board[index] = SBItem()
         item.current += 1
-        item.next_time = time.time() + RSS_FETCH_FEED_SECS
+        item.next_start = time.time() + RSS_FETCH_FEED_SECS
 
     def completed(self, index: SBIndex) -> None:
         """

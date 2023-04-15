@@ -40,6 +40,7 @@ from fetcher.database import Session, SessionType
 from fetcher.database.functions import greatest
 from fetcher.database.models import Feed, FetchEvent, Story, utc
 from fetcher.direct import JobTimeoutException, set_job_timeout
+from fetcher.headhunter import Item
 import fetcher.path as path
 from fetcher.stats import Stats
 import fetcher.util as util
@@ -1123,21 +1124,19 @@ def check_feed_title(feed: Dict,  # type: ignore[no-any-unimported]
 ################
 
 
-def feed_worker(feed_id: int) -> None:
+def feed_worker(item: Item) -> None:
     """
-    called via rq:
-
-    MUST be run from rq SimpleWorker to achieve session caching!!!!
-
     Fetch a feed, parse out stories, store them
     :param self: this maintains the single session to use for all DB operations
     :param feed_id: integer Feed id
     """
 
+    feed_id = item['id']
     start = dt.datetime.utcnow()
     try:
         # here is where the actual work is done:
         with Session() as session:
+            # XXX pass prev_success
             u = fetch_and_process_feed(session, feed_id, start)
     except requests.exceptions.RequestException as exc:
         status, system_status = request_exception_to_status(feed_id, exc)
@@ -1147,7 +1146,7 @@ def feed_worker(feed_id: int) -> None:
     except JobTimeoutException:
         u = Update('job_timeout', Status.SOFT, 'job timeout')
     except Exception as exc:
-        # This is the ONE place that catches ALL exceptions;
+        # This is the ONE place that catches ALL fetch exceptions;
         # log the backtrace so the problem can be fixed, and requeue
         # the job.
 
@@ -1155,7 +1154,7 @@ def feed_worker(feed_id: int) -> None:
         u = Update('exception', Status.SOFT, 'caught exception',
                    note=repr(exc))
 
-    set_job_timeout()
+    set_job_timeout()           # clear timeout alarm
     # fetch + processing time:
     total_td = dt.datetime.utcnow() - start
     total_sec = total_td.total_seconds()

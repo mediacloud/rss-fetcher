@@ -23,6 +23,7 @@ from fetcher.logargparse import LogArgumentParser
 from fetcher.stats import Stats
 from fetcher.tasks import feed_worker
 
+DEBUG_COUNTERS = False
 SCRIPT = 'fetcher'
 logger = logging.getLogger(SCRIPT)
 
@@ -46,14 +47,16 @@ if __name__ == '__main__':
 
     hunter = HeadHunter()
 
+    stats = Stats.get()
+
     # here for access to hunter!
     class FetcherWorker(Worker):
         def fetch(self, item: Item) -> None:  # called in Worker to do work
             """
             passed entire item (as dict) for use by fetch_done
             """
-            print("fetch", item, "***")
-            feed_worker(item['id'])
+            # print("fetch", item, "***")
+            feed_worker(item)
 
         def fetch_done(self, ret: Dict) -> None:  # callback in Manager
             # print("fetch_done", ret)
@@ -62,6 +65,15 @@ if __name__ == '__main__':
 
     # XXX pass command line args for concurrency, fetches/sec??
     manager = Manager(args.workers, FetcherWorker)
+
+    def worker_stats() -> None:
+        stats.gauge('workers.active', manager.active_workers)
+        stats.gauge('workers.current', manager.cworkers) # current
+        stats.gauge('workers.n', manager.nworkers) # goal
+        if DEBUG_COUNTERS:
+            print('workers.active', manager.active_workers)
+            print('workers.current', manager.cworkers) # current
+            print('workers.n', manager.nworkers) # goal
 
     if args.feeds:
         # force feed with feed ids from command line
@@ -74,25 +86,27 @@ if __name__ == '__main__':
                 .values(queued=False)
                 .where(Feed.queued.is_(True)))
             # res.rowcount is number of effected rows?
-            hunter.get_ready(session)  # prime total_ready
             session.commit()
 
     next_wakeup = 0.0
+    worker_stats()
     while hunter.have_work():
         # here initially, or after manager.poll()
-        # (will starve when tons of work available?!)
         t0 = time.time()
-        if t0 > next_wakeup:
-            with Session() as session:
-                # XXX report as "ready" gauge(s):
-                hunter.get_ready(session) # prime total_ready
-                logger.info(
-                    f"ready: {ready_feeds(session)} {hunter.total_ready}")
 
+        worker_stats()
+        looked_for_work = False
+        loops = 0
         while w := manager.find_available_worker():
+            elapsed = time.time() - t0
+            loops += 1
+            if elapsed > 10 or loops > 10:
+                # XXX want to make sure stats reported often enough!
+                logger.info(f"looking for work, {elapsed:.2f} sec elapsed, {loops} loops")
+
+            looked_for_work = True
             item = hunter.find_work()
             if item is None:    # no issuable work available
-                # XXX counter?
                 break
 
             # NOTE! returned item has been already been marked as
@@ -104,21 +118,27 @@ if __name__ == '__main__':
                 res = session.execute(
                     update(Feed)
                     .where(Feed.id == feed_id)
-                    .values(queued=True, last_fetch_attempt=utc()))
+                    .values(queued=True))
                 # res.rowcount is number of effected rows?
+                hunter.get_ready(session)
                 session.commit()
 
-            # pass entire item as dict for use by fetch_done callback
-            w.call('fetch', item)
+            w.call('fetch', item) # call method in child process
+            worker_stats()
 
-        # XXX report as "active" gauge
-        logger.info(
-            f"active: {manager.active_workers}/{manager.nworkers} ready: {hunter.on_hand()} {hunter.total_ready}")
+        if not looked_for_work:
+            hunter.check_stale()
+            print("need to force stats reporting?")
 
+        # Wake up once a minute: find_work() will re fetch the
+        # ready_list if stale.  Will wake up early if a worker
+        # finishes a feed.  NOT sleeping until next next_fetch_attempt
+        # so that changes (new feeds and triggered fetch) get picked
+        # up.
+
+        # calculate next wakeup time based on when we last woke
         next_wakeup = t0 - (t0 % 60) + 60
-        # XXX use hunter.next_db_check instead of next_wakeup if smaller??
-
-        # sleep until next_wakeup, or a worker finishes a feed
+        # sleep until then:
         stime = next_wakeup - time.time()
         manager.poll(stime)
 
