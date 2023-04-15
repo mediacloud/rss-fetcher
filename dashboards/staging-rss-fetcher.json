@@ -22,7 +22,7 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 1,
-  "iteration": 1669913149052,
+  "iteration": 1681520290805,
   "links": [],
   "panels": [
     {
@@ -79,7 +79,7 @@
       ],
       "spaceLength": 10,
       "stack": true,
-      "steppedLine": true,
+      "steppedLine": false,
       "targets": [
         {
           "refCount": 0,
@@ -247,7 +247,7 @@
     },
     {
       "aliasColors": {},
-      "bars": true,
+      "bars": false,
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
@@ -267,7 +267,7 @@
         "y": 9
       },
       "hiddenSeries": false,
-      "id": 2,
+      "id": 17,
       "legend": {
         "avg": false,
         "current": false,
@@ -277,7 +277,7 @@
         "total": false,
         "values": false
       },
-      "lines": false,
+      "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
@@ -299,18 +299,19 @@
         }
       ],
       "spaceLength": 10,
-      "stack": true,
+      "stack": false,
       "steppedLine": true,
       "targets": [
         {
+          "hide": false,
           "refCount": 0,
           "refId": "A",
-          "target": "stats.gauges.mc.$realm.rss-fetcher.queue_feeds.qlen"
+          "target": "stats.counters.mc.$realm.rss-fetcher.queue_feeds.added2.count"
         },
         {
           "refCount": 0,
           "refId": "B",
-          "target": "stats.gauges.mc.$realm.rss-fetcher.queue_feeds.added"
+          "target": "stats.gauges.mc.$realm.rss-fetcher.worker.workq"
         },
         {
           "refCount": 0,
@@ -928,9 +929,87 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 38
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "target": "stats.counters.mc.$realm.rss-fetcher.worker.adjust.*.count"
+        }
+      ],
+      "title": "auto-adjust",
+      "type": "timeseries"
     }
   ],
-  "refresh": false,
+  "refresh": "30s",
   "schemaVersion": 30,
   "style": "dark",
   "tags": [],
@@ -939,9 +1018,9 @@
       {
         "allValue": null,
         "current": {
-          "selected": true,
-          "text": "pbudne",
-          "value": "pbudne"
+          "tags": [],
+          "text": "staging",
+          "value": "staging"
         },
         "description": null,
         "error": null,
@@ -952,12 +1031,12 @@
         "name": "realm",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": "staging",
             "value": "staging"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": "pbudne",
             "value": "pbudne"
           }
@@ -970,8 +1049,8 @@
     ]
   },
   "time": {
-    "from": "2022-12-01T16:59:00.865Z",
-    "to": "2022-12-01T17:01:57.462Z"
+    "from": "now-1h",
+    "to": "now"
   },
   "timepicker": {
     "refresh_intervals": [
@@ -990,5 +1069,5 @@
   "timezone": "",
   "title": "rss-fetcher",
   "uid": "sWyOqlVVk",
-  "version": 3
+  "version": 14
 }
