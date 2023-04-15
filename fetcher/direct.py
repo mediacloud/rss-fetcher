@@ -28,6 +28,9 @@ from typing import Any, Dict, Optional, Tuple
 # PyPI:
 from setproctitle import setproctitle
 
+# app
+from fetcher import APP
+
 MAXJSON = 32 * 1024
 TIMEOUT = 30.0
 
@@ -100,7 +103,7 @@ class Worker:
         signal.signal(signal.SIGALRM, alarm_handler)
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         while True:
-            setproctitle(f"Worker {n}: idle")
+            setproctitle(f"{APP} {n}: idle")
             try:
                 msg = csock.recv(MAXJSON)
             except ConnectionResetError:  # remote fully closed?
@@ -112,7 +115,7 @@ class Worker:
                    'args': args,
                    'kw': kw}
 
-            setproctitle(f"Worker {n}: {method_name} {args} {kw}")
+            setproctitle(f"{APP} {n}: {method_name} {args} {kw}")
             try:
                 if timeout:
                     set_job_timeout(timeout)
