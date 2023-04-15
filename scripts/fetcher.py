@@ -27,7 +27,7 @@ DEBUG_COUNTERS = False
 SCRIPT = 'fetcher'
 logger = logging.getLogger(SCRIPT)
 
-if __name__ == '__main__':
+def main():
     task_timeout = conf.TASK_TIMEOUT_SECONDS
 
     p = LogArgumentParser(SCRIPT, 'Feed Fetcher')
@@ -149,3 +149,10 @@ if __name__ == '__main__':
     # here when feeds given command line
     while manager.active_workers > 0:
         manager.poll()
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        logger.exception("main")
+
