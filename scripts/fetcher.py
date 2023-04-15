@@ -139,9 +139,10 @@ if __name__ == '__main__':
         # calculate next wakeup time based on when we last woke
         next_wakeup = t0 - (t0 % 60) + 60
         # sleep until then:
-        stime = next_wakeup - time.time()
+        now = time.time()
+        stime = next_wakeup - now
         if stime <= 0:
-            logger.info("sleep time {stime:.6f}")
+            logger.info(f"sleep time {stime:.6f} t0 {t0} nw {next_wakeup} now {now}")
             stime = 0.5         # XXX avoid hard loop?
         manager.poll(stime)
 
