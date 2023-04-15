@@ -30,9 +30,10 @@ from setproctitle import setproctitle
 
 # app
 from fetcher import APP
+from fetcher.config import conf
 
-MAXJSON = 32 * 1024
-TIMEOUT = 30.0
+MAXJSON = 32 * 1024             # max JSON request/response
+TIMEOUT = conf.TASK_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +168,7 @@ class Worker:
         call ONLY after a "call" to wait for result (or on EOF)
         """
         # XXX use buffered I/O?
-        msg = self.sock.recv(8192)
+        msg = self.sock.recv(MAXJSON)
         if msg:
             # print(self.fileno(), '->', msg)
             self.wactive = False
