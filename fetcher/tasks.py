@@ -846,8 +846,9 @@ def fetch_and_process_feed(
         start_delay = now - feed['next_fetch_attempt']
         stats.timing_td('start_delay', start_delay)
 
+    # display sources_id for rate control monitoring
     logger.info(
-        f"Working on feed {feed_id}: {feed['url']} start_delay {start_delay}")
+        f"Feed {feed_id} srcid {feed['sources_id']}: {feed['url']} start_delay {start_delay}")
 
     # first thing is to fetch the content
     response = _fetch_rss_feed(feed)
