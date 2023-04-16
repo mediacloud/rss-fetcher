@@ -83,7 +83,7 @@ class LogArgumentParser(argparse.ArgumentParser):
 
     # PLB: wanted to override parse_args, but couldn't get typing right for
     # mypy
-    def my_parse_args(self, pid=False) -> argparse.Namespace:
+    def my_parse_args(self, pid: bool = False) -> argparse.Namespace:
         args = self.parse_args()
 
         if args.set:

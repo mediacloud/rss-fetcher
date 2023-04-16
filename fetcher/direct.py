@@ -204,7 +204,7 @@ class Manager:
         self.cworkers = 0         # current number of workers
         self.active_workers = 0   # workers w/ work
         self.worker_by_fd: Dict[int, Worker] = {}
-        self.idle_workers = collections.deque()
+        self.idle_workers = collections.deque[Worker]()
         for i in range(0, nworkers):
             self._create_worker(i)
 

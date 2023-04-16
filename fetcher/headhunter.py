@@ -20,7 +20,7 @@ See scoreboard.py for more!
 
 import logging
 import time
-from typing import Any, Dict, List, Optional, TypedDict, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 # PyPI
 from sqlalchemy import func, select, or_, over, update
@@ -33,7 +33,7 @@ from fetcher.stats import Stats
 
 logger = logging.getLogger(__name__)
 
-# used as indices to Item and HeadHunter.scoreboards[]
+# used as HeadHunter.scoreboards[] index, and Item attr
 SCOREBOARDS = ('sources_id', 'fqdn')
 
 # only legal indices are members of SCOREBOARD;
@@ -49,18 +49,15 @@ DB_READY_SEC = 60
 # (lots of unissuable feeds)!!!
 DB_READY_LIMIT = 1000
 
-ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url,
-             Feed.last_fetch_attempt, Feed.last_fetch_success]
+ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url]
 
-# passed as JSON from Manager to Worker
-
-
-class Item(TypedDict):
+class Item(NamedTuple):
+    # from ITEM_COLS:
     id: int
     sources_id: int
     url: str
-    # calculated:
-    fqdn: str
+    # calculated (for scoreboards):
+    fqdn: Optional[str]         # None if bad URL
 
 
 # should be Feed static method; XXX FIXME after sqlalchemy 2.x upgrade
@@ -166,14 +163,14 @@ class HeadHunter:
     def on_hand(self) -> int:
         return len(self.ready_list)
 
-    def check_stale(self):
+    def check_stale(self) -> None:
         if time.time() > self.next_db_check:
             self.ready_list = []
 
     def find_work(self) -> Optional[Item]:
         blocked = 0
 
-        def blocked_stats(stalled):
+        def blocked_stats(stalled: bool) -> None:
             self.stats.gauge('hunter.blocked', blocked)
             if stalled:
                 self.stats.incr('hunter.stalled')
@@ -194,9 +191,10 @@ class HeadHunter:
             for item in self.ready_list:
                 for sbname in SCOREBOARDS:
                     sb = self.scoreboards[sbname]
-                    if not sb.safe(item[sbname]):
+                    itemval = getattr(item, sbname)
+                    if not sb.safe(itemval):
                         # XXX counter??
-                        logger.debug(f"  UNSAFE {sbname} {item[sbname]}")
+                        logger.debug(f"  UNSAFE {sbname} {itemval}")
                         blocked += 1
                         break   # check next item
                 else:
@@ -204,8 +202,9 @@ class HeadHunter:
                     # mark item as issued on all scoreboards:
                     for sbname in SCOREBOARDS:
                         sb = self.scoreboards[sbname]
-                        logger.debug(f"  issue {sbname} {item[sbname]}")
-                        sb.issue(item[sbname])
+                        itemval = getattr(item, sbname)
+                        logger.debug(f"  issue {sbname} {itemval}")
+                        sb.issue(itemval)
                     # print("find_work ->", item)
                     self.ready_list.remove(item)
                     self.on_hand_stats()  # report updated list length
@@ -228,9 +227,9 @@ class HeadHunter:
         """
         for sbname in SCOREBOARDS:
             sb = self.scoreboards[sbname]
-
-            logger.debug(f"  completed {sbname} {item[sbname]}")
-            sb.completed(item[sbname])
+            itemval = getattr(item, sbname)
+            logger.debug(f"  completed {sbname} {itemval}")
+            sb.completed(itemval)
 
     def get_ready(self, session: SessionType) -> None:
         # XXX keep timer to avoid querying too often??

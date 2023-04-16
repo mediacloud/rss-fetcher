@@ -1132,7 +1132,7 @@ def feed_worker(item: Item) -> None:
     :param feed_id: integer Feed id
     """
 
-    feed_id = item['id']
+    feed_id = item.id
     start = dt.datetime.utcnow()
     try:
         # here is where the actual work is done:

@@ -33,7 +33,7 @@ SCRIPT = 'fetcher'
 logger = logging.getLogger(SCRIPT)
 
 
-def main():
+def main() -> None:
     period = conf.RSS_FETCH_FEED_SECS
 
     p = LogArgumentParser(SCRIPT, 'Feed Fetcher')
@@ -120,7 +120,7 @@ def main():
             # NOTE! returned item has been already been marked as
             # "issued" by headhunter
 
-            feed_id = item['id']
+            feed_id = item.id
             with Session() as session:
                 # "queued" now means "currently being fetched"
                 res = session.execute(
@@ -131,7 +131,7 @@ def main():
                 hunter.get_ready(session)
                 session.commit()
 
-            w.call('fetch', item)  # call method in child process
+            w.call('fetch', item._asdict())  # call method in child process
             worker_stats()
 
         if not looked_for_work:
