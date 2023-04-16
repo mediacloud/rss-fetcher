@@ -155,7 +155,12 @@ _DEFAULT_MINIMUM_INTERVAL_MINS = _DEFAULT_DEFAULT_INTERVAL_MINS
 _DEFAULT_MAXIMUM_INTERVAL_MINS = 24 * 60
 
 # default value for MAXIMUM_BACKOFF_MINS if not configured:
-_DEFAULT_MAXIMUM_BACKOFF_MINS = 24 * 60
+_DEFAULT_MAXIMUM_BACKOFF_MINS = _DEFAULT_MAXIMUM_INTERVAL_MINS
+
+# default value for AUTO_ADJUST_MAX_POLL_MINUTES if not configured:
+_DEFAULT_AUTO_ADJUST_MAX_POLL_MINUTES = _DEFAULT_MAXIMUM_INTERVAL_MINS
+
+# default maximum for auto-adjust:
 
 
 class _Config:                  # only instantiated in this file
@@ -224,6 +229,10 @@ class _Config:                  # only instantiated in this file
     AUTO_ADJUST_MAX_DUPLICATE_PERCENT = conf_int(
         'AUTO_ADJUST_MAX_DUPLICATE_PERCENT', 67)
 
+    # maximum poll interval when auto-adjusting
+    AUTO_ADJUST_MAX_POLL_MINUTES = conf_int('AUTO_ADJUST_MAX_POLL_MINUTES',
+                                            _DEFAULT_AUTO_ADJUST_MAX_POLL_MINUTES)
+
     # minimum percentage of good URLs that must be duplicates to
     # insure feed poll interval is small enough, else auto-adjust
     # poll_minutes down: Raising this number makes auto-adjust
@@ -291,6 +300,7 @@ class _Config:                  # only instantiated in this file
                                     _DEFAULT_MAXIMUM_BACKOFF_MINS)
 
     # maximum interval to accept from sy:update{Period,Frequency}
+    # (also used for maximum auto-adjust value)
     MAXIMUM_INTERVAL_MINS = conf_int('MAXIMUM_INTERVAL_MINS',
                                      _DEFAULT_MAXIMUM_INTERVAL_MINS)
 

@@ -131,6 +131,7 @@ if AUTO_ADJUST_MIN_DUPLICATE_PERCENT >= AUTO_ADJUST_MAX_DUPLICATE_PERCENT:
     logger.error(f"AUTO_ADJUST_MIN_DUPLICATE_PERCENT ({AUTO_ADJUST_MIN_DUPLICATE_PERCENT}) >= "
                  f"AUTO_ADJUST_MAX_DUPLICATE_PERCENT ({AUTO_ADJUST_MAX_DUPLICATE_PERCENT})")
 
+AUTO_ADJUST_MAX_POLL_MINUTES = conf.AUTO_ADJUST_MAX_POLL_MINUTES
 AUTO_ADJUST_MIN_POLL_MINUTES = conf.AUTO_ADJUST_MIN_POLL_MINUTES
 AUTO_ADJUST_MINUTES = conf.AUTO_ADJUST_MINUTES
 AUTO_ADJUST_SMALL_DAYS = conf.AUTO_ADJUST_SMALL_DAYS
@@ -326,8 +327,8 @@ def _check_auto_adjust_longer(update: Update, feed: Feed,
     else:
         next_min += AUTO_ADJUST_MINUTES
 
-    if next_min > MAXIMUM_INTERVAL_MINS:
-        next_min = MAXIMUM_INTERVAL_MINS
+    if next_min > AUTO_ADJUST_MAX_POLL_MINUTES:
+        next_min = AUTO_ADJUST_MAX_POLL_MINUTES
         logger.info(
             f"  Feed {feed.id} poll_minutes clamped down to {next_min}")
         _auto_adjust_stat('max')
