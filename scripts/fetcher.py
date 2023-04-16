@@ -29,7 +29,7 @@ logger = logging.getLogger(SCRIPT)
 
 
 def main():
-    task_timeout = conf.TASK_TIMEOUT_SECONDS
+    period = conf.RSS_FETCH_FEED_SECS
 
     p = LogArgumentParser(SCRIPT, 'Feed Fetcher')
     # XXX add pid to log formatting????
@@ -132,15 +132,14 @@ def main():
         if not looked_for_work:
             hunter.check_stale()
 
-        # Wake up once a PERIOD: find_work() will re fetch the
+        # Wake up once a period: find_work() will re fetch the
         # ready_list if stale.  Will wake up early if a worker
         # finishes a feed.  NOT sleeping until next next_fetch_attempt
         # so that changes (new feeds and triggered fetch) get picked
         # up.
-        PERIOD = 60
 
         # calculate next wakeup time based on when we last woke
-        next_wakeup = t0 - (t0 % PERIOD) + PERIOD
+        next_wakeup = t0 - (t0 % period) + period
         # sleep until then:
         now = time.time()
         stime = next_wakeup - now
