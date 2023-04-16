@@ -4,6 +4,19 @@ Scheduling scoreboards for HeadHunter
 The term scoreboard was first used in Seymour Cray's CDC 6600
 (the first supercomputer) to safely issue instructions out of order:
 https://en.wikipedia.org/wiki/Scoreboarding
+
+Possible efficiency improvements:
+
+Keep track of dependencies in each scoreboard item so that newly
+issuable items can be checked as soon as a blocking condition clears.
+Would likely require scoreboard.py to keep persistent Items (rather
+than throwing them all away on each "refill").  Paranoia regarding
+entries that disappear could be avoided by doing Feed query and sanity
+check before passing Feed Item to Worker??
+
+Expose lowest "next_start" value so that fetcher can sleep
+appropriately (now sleeping RSS_FETCH_FEED_SECS so that newly cleared
+items can be issued at minimum interval)
 """
 
 # Python

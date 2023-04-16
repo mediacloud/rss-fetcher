@@ -2,8 +2,13 @@
 """
 "direct drive" feed fetcher: runs fetches in subprocesses using
 fetcher.direct without queuing so that the exact number of concurrent
-requests for a given source can be managed directly by
-fetcher.headhunter.
+requests (and request rate) for a given source can be managed directly
+by fetcher.headhunter.
+
+Many *GROSS* inefficiencies exist as initially implemented (see
+comments in headhunter.py and scoreboard.py), but as this was built to
+run on dedicated hardware, CPU and I/O are essentially in endless
+supply.
 """
 
 import logging

@@ -5,7 +5,17 @@ HeadHunter: finds work for Workers.
 feeds must be ready in database, and be issuable according to all
 scoreboards.
 
-not super-efficient [O(n^3)]!!
+not super-efficient [at least O(n^3)]?!
+
+Possible improvements:
+
+Expose the next time a feed could be issued based on delay (so
+fetcher.py can sleep an appropriate amount of time).
+
+Keep Items between "refills" so that scoreboard.py can track
+dependencies!!!
+
+See scoreboard.py for more!
 """
 
 import logging
@@ -24,8 +34,10 @@ from fetcher.stats import Stats
 logger = logging.getLogger(__name__)
 
 # used as indices to Item and HeadHunter.scoreboards[]
-SCOREBOARDS = ['sources_id', 'fqdn']
+SCOREBOARDS = ('sources_id', 'fqdn')
 
+# only legal indices are members of SCOREBOARD;
+# TypedDict requires access by string lit only!
 ScoreBoardsDict = Dict[str, ScoreBoard]
 
 # how often to query DB for ready entries
@@ -51,12 +63,13 @@ class Item(TypedDict):
     fqdn: str
 
 
-# these belong as Feed static methods; XXX FIXME after sqlalchemy 2.x upgrade
+# should be Feed static method; XXX FIXME after sqlalchemy 2.x upgrade
 def _where_active(q):
     return q.where(Feed.active.is_(True),
                    Feed.system_enabled.is_(True))
 
 
+# should be Feed static method; XXX FIXME after sqlalchemy 2.x upgrade
 def _where_ready(q):
     now = utc()
     return q.where(Feed.queued.is_(False),
