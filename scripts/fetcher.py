@@ -34,6 +34,7 @@ logger = logging.getLogger(SCRIPT)
 
 
 def main() -> None:
+    # poll at scoreboard inter-feed interval to avoid delay:
     period = conf.RSS_FETCH_FEED_SECS
 
     p = LogArgumentParser(SCRIPT, 'Feed Fetcher')
@@ -96,22 +97,15 @@ def main() -> None:
             session.commit()
 
     next_wakeup = 0.0
-    worker_stats()
     while hunter.have_work():
         # here initially, or after manager.poll()
         t0 = time.time()
 
         worker_stats()
         looked_for_work = False
-        loops = 0
+        # worker completion only processed in manager.poll()
+        # so this loop can only iterate nworkers times.
         while w := manager.find_available_worker():
-            elapsed = time.time() - t0
-            loops += 1
-            if elapsed > 10 or loops > 10:
-                # XXX want to make sure stats reported often enough!
-                logger.info(
-                    f"looking for work, {elapsed:.2f} sec elapsed, {loops} loops")
-
             looked_for_work = True
             item = hunter.find_work()
             if item is None:    # no issuable work available
@@ -128,11 +122,10 @@ def main() -> None:
                     .where(Feed.id == feed_id)
                     .values(queued=True))
                 # res.rowcount is number of effected rows?
-                hunter.get_ready(session)
                 session.commit()
 
             w.call('fetch', item._asdict())  # call method in child process
-            worker_stats()
+            worker_stats()                   # to report max busyness
 
         if not looked_for_work:
             hunter.check_stale()
@@ -140,8 +133,7 @@ def main() -> None:
         # Wake up once a period: find_work() will re fetch the
         # ready_list if stale.  Will wake up early if a worker
         # finishes a feed.  NOT sleeping until next next_fetch_attempt
-        # so that changes (new feeds and triggered fetch) get picked
-        # up.
+        # so that changes (new feeds and triggered fetch) get picked up.
 
         # calculate next wakeup time based on when we last woke
         next_wakeup = t0 - (t0 % period) + period
@@ -149,12 +141,14 @@ def main() -> None:
         now = time.time()
         stime = next_wakeup - now
         if stime <= 0:
-            logger.info(
-                f"sleep time {stime:.6f} t0 {t0} nw {next_wakeup} now {now}")
-            stime = 0.5         # XXX avoid hard loop?
+            # can be negative if woke up early and worked thru old wakeup time?
+            # XXX add counter?
+            stime = 0.5         # quick snooze just in case
+
+        # waits stime seconds, or until a worker result is available:
         manager.poll(stime)
 
-    # here when feeds given command line
+    # here when feeds given command line: wait for completion
     while manager.active_workers > 0:
         manager.poll()
 
