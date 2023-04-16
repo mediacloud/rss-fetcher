@@ -51,6 +51,7 @@ DB_READY_LIMIT = 1000
 
 ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url]
 
+
 class Item(NamedTuple):
     # from ITEM_COLS:
     id: int
