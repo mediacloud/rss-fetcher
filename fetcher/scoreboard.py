@@ -17,7 +17,6 @@ from fetcher.config import conf
 RSS_FETCH_FEED_SECS = conf.RSS_FETCH_FEED_SECS
 
 
-
 class SBItem:
     """
     Score Board Item

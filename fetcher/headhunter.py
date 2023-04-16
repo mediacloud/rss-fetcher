@@ -41,6 +41,8 @@ ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url,
              Feed.last_fetch_attempt, Feed.last_fetch_success]
 
 # passed as JSON from Manager to Worker
+
+
 class Item(TypedDict):
     id: int
     sources_id: int
@@ -54,11 +56,13 @@ def _where_active(q):
     return q.where(Feed.active.is_(True),
                    Feed.system_enabled.is_(True))
 
+
 def _where_ready(q):
     now = utc()
     return q.where(Feed.queued.is_(False),
                    or_(Feed.next_fetch_attempt <= now,
                        Feed.next_fetch_attempt.is_(None)))
+
 
 def ready_feeds(session: SessionType) -> int:
     return int(
@@ -67,10 +71,12 @@ def ready_feeds(session: SessionType) -> int:
                 _where_active(
                     select(func.count())))))
 
+
 def running_feeds(session: SessionType) -> int:
     return int(
         session.scalar(select(func.count())
                        .where(Feed.queued.is_(True))))
+
 
 def fqdn(url: str) -> Optional[str]:
     """hopefully faster than any formal URL parser."""
@@ -78,7 +84,7 @@ def fqdn(url: str) -> Optional[str]:
         items = url.split('/', 3)
         domain_portno = items[2].split(':')
         return domain_portno[0]
-    except:                     # malformed URL
+    except BaseException:                     # malformed URL
         return None             # special cased for ScoreBoard
 
 
@@ -88,8 +94,9 @@ class HeadHunter:
     perhaps subclass into ListHeadHunter and DBHeadHunter?
     (and don't report stats in ListHeadHunter??)
     """
+
     def __init__(self) -> None:
-        self.stats = Stats.get() # singleton
+        self.stats = Stats.get()  # singleton
 
         # make all private?
         self.ready_list: List[Item] = []
@@ -99,7 +106,7 @@ class HeadHunter:
             sb: ScoreBoard() for sb in SCOREBOARDS
         }
 
-    def refill(self, feeds: Optional[List[int]]=None) -> None:
+    def refill(self, feeds: Optional[List[int]] = None) -> None:
         """
         called with non-empty list with command line feed ids
         """
@@ -152,6 +159,7 @@ class HeadHunter:
 
     def find_work(self) -> Optional[Item]:
         blocked = 0
+
         def blocked_stats(stalled):
             self.stats.gauge('hunter.blocked', blocked)
             if stalled:

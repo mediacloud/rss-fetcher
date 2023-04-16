@@ -825,11 +825,11 @@ def fetch_and_process_feed(
         #     Marx Brothers' "Night at the Opera" (1935)
 
         if (not f.active
-            or not f.system_enabled
-            or not f.queued
-            # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
-            # or f.next_fetch_attempt and f.next_fetch_attempt > now
-            ):
+                or not f.system_enabled
+                or not f.queued
+                # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
+                # or f.next_fetch_attempt and f.next_fetch_attempt > now
+                ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
             # tempting to clear f.queued here if set, but that

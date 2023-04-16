@@ -27,6 +27,7 @@ DEBUG_COUNTERS = False
 SCRIPT = 'fetcher'
 logger = logging.getLogger(SCRIPT)
 
+
 def main():
     task_timeout = conf.TASK_TIMEOUT_SECONDS
 
@@ -43,7 +44,8 @@ def main():
     p.add_argument('feeds', metavar='FEED_ID', nargs='*', type=int,
                    help='Fetch specific feeds and exit.')
 
-    args = p.my_parse_args(pid=True)  # parse logging args, output start message
+    # parse logging args, output start message
+    args = p.my_parse_args(pid=True)
 
     hunter = HeadHunter()
 
@@ -68,12 +70,12 @@ def main():
 
     def worker_stats() -> None:
         stats.gauge('workers.active', manager.active_workers)
-        stats.gauge('workers.current', manager.cworkers) # current
-        stats.gauge('workers.n', manager.nworkers) # goal
+        stats.gauge('workers.current', manager.cworkers)  # current
+        stats.gauge('workers.n', manager.nworkers)  # goal
         if DEBUG_COUNTERS:
             print('workers.active', manager.active_workers)
-            print('workers.current', manager.cworkers) # current
-            print('workers.n', manager.nworkers) # goal
+            print('workers.current', manager.cworkers)  # current
+            print('workers.n', manager.nworkers)  # goal
 
     if args.feeds:
         # force feed with feed ids from command line
@@ -102,7 +104,8 @@ def main():
             loops += 1
             if elapsed > 10 or loops > 10:
                 # XXX want to make sure stats reported often enough!
-                logger.info(f"looking for work, {elapsed:.2f} sec elapsed, {loops} loops")
+                logger.info(
+                    f"looking for work, {elapsed:.2f} sec elapsed, {loops} loops")
 
             looked_for_work = True
             item = hunter.find_work()
@@ -123,26 +126,27 @@ def main():
                 hunter.get_ready(session)
                 session.commit()
 
-            w.call('fetch', item) # call method in child process
+            w.call('fetch', item)  # call method in child process
             worker_stats()
 
         if not looked_for_work:
             hunter.check_stale()
-            print("need to force stats reporting?")
 
-        # Wake up once a minute: find_work() will re fetch the
+        # Wake up once a PERIOD: find_work() will re fetch the
         # ready_list if stale.  Will wake up early if a worker
         # finishes a feed.  NOT sleeping until next next_fetch_attempt
         # so that changes (new feeds and triggered fetch) get picked
         # up.
+        PERIOD = 60
 
         # calculate next wakeup time based on when we last woke
-        next_wakeup = t0 - (t0 % 60) + 60
+        next_wakeup = t0 - (t0 % PERIOD) + PERIOD
         # sleep until then:
         now = time.time()
         stime = next_wakeup - now
         if stime <= 0:
-            logger.info(f"sleep time {stime:.6f} t0 {t0} nw {next_wakeup} now {now}")
+            logger.info(
+                f"sleep time {stime:.6f} t0 {t0} nw {next_wakeup} now {now}")
             stime = 0.5         # XXX avoid hard loop?
         manager.poll(stime)
 
@@ -150,9 +154,9 @@ def main():
     while manager.active_workers > 0:
         manager.poll()
 
+
 if __name__ == '__main__':
     try:
         main()
     except Exception as e:
         logger.exception("main")
-

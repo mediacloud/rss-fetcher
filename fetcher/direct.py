@@ -15,6 +15,7 @@ it is not currenly possible to have two active Manager objects
 """
 
 # Python
+import collections
 import logging
 import json
 import os
@@ -92,7 +93,7 @@ class Worker:
 
     def _child(self, n: int, csock: socket.socket, timeout: float) -> None:
         """
-        child: loop reading method & args, returning result.
+        child process: loop reading method & args, returning result.
         called from __init__, and never returns.
         """
         # XXX close log file, and open new one based on "n"
@@ -102,6 +103,7 @@ class Worker:
         def alarm_handler(sig: int, frame: Optional[FrameType]) -> None:
             raise JobTimeoutException()
         signal.signal(signal.SIGALRM, alarm_handler)
+        # children run to completion
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         while True:
             setproctitle(f"{APP} {n}: idle")
@@ -136,7 +138,7 @@ class Worker:
                 csock.send(json.dumps(ret).encode('utf8'))
             except BrokenPipeError:  # remote closed for read
                 break
-            except TypeError:   # json encoding error
+            except TypeError:   # JSON encoding error
                 break
         sys.exit(0)
 
@@ -156,6 +158,7 @@ class Worker:
     # XXX add _timeout=TIMEOUT argument???
     def call(self, method_name: str, *args: Any, **kw: Any) -> None:
         assert not self.wactive
+        self.manager.idle_workers.remove(self)
         # XXX verify method_name exists w/ hasattr(self, name)???
         msg = json.dumps([method_name, args, kw])
         # XXX wrap in try?
@@ -171,7 +174,7 @@ class Worker:
         msg = self.sock.recv(MAXJSON)
         if msg:
             # print(self.fileno(), '->', msg)
-            self.wactive = False
+            # book keeping done in Manager.poll
             return True, json.loads(msg)
         # XXX mark as closed
         return False, None
@@ -201,13 +204,14 @@ class Manager:
         self.cworkers = 0         # current number of workers
         self.active_workers = 0   # workers w/ work
         self.worker_by_fd: Dict[int, Worker] = {}
-
+        self.idle_workers = collections.deque()
         for i in range(0, nworkers):
             self._create_worker(i)
 
     def _create_worker(self, n: int) -> Worker:
         w = self.worker_class(self, n, self.timeout)
         self.worker_by_fd[w.fileno()] = w
+        self.idle_workers.append(w)
         self.cworkers += 1
         return w
 
@@ -217,30 +221,32 @@ class Manager:
         for fd in r:
             w: Worker = self.worker_by_fd[fd]
             ok, ret = w.recv()
-            self.active_workers -= 1
+            if wactive := w.wactive:
+                self.active_workers -= 1
+                w.wactive = False
+                self.idle_workers.append(w)
+
             if ok:
                 if (m := ret.get('method')):
                     # if Worker <method>_done method exists,
                     # call it (in Manager process)
                     if (done := getattr(w, m + '_done', None)):
                         done(ret)
-                w.wactive = False
             else:               # saw EOF (from child exit)
-                # XXX log???
-                n = w.n
+                n = w.n         # get slot
+                logger.info(f"saw EOF on fd {fd} (worker {n})")  # XXX warning?
+                del self.worker_by_fd[fd]
+                if not wactive:
+                    self.idle_workers.remove(w)
+                self.cworkers -= 1
                 w.close()
                 del w
                 self._create_worker(n)  # (unless shutting down)!!
 
     def find_available_worker(self) -> Optional[Worker]:
-        if self.active_workers == self.nworkers:
+        if len(self.idle_workers) == 0:
             return None
-        # OPT: keep dequeue of inactive workers to avoid linear search
-        for w in self.worker_by_fd.values():
-            if not w.wactive:
-                return w
-        # COUNTER
-        return None
+        return self.idle_workers[0]  # removed by Worker.call
 
     def close_all(self, timeout: Optional[float] = None) -> None:
         for w in self.worker_by_fd.values():
