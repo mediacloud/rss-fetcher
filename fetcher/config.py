@@ -155,7 +155,7 @@ _DEFAULT_MINIMUM_INTERVAL_MINS = _DEFAULT_DEFAULT_INTERVAL_MINS
 _DEFAULT_MAXIMUM_INTERVAL_MINS = 24 * 60
 
 # default value for MAXIMUM_BACKOFF_MINS if not configured:
-_DEFAULT_MAXIMUM_BACKOFF_MINS = 2 * 24 * 60
+_DEFAULT_MAXIMUM_BACKOFF_MINS = 24 * 60
 
 
 class _Config:                  # only instantiated in this file
