@@ -104,6 +104,15 @@ CRONTAB=/etc/cron.d/$APP
 # files not rotated, so only save output from last invocation.
 LOGDIR=/var/tmp
 
+destroy_service() {
+    PLUGIN=$1
+    SERVICE=$2
+    if dokku $PLUGIN:exists $SERVICE >/dev/null 2>&1; then
+	echo "destroying $PLUGIN service $SERVICE"
+	dokku $PLUGIN:destroy $SERVICE
+    fi
+}
+
 if [ "x$OP" = xdestroy ]; then
     # XXX make into a destroy function so can be used for teardown in case create fails??
     if ! dokku apps:exists $APP >/dev/null 2>&1; then
@@ -115,8 +124,8 @@ if [ "x$OP" = xdestroy ]; then
     # (add --force to suppress??)
 
     dokku apps:destroy $APP
-    dokku redis:destroy $REDIS_SVC
-    dokku postgres:destroy $DATABASE_SVC
+    destroy_service redis $REDIS_SVC
+    destroy_service postgres $DATABASE_SVC
 
     rm -f $CRONTAB dokku-postgres-$APP
     ## end destroy function
@@ -321,9 +330,8 @@ check_service() {
 
 ################
 
-check_service redis $REDIS_SVC $APP
-
-# parsing automagic REDIS_URL for rq in fetcher/queue.py
+# no current need for redis:
+destroy_service redis $REDIS_SVC
 
 ################
 
@@ -354,7 +362,7 @@ else
 fi
 
 ################
-# worker related vars
+# fetcher related vars
 
 add_vars SAVE_RSS_FILES=0
 
@@ -408,6 +416,20 @@ if [ "x$PUBKEY_FILE" != x -a -f $DOKKU_KEYS ]; then
     fi
 fi
 
+################ remove old process types
+
+# compare names in Procfile w/ those in $SCALE_FILE??
+SCALE_FILE=/var/lib/dokku/config/ps/$APP/scale
+
+remove_process_type() {
+    NAME=$1
+    if grep "^$NAME:" $SCALE_FILE >/dev/null; then
+	echo removing $NAME process type
+	sed -i "/^$NAME:/d" $SCALE_FILE
+    fi
+}
+remove_process_type worker
+
 ################
 # from https://www.freecodecamp.org/news/how-to-build-your-on-heroku-with-dokku/
 
@@ -437,7 +459,7 @@ if public_server; then
     # This requires $APP.$HOST.$PUBLIC_DOMAIN to be visible from Internet:
     dokku letsencrypt:enable $APP
 fi
-################
+################ crontab
 
 if [ "x$LOGDIR" != x/var/tmp ]; then
     # NOTE!!! LOGDIR for crontabs outside of app "storage" area; only saving output of last run
@@ -617,3 +639,6 @@ if dokku apps:exists $MCWEB_APP >/dev/null 2>&1; then
 	fi
     fi
 fi
+
+
+/var/lib/dokku/config/ps/pbudne-rss-fetcher/scale
