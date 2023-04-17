@@ -89,6 +89,14 @@ def main() -> None:
         hunter.refill(args.feeds)
     else:
         # clear all Feed.queued columns
+        # XXX maybe leave be, and when zero of our workers
+        #   are active but database shows non-zero queued,
+        #   clear out the DB?  Back when queued meant queued,
+        #   "last_fetch_attempt" was changed to "now" as soon as
+        #   a worker started fetching the feed, which gave
+        #   a clear indication of orphaned entries.  Stopped
+        #   doing that to allow detecting if the previous fetch
+        #   was a success....
         with Session() as session:
             res = session.execute(
                 update(Feed)
