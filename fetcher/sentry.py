@@ -7,7 +7,6 @@ import sys
 
 # PyPI:
 import sentry_sdk
-from sentry_sdk.integrations.rq import RqIntegration
 
 from fetcher import APP, VERSION
 from fetcher.config import conf
@@ -33,8 +32,7 @@ def init() -> bool:
             env = 'production'
 
         integrations = []
-        if 'rq' in sys.modules:
-            integrations.append(RqIntegration())
+        # test here for any loaded modules that need explicitly loaded integrations
 
         # NOTE: Looks like environment defaults to "production"
         # unless passed, or SENTRY_ENVIRONMENT env variable set.
