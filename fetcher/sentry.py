@@ -31,14 +31,10 @@ def init() -> bool:
         else:
             env = 'production'
 
-        integrations = []
-        # test here for any loaded modules that need explicitly loaded integrations
-
         # NOTE: Looks like environment defaults to "production"
         # unless passed, or SENTRY_ENVIRONMENT env variable set.
         sentry_sdk.init(dsn=sentry_dsn,
                         environment=env,
-                        integrations=integrations,
                         release=VERSION)
         return True
     else:
