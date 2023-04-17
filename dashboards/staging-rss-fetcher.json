@@ -22,12 +22,12 @@
   "gnetId": null,
   "graphTooltip": 0,
   "id": 1,
-  "iteration": 1681520290805,
+  "iteration": 1681751544676,
   "links": [],
   "panels": [
     {
       "aliasColors": {},
-      "bars": true,
+      "bars": false,
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
@@ -57,7 +57,7 @@
         "total": false,
         "values": false
       },
-      "lines": false,
+      "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
@@ -78,23 +78,30 @@
         }
       ],
       "spaceLength": 10,
-      "stack": true,
+      "stack": false,
       "steppedLine": false,
       "targets": [
         {
           "refCount": 0,
           "refId": "A",
-          "target": "stats.gauges.mc.$realm.rss-fetcher.queue_feeds.db.queued"
+          "target": "stats.gauges.mc.$realm.rss-fetcher.fetcher.db.ready"
         },
         {
           "refCount": 0,
           "refId": "C",
-          "target": "stats.gauges.mc.$realm.rss-fetcher.queue_feeds.db.ready"
+          "target": "stats.gauges.mc.$realm.rss-fetcher.fetcher.db.running"
         },
         {
+          "hide": false,
           "refCount": 0,
           "refId": "B",
-          "target": "stats.gauges.mc.$realm.rss-fetcher.queue_feeds.hi_water",
+          "target": "stats.gauges.mc.$realm.rss-fetcher.fetcher.on_hand"
+        },
+        {
+          "hide": false,
+          "refCount": 0,
+          "refId": "D",
+          "target": "stats.gauges.mc.$realm.rss-fetcher.fetcher.hunter.blocked",
           "textEditor": false
         }
       ],
@@ -102,7 +109,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "feed status in database",
+      "title": "feed status",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -190,18 +197,18 @@
         {
           "refCount": 0,
           "refId": "A",
-          "target": "stats.timers.mc.$realm.rss-fetcher.worker.start_delay.upper"
+          "target": "stats.timers.mc.$realm.rss-fetcher.fetcher.start_delay.upper"
         },
         {
           "refCount": 0,
           "refId": "B",
-          "target": "stats.timers.mc.$realm.rss-fetcher.worker.start_delay.lower"
+          "target": "stats.timers.mc.$realm.rss-fetcher.fetcher.start_delay.lower"
         },
         {
           "hide": true,
           "refCount": 0,
           "refId": "C",
-          "target": "stats.timers.mc.$realm.rss-fetcher.worker.start_delay.mean"
+          "target": "stats.timers.mc.$realm.rss-fetcher.fetcher.start_delay.mean"
         }
       ],
       "thresholds": [],
@@ -209,222 +216,6 @@
       "timeRegions": [],
       "timeShift": null,
       "title": "delay from ready to start",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "ms",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "description": "",
-      "fieldConfig": {
-        "defaults": {
-          "links": []
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 9
-      },
-      "hiddenSeries": false,
-      "id": 17,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "8.1.3",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "/hi_water/",
-          "bars": false,
-          "color": "#5794F2",
-          "fill": 0,
-          "lines": true,
-          "stack": false
-        }
-      ],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": true,
-      "targets": [
-        {
-          "hide": false,
-          "refCount": 0,
-          "refId": "A",
-          "target": "stats.counters.mc.$realm.rss-fetcher.queue_feeds.added2.count"
-        },
-        {
-          "refCount": 0,
-          "refId": "B",
-          "target": "stats.gauges.mc.$realm.rss-fetcher.worker.workq"
-        },
-        {
-          "refCount": 0,
-          "refId": "C",
-          "target": "stats.gauges.mc.$realm.rss-fetcher.queue_feeds.hi_water",
-          "textEditor": false
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "work queue",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": true,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "description": "min and max time in queue",
-      "fieldConfig": {
-        "defaults": {
-          "links": []
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 9
-      },
-      "hiddenSeries": false,
-      "id": 14,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": false,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "8.1.3",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refCount": 0,
-          "refId": "A",
-          "target": "stats.timers.mc.$realm.rss-fetcher.worker.time_in_queue.upper"
-        },
-        {
-          "refCount": 0,
-          "refId": "B",
-          "target": "stats.timers.mc.$realm.rss-fetcher.worker.time_in_queue.lower"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "time in queue",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -480,7 +271,7 @@
         "h": 11,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 9
       },
       "hiddenSeries": false,
       "id": 4,
@@ -511,14 +302,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "stats.counters.mc.$realm.rss-fetcher.worker.feeds.*.count"
+          "target": "stats.counters.mc.$realm.rss-fetcher.fetcher.feeds.*.rate"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "feeds processed",
+      "title": "feeds processed / second",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -574,7 +365,7 @@
         "h": 11,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 9
       },
       "hiddenSeries": false,
       "id": 13,
@@ -605,7 +396,7 @@
       "targets": [
         {
           "refId": "A",
-          "target": "stats.timers.mc.$realm.rss-fetcher.worker.total.*.upper"
+          "target": "stats.timers.mc.$realm.rss-fetcher.fetcher.total.*.upper"
         }
       ],
       "thresholds": [],
@@ -667,7 +458,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 29
+        "y": 20
       },
       "hiddenSeries": false,
       "id": 8,
@@ -698,14 +489,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "stats.counters.mc.$realm.rss-fetcher.worker.stories.*.count"
+          "target": "stats.counters.mc.$realm.rss-fetcher.fetcher.stories.*.rate"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Stories",
+      "title": "stories processed / second",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -760,7 +551,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 29
+        "y": 20
       },
       "hiddenSeries": false,
       "id": 10,
@@ -836,99 +627,82 @@
       }
     },
     {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
       "datasource": null,
-      "description": "Number of rss fetcher worker processes",
       "fieldConfig": {
         "defaults": {
-          "links": []
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "fill": 1,
-      "fillGradient": 0,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 38
+        "y": 29
       },
-      "hiddenSeries": false,
-      "id": 16,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
+      "id": 21,
       "options": {
-        "alertThreshold": true
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
-      "percentage": false,
-      "pluginVersion": "8.1.3",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": true,
       "targets": [
         {
           "refId": "A",
-          "target": "stats.gauges.mc.$realm.rss-fetcher.queue_feeds.workers",
-          "textEditor": true
+          "target": "stats.gauges.mc.$realm.rss-fetcher.fetcher.workers.*"
         }
       ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "Workers",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
+      "title": "Worker Processes",
+      "type": "timeseries"
     },
     {
       "datasource": null,
@@ -986,7 +760,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 38
+        "y": 29
       },
       "id": 19,
       "options": {
@@ -1002,10 +776,89 @@
       "targets": [
         {
           "refId": "A",
-          "target": "stats.counters.mc.$realm.rss-fetcher.worker.adjust.*.count"
+          "target": "stats.counters.mc.$realm.rss-fetcher.fetcher.adjust.*.count"
         }
       ],
       "title": "auto-adjust",
+      "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "refCount": 0,
+          "refId": "A",
+          "target": "stats.counters.mc.$realm.rss-fetcher.fetcher.hunter.*.count"
+        }
+      ],
+      "title": "Hunter counters",
       "type": "timeseries"
     }
   ],
@@ -1069,5 +922,5 @@
   "timezone": "",
   "title": "rss-fetcher",
   "uid": "sWyOqlVVk",
-  "version": 14
+  "version": 29
 }
