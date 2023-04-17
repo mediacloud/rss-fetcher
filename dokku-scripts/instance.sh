@@ -108,6 +108,10 @@ destroy_service() {
     PLUGIN=$1
     SERVICE=$2
     if dokku $PLUGIN:exists $SERVICE >/dev/null 2>&1; then
+	if dokku $PLUGIN:linked $SERVICE $APP; then
+	    echo unlinking $PLUGIN service $SERVICE
+	    dokku $PLUGIN:unlink $SERVICE $APP
+	fi
 	echo "destroying $PLUGIN service $SERVICE"
 	dokku $PLUGIN:destroy $SERVICE
     fi
@@ -423,9 +427,9 @@ SCALE_FILE=/var/lib/dokku/config/ps/$APP/scale
 
 remove_process_type() {
     NAME=$1
-    if grep "^$NAME:" $SCALE_FILE >/dev/null; then
+    if grep "^$NAME=" $SCALE_FILE >/dev/null; then
 	echo removing $NAME process type
-	sed -i "/^$NAME:/d" $SCALE_FILE
+	sed -i "/^$NAME=/d" $SCALE_FILE
     fi
 }
 remove_process_type worker
@@ -639,6 +643,3 @@ if dokku apps:exists $MCWEB_APP >/dev/null 2>&1; then
 	fi
     fi
 fi
-
-
-/var/lib/dokku/config/ps/pbudne-rss-fetcher/scale
