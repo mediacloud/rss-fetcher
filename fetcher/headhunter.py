@@ -12,6 +12,10 @@ not super-efficient [at least O(n^3)]?!
 
 Possible improvements:
 
+Use row_number by source_id in refill to limit the maximum number of
+feeds from one source in the ready_list (ie; constrain "n" to small
+values)
+
 Expose the next time a feed could be issued based on delay (so
 fetcher.py can sleep an appropriate amount of time).
 
