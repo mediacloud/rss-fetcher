@@ -1,6 +1,8 @@
 Change Log
 ==========
 
+Make-over: no-queue fetcher.py
+
 ## v0.13.0 2023-03-14
 
 Implement auto-adjustment of Feed.poll_minutes
