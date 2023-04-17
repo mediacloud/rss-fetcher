@@ -112,9 +112,9 @@ esac
 DOKKU_GIT_BRANCH=main
 
 case $BRANCH in
-prod) WORKERS=12;;
-staging) APP=staging-$APP; WORKERS=4;;
-*) APP=${LOGIN_USER}-$APP; WORKERS=1;;
+prod) ;;
+staging) APP=staging-$APP;;
+*) APP=${LOGIN_USER}-$APP;;
 esac
 
 if ! dokku apps:exists "$APP" >/dev/null 2>&1; then
@@ -243,7 +243,7 @@ for REMOTE in $PUSH_TAG_TO; do
     echo "================"
 done
 
-# start fetcher/worker procoesses
+# start fetcher/worker procoesses (only needed first time)
 echo scaling up
 PROCS="fetcher=1 web=1"
 dokku ps:scale --skip-deploy $APP $PROCS

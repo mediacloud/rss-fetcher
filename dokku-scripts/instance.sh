@@ -178,6 +178,7 @@ prod|staging)
 	echo "Need $VARS_FILE file w/ SENTRY_DSN RSS_FETCHER_{USER,PASS}" 1>&2
 	exit 1
     fi
+    WORKERS=16
     ;;
 *)
     VF=.pw.$UNAME
@@ -195,6 +196,10 @@ prod|staging)
     ;;
 esac
 add_vars $(cat $VF)
+
+if [ "x$WORKERS" != x ]; then
+    add_vars RSS_FETCH_WORKERS=$WORKERS
+fi
 
 ################ ssh key management
 
