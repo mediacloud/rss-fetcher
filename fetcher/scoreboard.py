@@ -7,28 +7,24 @@ https://en.wikipedia.org/wiki/Scoreboarding
 
 Possible efficiency improvements:
 
+Expose lowest "next_start" value so that fetcher can sleep
+appropriately (now sleeping RSS_FETCH_FEED_SECS so that newly cleared
+items can be issued at minimum interval).  If all delays are equal
+(within a scoreboard), a simple deque of "next_start" values (or Items
+containing them) might suffice?
+
 Keep track of dependencies in each scoreboard item so that newly
 issuable items can be checked as soon as a blocking condition clears.
 Would likely require scoreboard.py to keep persistent Items (rather
 than throwing them all away on each "refill").  Paranoia regarding
 entries that disappear could be avoided by doing Feed query and sanity
 check before passing Feed Item to Worker??
-
-Expose lowest "next_start" value so that fetcher can sleep
-appropriately (now sleeping RSS_FETCH_FEED_SECS so that newly cleared
-items can be issued at minimum interval).  A simple deque of "next_start"
-values might suffice?
 """
 
 # Python
 import logging
 import time
 from typing import Any, Dict
-
-# app:
-from fetcher.config import conf
-
-RSS_FETCH_FEED_SECS = conf.RSS_FETCH_FEED_SECS
 
 
 class SBItem:
@@ -39,7 +35,7 @@ class SBItem:
     def __init__(self) -> None:
         self.current = 0
         # XXX keep queue of blocked feeds (would add complexity)
-        self.next_start = 0     # next time safe to issue
+        self.next_start = 0.0   # next time safe to issue
         # XXX implement full rate limiting???
         #   https://levelup.gitconnected.com/implement-rate-limiting-in-python-d4f86b09259f
         #   https://gist.github.com/daanzu/d34fa69e0094a3f5be6a
@@ -71,9 +67,9 @@ class ScoreBoard:
     (fqdn failed), so skip testing.
     """
 
-    # XXX take delay (from last issue? last completion???) max rate???
-    def __init__(self, concurrency: int = 1):
+    def __init__(self, concurrency: int, interval: float):
         self.concurrency = concurrency
+        self.interval = interval
         self.board: Dict[SBIndex, SBItem] = {}
 
     def safe(self, index: SBIndex) -> bool:
@@ -107,7 +103,7 @@ class ScoreBoard:
         if not item:
             item = self.board[index] = SBItem()
         item.current += 1
-        item.next_start = time.time() + RSS_FETCH_FEED_SECS
+        item.next_start = time.time() + self.interval
 
     def completed(self, index: SBIndex) -> None:
         """

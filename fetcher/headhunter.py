@@ -1,9 +1,12 @@
 """
 HeadHunter: finds work for Workers.
 (A more P.C. term might be Recruiter)
+Not sophisticated enough to be called a Scheduler!!
 
-feeds must be ready in database, and be issuable according to all
-scoreboards.
+Terminology used is that of CPU instruction scheduling:
+"issue": to start execution
+"blocked" and "unsafe": cannot currently be issued
+"scoreboard": machinery that tracks issued feeds
 
 not super-efficient [at least O(n^3)]?!
 
@@ -26,27 +29,34 @@ from typing import Any, Dict, List, NamedTuple, Optional, Union
 from sqlalchemy import func, select, or_, over, update
 
 # app:
+from fetcher.config import conf
 from fetcher.database import Session, SessionType
 from fetcher.database.models import Feed, utc
 from fetcher.scoreboard import ScoreBoard
 from fetcher.stats import Stats
+
+# read at startup, for logging
+RSS_FETCH_FEED_CONCURRENCY = conf.RSS_FETCH_FEED_CONCURRENCY
+RSS_FETCH_FEED_SECS = conf.RSS_FETCH_FEED_SECS
 
 logger = logging.getLogger(__name__)
 
 # used as HeadHunter.scoreboards[] index, and Item attr
 SCOREBOARDS = ('sources_id', 'fqdn')
 
-# only legal indices are members of SCOREBOARD;
+# only legal indices are members of SCOREBOARD tuple (above)
 # TypedDict requires access by string lit only!
 ScoreBoardsDict = Dict[str, ScoreBoard]
 
-# how often to query DB for ready entries
+# how often to refill ready_list (query DB for ready entries)
 DB_READY_SEC = 60
 
 # ready items to return: if too small could return ONLY unissuable
 # feeds.  more than can be fetched in DB_READY_SEC wastes effort,
 # *AND* the current algorithm is O(n^2 - n) in the WORST case
-# (lots of unissuable feeds)!!!
+# (lots of unissuable feeds)!!!  In April 2023 when this comment
+# was written, there were 15 sources with OVER 900 active/enabled feeds
+# (one of those over 12K, and two over 2K)!!
 DB_READY_LIMIT = 1000
 
 ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url]
@@ -62,6 +72,10 @@ class Item(NamedTuple):
 
     @staticmethod
     def _from_dict(d: Dict[str, Any]) -> 'Item':
+        """
+        create an Item from a dict
+        (for process communication w/o pickling)
+        """
         return Item(**d)
 
 # should be Feed static method; XXX FIXME after sqlalchemy 2.x upgrade
@@ -117,7 +131,9 @@ class HeadHunter:
         self.next_db_check = 0
         self.fixed = False      # fixed length (command line list)
         self.scoreboards: ScoreBoardsDict = {
-            sb: ScoreBoard() for sb in SCOREBOARDS
+            sb: ScoreBoard(concurrency=RSS_FETCH_FEED_CONCURRENCY,
+                           interval=float(RSS_FETCH_FEED_SECS))
+            for sb in SCOREBOARDS
         }
 
     def refill(self, feeds: Optional[List[int]] = None) -> None:
