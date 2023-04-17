@@ -1,3 +1,4 @@
+# XXX maybe use cPickle instead of json?
 """
 "direct drive" worker subprocess management
 
@@ -99,7 +100,7 @@ class Worker:
         # XXX close log file, and open new one based on "n"
         #   (basing file name on pid would mean pruning of
         #   files from a previous run would not occur)???
-
+        logger.debug(f"Worker {n} child process starting")
         def alarm_handler(sig: int, frame: Optional[FrameType]) -> None:
             raise JobTimeoutException()
         signal.signal(signal.SIGALRM, alarm_handler)
@@ -119,6 +120,7 @@ class Worker:
                    'kw': kw}
 
             setproctitle(f"{APP} {n}: {method_name} {args} {kw}")
+            # logger.debug(f"Worker {n} {method_name}")
             try:
                 if timeout:
                     set_job_timeout(timeout)
@@ -126,8 +128,11 @@ class Worker:
                 method = getattr(self, method_name)
                 ret['ret'] = method(*args, **kw)
             except Exception as e:
+                # XXX logger.exception???????
                 ret['exc'] = type(e).__name__
                 ret['info'] = str(e)
+
+            # logger.debug(f"Worker {n} ret {ret}")
 
             if timeout:
                 set_job_timeout()

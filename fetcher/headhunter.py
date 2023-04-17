@@ -60,6 +60,9 @@ class Item(NamedTuple):
     # calculated (for scoreboards):
     fqdn: Optional[str]         # None if bad URL
 
+    @staticmethod
+    def _from_dict(d: Dict[str, Any]) -> 'Item':
+        return Item(**d)
 
 # should be Feed static method; XXX FIXME after sqlalchemy 2.x upgrade
 def _where_active(q):
@@ -191,16 +194,17 @@ class HeadHunter:
             # reported as gauge, so only last count counts (use timer?)
             for item in self.ready_list:
                 for sbname in SCOREBOARDS:
+                    self.debug_item("checking", item)
                     sb = self.scoreboards[sbname]
                     itemval = getattr(item, sbname)
                     if not sb.safe(itemval):
-                        # XXX counter??
                         logger.debug(f"  UNSAFE {sbname} {itemval}")
                         blocked += 1
                         break   # check next item
                 else:
                     # made it through the gauntlet.
                     # mark item as issued on all scoreboards:
+                    self.debug_item("issue", item)
                     for sbname in SCOREBOARDS:
                         sb = self.scoreboards[sbname]
                         itemval = getattr(item, sbname)
@@ -209,14 +213,14 @@ class HeadHunter:
                     # print("find_work ->", item)
                     self.ready_list.remove(item)
                     self.on_hand_stats()  # report updated list length
-                    blocked_stats(False)
+                    blocked_stats(False)  # not stalled
                     return item
                 # here when "break" executed for some scoreboard
                 # (not safe to issue): continue to next item in ready list
 
         # here with empty ready list, or nothing issuable (stall)
         logger.debug(f"no issuable work: {self.on_hand()} on hand")
-        blocked_stats(True)
+        blocked_stats(True)     # stalled
         return None
 
     def ready_count(self) -> int:
@@ -226,6 +230,7 @@ class HeadHunter:
         """
         called when an issued item is no longer active
         """
+        self.debug_item("completed", item)
         for sbname in SCOREBOARDS:
             sb = self.scoreboards[sbname]
             itemval = getattr(item, sbname)
@@ -247,3 +252,6 @@ class HeadHunter:
     def on_hand_stats(self) -> None:
         self.stats.gauge('on_hand', x := self.on_hand())
         # print("on_hand", x)
+
+    def debug_item(self, what: str, item: Item) -> None:
+        logger.debug(f"{what} {item.id} {item.sources_id} {item.fqdn}")

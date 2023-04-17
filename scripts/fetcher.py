@@ -59,16 +59,17 @@ def main() -> None:
 
     # here for access to hunter!
     class FetcherWorker(Worker):
-        def fetch(self, item: Item) -> None:  # called in Worker to do work
+        def fetch(self, d: Dict[str, Any]) -> None:  # called in Worker to do work
             """
             passed entire item (as dict) for use by fetch_done
             """
-            # print("fetch", item, "***")
+            item = Item._from_dict(d)
             feed_worker(item)
 
         def fetch_done(self, ret: Dict) -> None:  # callback in Manager
             # print("fetch_done", ret)
-            item = ret['args'][0]  # recover "fetch" first arg (dict)
+            # first positional arg is dict of Item values
+            item = Item._from_dict(ret['args'][0])
             hunter.completed(item)
 
     # XXX pass command line args for concurrency, fetches/sec??
@@ -93,7 +94,7 @@ def main() -> None:
                 update(Feed)
                 .values(queued=False)
                 .where(Feed.queued.is_(True)))
-            # res.rowcount is number of effected rows?
+            # print("UPDATED", res.rowcount)
             session.commit()
 
     next_wakeup = 0.0
@@ -121,7 +122,7 @@ def main() -> None:
                     update(Feed)
                     .where(Feed.id == feed_id)
                     .values(queued=True))
-                # res.rowcount is number of effected rows?
+                # print("UPDATED", res.rowcount)
                 session.commit()
 
             w.call('fetch', item._asdict())  # call method in child process
@@ -133,7 +134,7 @@ def main() -> None:
         # Wake up once a period: find_work() will re fetch the
         # ready_list if stale.  Will wake up early if a worker
         # finishes a feed.  NOT sleeping until next next_fetch_attempt
-        # so that changes (new feeds and triggered fetch) get picked up.
+        # so that changes (new feeds and triggered fetch) get picked up ASAP.
 
         # calculate next wakeup time based on when we last woke
         next_wakeup = t0 - (t0 % period) + period
@@ -157,4 +158,5 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        logger.exception("main")
+        logger.exception("main")  # for log file
+        raise                   # for Sentry
