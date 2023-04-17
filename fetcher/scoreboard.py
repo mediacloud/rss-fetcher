@@ -16,7 +16,8 @@ check before passing Feed Item to Worker??
 
 Expose lowest "next_start" value so that fetcher can sleep
 appropriately (now sleeping RSS_FETCH_FEED_SECS so that newly cleared
-items can be issued at minimum interval)
+items can be issued at minimum interval).  A simple deque of "next_start"
+values might suffice?
 """
 
 # Python
@@ -58,7 +59,8 @@ class ScoreBoard:
     Does not (yet) keep track of dependencies
     that keep a feed from being issued.
     This makes the "find next feed" operation O(n^2)
-    (times the number of scoreboards!)
+    (times the number of scoreboards!), where the effective
+    "n" is the number of blocked feeds.
 
     Wants to be a Generic? Subclasses can have different index types.
     Currently: SBIndex used instead of bare "Any"
