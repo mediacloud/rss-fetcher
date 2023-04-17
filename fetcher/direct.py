@@ -1,4 +1,3 @@
-# XXX maybe use cPickle instead of json?
 """
 "direct drive" worker subprocess management
 
@@ -10,9 +9,21 @@ And unlike multiprocessing process pool which "applies" a function to
 a bounded list of work items (and like queued work scenarios like
 celery and rq), the work stream is open ended.
 
-Manager is written as a class for encapsulation/extension,
-it is not currenly possible to have two active Manager objects
-(depends on exclusive use/access to SIGALRM)
+Possible improvements:
+
+Use "pickle" instead of JSON.  The advantages of JSON were: 1:
+printable for easy bringup. 2: can be easily delimited with newline
+(but that's not being done; since only one call at a time is sent to a
+Worker, a large "recv" has sufficed to pick up requests/responses.
+
+COULD create extra Worker processes on demand (up to some limit), and
+retire excess Workers when not needed.
+
+Manager is written as a class for encapsulation/extension, it is not
+currenly possible to have two active Manager objects (depends on
+exclusive use/access to SIGALRM); this _could_ be fixed by creating
+(or likely finding) a timeout manager that provides timed callouts,
+but that's not necessary.
 """
 
 # Python
