@@ -473,14 +473,6 @@ fi
 
 CRONTEMP="/tmp/$APP.cron.tmp"
 
-if grep '^fetcher:.*--loop' Procfile >/dev/null; then
-    PERIODIC="# running fetcher w/ --loop in Procfile: no crontab entry needed"
-else
-    # "run" takes either Procfile entry name *OR* a shell command!
-    # any additional args after Procfile name passed as arguments!!
-    PERIODIC="*/30 * * * * root /usr/bin/dokku run $APP fetcher > $LOGDIR/fetcher.log 2>&1"
-fi
-
 # prevent world/group write to CRONTEMP/CRONTAB
 umask 022
 
