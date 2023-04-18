@@ -67,18 +67,17 @@ APP=${PREFIX}rss-fetcher
 
 MCWEB_APP=${PREFIX}mcweb
 
-# PLB: If the server that runs production (tarbell) had a public IP
-# address I don't think this would be needed: We can't use "external"
-# https://APP.tarbell.mediacloud.org/api/...  URLs because the DNS
-# names resolve to a public IP address (angwin's! The TCP SYN packets
-# are NATed and forwarded to tarbell over a private network) that
-# can't be used on the "inside" of the private network (it may be that
-# the angwin firewall _just_ needs to forward SYN packets sent to
-# public:443 received on angwin's PRIVATE network interface).
+# PLB: this may no longer be needed: UMass has set up DNS in the
+# angwin cluster so that *.tarbell.mediacloud.org resolves to the
+# private (10.x.x.x) address of tarbell.  This needs to be set up on a
+# per-server basis, and setting NET allows inter-app access on a
+# single server without special arrangement (*BUT* you still need to
+# use plaintext http and the private port, because getting a let's
+# encrypt certificate requires having an Internet accessible URL.
 
 # NET is OPTIONAL: if set, confers the ability to resolve docker
 # container names (ie; appname.procname.N) to container IP addresses.
-# The remote app does NOT need to be on the same network (unless they
+# The remote app does NOT need to be on the same docker network (unless they
 # also need to be able to resolve container names to IP addresses, as
 # is the case for mcweb and rss-fetcher), so the network doesn't
 # need to be "realm" (prod/staging/dev) specific.
@@ -493,7 +492,9 @@ cat >$CRONTEMP <<EOF
 # only saving output from last run; all scripts log to /app/storage/logs now
 $PERIODIC
 # generate RSS output files (try multiple times a day, in case of bad code, or downtime)
-30 */6 * * * root $DOKKU_RUN_PERIODIC ./run-gen-daily-story-rss.sh > $LOGDIR/$APP-generator.log 2>&1
+# NOTE! production instance runs "aws s3 sync" hourly lower down in crontab, and shouldn't
+# run too soon after to allow generator to run to completion.
+15 * * * * root $DOKKU_RUN_PERIODIC ./run-gen-daily-story-rss.sh > $LOGDIR/$APP-generator.log 2>&1
 #
 # archive old DB table entries (non-critical); production aws s3 sync should run after this
 # (before 2am standard time rollback, in case we never get rid of time changes, and server not configured in UTC)
@@ -557,7 +558,7 @@ if [ "x$TYPE" = xprod ]; then
     chown $BACKUP_USER $AWS_CREDS
 
     # copy generated RSS files to public S3 bucket
-    echo "45 0 * * * $BACKUP_USER aws s3 --profile $RSS_PROFILE sync $STDIR/rss-output-files/ s3://$RSS_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-rss-mc.log 2>&1" >> $CRONTEMP
+    echo "45 * * * * $BACKUP_USER aws s3 --profile $RSS_PROFILE sync $STDIR/rss-output-files/ s3://$RSS_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-rss-mc.log 2>&1" >> $CRONTEMP
 
     # copy archived rows in CSV files to private bucket (NOTE! After "run archiver" entry created above)
     echo "45 1 * * * $BACKUP_USER aws s3 --profile $DB_BACKUP_PROFILE sync $STDIR/db-archive/ s3://$DB_BACKUP_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-dbarch-mc.log 2>&1" >> $CRONTEMP
