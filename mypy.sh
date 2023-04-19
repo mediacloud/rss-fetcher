@@ -5,11 +5,6 @@
 # see also mypy.ini
 # NOTE! psycopg2 install requires postgres client library libpq-dev
 
-# errors suppressed via "# type: ignore[....]"
-# * available stubs for sqlalchemy are not up to date:
-#	missing: Session.begin(), PendingRollbackError
-#       Solution is probably to use SQLAlchemy 2.0 when it comes out.
-#       (2.0.0b2 was released 2022-10-20)
 # * no type hints for feedparser: (could put our own .pyi files in stubs/)
 #       errors suppressed via mypy.ini and "# type: ignore[...]"
 
@@ -23,9 +18,12 @@
 PYTHON=${PYTHON:-python3}
 
 # expected to be run in a venv w/ requirements.txt installed
-VENV=venv
+VENV=venv2
+CACHE='--cache-dir .mypy_cache_alchemy2'
+
+echo using $VENV -- go back to venv when merged!!!
 if [ ! -d $VENV ]; then
-    echo creating venv
+    echo creating $VENV
     $PYTHON -mvenv $VENV || exit 1
 fi
 . ./$VENV/bin/activate
@@ -64,6 +62,7 @@ done
 #    touch $VENV/.mypy--install-types
 #fi
 
+ARGS="$CACHE"
 for X in scripts/[a-z]*.py; do
     ARGS="$ARGS -m$(echo $X | sed -e 's@/@.@' -e 's/\.py$//')"
 done

@@ -3,19 +3,20 @@ This implements "config.ini" style storage made up of "sections",
 each with string key and associated (string) values, stored
 in a database table.
 
-This is the THIRD attempt at an interface, and I can imagine fourth
+This is the THIRD attempt at an interface, and I can imagine FOURTH:
         (using Python properties (requires a singleton instance of a subclass,
         using get/set and unset by setting to None)
-and FIFTH (using descriptors, which, I think wouldn't require an
+FIFTH, (using descriptors, which, I think wouldn't require an
         instance of the subclass, and could implement "unset" via the
         Python __delete__ method),
+and a SIXTH, which presents the entire table as a dict-like object
+        indexed by section, containing dict-like objects indexed by key.
 
 I've already spent MORE than enough time on a trivial and
 not (yet) much used facility!
 
 Phil Budne
 2022-12-13
-
 """
 
 import logging
@@ -43,7 +44,7 @@ class Section:
         with Session() as session:
             items = session.query(Property.key, Property.value)\
                            .filter(Property.section == cls.SECTION_NAME)
-            return {item.key: item.value for item in items}
+            return {item.key: item.value for item in iter(items)}
 
 
 class PropertyObject:

@@ -30,12 +30,12 @@ import time
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 # PyPI
-from sqlalchemy import func, select, or_, over, update
+from sqlalchemy import func, select, over, update
 
 # app:
 from fetcher.config import conf
 from fetcher.database import Session, SessionType
-from fetcher.database.models import Feed, utc
+from fetcher.database.models import Feed
 from fetcher.scoreboard import ScoreBoard
 from fetcher.stats import Stats
 
@@ -68,28 +68,9 @@ class Item(NamedTuple):
     # calculated (for scoreboards):
     fqdn: Optional[str]         # None if bad URL
 
-# should be Feed static method; XXX FIXME after sqlalchemy 2.x upgrade
-
-
-def _where_active(q):
-    return q.where(Feed.active.is_(True),
-                   Feed.system_enabled.is_(True))
-
-
-# should be Feed static method; XXX FIXME after sqlalchemy 2.x upgrade
-def _where_ready(q):
-    now = utc()
-    return q.where(Feed.queued.is_(False),
-                   or_(Feed.next_fetch_attempt <= now,
-                       Feed.next_fetch_attempt.is_(None)))
-
 
 def ready_feeds(session: SessionType) -> int:
-    return int(
-        session.scalar(
-            _where_ready(
-                _where_active(
-                    select(func.count())))))
+    return int(session.scalar(Feed.select_where_ready(func.count())))
 
 
 def running_feeds(session: SessionType) -> int:
@@ -135,14 +116,14 @@ class HeadHunter:
         self.stats.incr('hunter.refill')
 
         # start DB query
-        q = _where_active(select(ITEM_COLS))
-
         if feeds:
-            q = q.where(Feed.id.in_(feeds),
-                        Feed.queued.is_(False))
+            q = Feed.select_where_active(*ITEM_COLS)\
+                    .where(Feed.id.in_(feeds),
+                           Feed.queued.is_(False))
             self.fixed = True
         else:
-            q = _where_ready(q).limit(DB_READY_LIMIT)
+            q = Feed.select_where_ready(*ITEM_COLS)\
+                    .limit(DB_READY_LIMIT)
 
         q = q.order_by(Feed.next_fetch_attempt.asc().nullsfirst())
         # add Feed.poll_minutes.asc().nullslast() to preference fast feeds??

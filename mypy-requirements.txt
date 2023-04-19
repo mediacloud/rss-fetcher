@@ -1,12 +1,6 @@
 # NOTE! types- package versions should match those in requirements.txt!
 mypy
 #
-# https://github.com/dropbox/sqlalchemy-stubs
-# 0.4 currently in use, but out of date!
-sqlalchemy-stubs
-#
-# https://github.com/python/typeshed?
-types-psycopg2==2.9.*
 #
 # suggested by mypi:
 types-PyYAML==6.0.*

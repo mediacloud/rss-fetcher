@@ -4,28 +4,26 @@ Postgresql functions not (yet?) supplied by SQLAlchemy
 
 from typing import Any
 
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.sql.compiler import SQLCompiler
 import sqlalchemy.sql.functions as functions
-from sqlalchemy.sql import expression
-from sqlalchemy.types import Numeric
 
 # Phil October 2022
 if hasattr(functions, 'greatest'):
     greatest = getattr(functions, 'greatest')
 else:
-    # https://docs.sqlalchemy.org/en/14/core/compiler.html#greatest-function
-    # (NOTE: has special cases for non-PG dbs)
+    from sqlalchemy.ext.compiler import compiles
+    from sqlalchemy.sql import expression, case
+    from sqlalchemy.sql.compiler import SQLCompiler
+    from sqlalchemy.types import Numeric
 
+    # from sqlalchemy 2.0.0b ext/compiler.py:
     class _greatest(expression.FunctionElement):
         type = Numeric()
         name = 'greatest'
         inherit_cache = True
 
     @compiles(_greatest)
-    def default_greatest(element: _greatest,
-                         compiler: SQLCompiler,
-                         **kw: Any) -> str:
+    # type: ignore[no-untyped-def]
+    def default_greatest(element, compiler, **kw):
         return compiler.visit_function(element)
 
     greatest = _greatest

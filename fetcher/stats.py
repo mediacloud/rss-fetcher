@@ -10,7 +10,7 @@ import logging
 from typing import Any, List, Optional, Tuple
 
 # PyPi
-import statsd                   # pkg statsd_client
+import statsd                   # type: ignore[import]
 from sqlalchemy.engine.url import make_url
 
 from fetcher.config import conf
@@ -64,7 +64,7 @@ class Stats:
         if not _init_ok:
             raise Exception("Call Stats.init")
 
-        self.statsd: Optional[statsd.StatsdClient] = None
+        self.statsd: Optional[Any] = None
         self.host = self.port = self.prefix = None
 
         # STATSD URL set by dokku-graphite plugin

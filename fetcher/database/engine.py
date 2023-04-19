@@ -6,9 +6,9 @@ Import only as needed
 from sqlalchemy import create_engine
 
 # local:
-from fetcher.config import conf
+from fetcher.config import conf, fix_database_url
 
 engine = create_engine(
-    conf.SQLALCHEMY_DATABASE_URI,
+    fix_database_url(conf.SQLALCHEMY_DATABASE_URI),
     pool_size=conf.DB_POOL_SIZE,
     echo=conf.SQLALCHEMY_ECHO)

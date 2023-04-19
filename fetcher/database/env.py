@@ -9,13 +9,14 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 # local
-from fetcher.config import conf
+from fetcher.config import conf, fix_database_url
 
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-config.set_main_option('sqlalchemy.url', conf.SQLALCHEMY_DATABASE_URI)
+config.set_main_option('sqlalchemy.url',
+                       fix_database_url(conf.SQLALCHEMY_DATABASE_URI))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

@@ -13,7 +13,7 @@ from fetcher.database.models import Story
 
 
 # list of Story columns to return from /api/{feeds,sources}/ID/stories:
-STORY_COLUMNS: List[ColumnElement] = [
+STORY_COLUMNS = [
     Story.url,
     Story.feed_id,
     Story.published_at,

@@ -50,7 +50,7 @@ if __name__ == '__main__':
     input_file = csv.DictReader(f)
 
     added = 0
-    with Session.begin() as session:  # type: ignore[attr-defined]
+    with Session.begin() as session:
         for row in input_file:
             now = dt.datetime.utcnow()
             # Pick random time within default fetch interval:

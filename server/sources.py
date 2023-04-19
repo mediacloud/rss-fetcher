@@ -3,10 +3,11 @@ from typing import Any, Dict, List, Optional
 import datetime as dt
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import cast, func, select, text, Column, Date
+from sqlalchemy import cast, func, select, text, update, Date
 import sqlalchemy.sql.functions as f
+from sqlalchemy.orm.attributes import InstrumentedAttribute
 
-from fetcher.database import Session
+from fetcher.database.asyncio import AsyncSession
 from fetcher.database.models import Feed, Story
 
 import server.auth as auth
@@ -23,18 +24,19 @@ router = APIRouter(
 
 @router.get("/{sources_id}/feeds", dependencies=[Depends(auth.read_access)])
 @api_method
-def sources_feeds(sources_id: int) -> List[Dict]:
-    with Session() as session:
-        feeds = session.query(Feed)\
-                       .filter(Feed.sources_id == sources_id)\
-                       .all()
-        return [feed.as_dict_public() for feed in feeds]
+async def sources_feeds(sources_id: int) -> List[Dict]:
+    async with AsyncSession() as session:
+        feeds = await session.execute(
+            select(Feed)
+            .where(Feed.sources_id == sources_id))
+        # was .as_dict_public, but fails w/ async?
+        return [feed._asdict() for feed in feeds]
 
 
 @router.post("/{sources_id}/fetch-soon",
              dependencies=[Depends(auth.write_access)])
 @api_method
-def fetch_source_feeds_soon(sources_id: int) -> int:
+async def fetch_source_feeds_soon(sources_id: int) -> int:
     """
     Mark feeds associated with source to be fetched "soon".
     But to avoid clumping all of the feeds together, tries
@@ -63,12 +65,16 @@ def fetch_source_feeds_soon(sources_id: int) -> int:
     soon = utcnow + bucket * binterval
 
     # NOTE! isnot(True) may not work in DB's w/o bool type (eg MySQL)??
-    with Session() as session:
-        count = session.query(Feed)\
-                       .filter(Feed.sources_id == sources_id,
-                               Feed.queued.isnot(True))\
-                       .update({'next_fetch_attempt': soon})
-        session.commit()
+    async with AsyncSession() as session:
+        # returns closed CursorResult:
+        result = await session.execute(
+            update(Feed)
+            .where(Feed.sources_id == sources_id,
+                   Feed.queued.op("is not")(True))
+            .values(next_fetch_attempt=soon)
+        )
+        count = result.rowcount  # type: ignore[attr-defined]
+        await session.commit()
     return int(count)
 
 # maybe take limit as a query parameter _limit=N??
@@ -77,21 +83,20 @@ def fetch_source_feeds_soon(sources_id: int) -> int:
 @router.get("/{sources_id}/stories",
             dependencies=[Depends(auth.write_access)])
 @api_method
-def fetch_source_stories(sources_id: int) -> List[Dict[str, Any]]:
+async def fetch_source_stories(sources_id: int) -> List[Dict[str, Any]]:
     """
     return story details.
     see also feeds.fetch_feed_stories
     """
-    query = (select(STORY_COLUMNS)
+    query = (select(*STORY_COLUMNS)
              .where(Story.sources_id == sources_id)
              .order_by(STORY_ORDER)
              .limit(STORY_LIMIT))
-    with Session() as session:
-        return [s._asdict() for s in session.execute(query)]
+    async with AsyncSession() as session:
+        return [s._asdict() for s in await session.execute(query)]
 
 
-def _sources_stories_by_day(sources_id: int,
-                            column: Column[Optional[dt.datetime]]) -> List[Dict[str, Any]]:
+async def _sources_stories_by_day(sources_id: int, column: InstrumentedAttribute) -> List[Dict[str, Any]]:
     """
     helper for fetch_source_stories_{fetched,published}_by_day.
 
@@ -100,35 +105,35 @@ def _sources_stories_by_day(sources_id: int,
         type: "stories";
     could add them in query or by hand-made dicts in comprehension
     """
-    day = cast(column, Date).label('date')
-    query = (select([day, f.count().label('count')])
+    day = cast(column, Date).label('day')
+    query = (select(day, f.count().label('stories'))
              .where(Story.sources_id == sources_id)
              .group_by(day)
              .order_by(day))
-    with Session() as session:
+    async with AsyncSession() as session:
         return [row._asdict()
-                for row in session.execute(query)]
+                for row in await session.execute(query)]
 
 
 @router.get("/{sources_id}/stories/fetched-by-day",
             dependencies=[Depends(auth.write_access)])
 @api_method
-def fetch_source_stories_fetched_by_day(
+async def fetch_source_stories_fetched_by_day(
         sources_id: int) -> List[Dict[str, Any]]:
     """
     named like /api/stories/fetched-by-day;
     return count of stories by fetched_by day.
     """
-    return _sources_stories_by_day(sources_id, Story.fetched_at)
+    return await _sources_stories_by_day(sources_id, Story.fetched_at)
 
 
 @router.get("/{sources_id}/stories/published-by-day",
             dependencies=[Depends(auth.write_access)])
 @api_method
-def fetch_source_stories_published_by_day(
+async def fetch_source_stories_published_by_day(
         sources_id: int) -> List[Dict[str, Any]]:
     """
     named like /api/stories/fetched-by-day;
     return count of stories by fetched_by day.
     """
-    return _sources_stories_by_day(sources_id, Story.published_at)
+    return await _sources_stories_by_day(sources_id, Story.published_at)
