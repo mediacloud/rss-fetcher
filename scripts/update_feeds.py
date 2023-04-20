@@ -80,14 +80,14 @@ def run(*,
                                     limit=limit, offset=offset)
         except Exception as e:
             batch_stat("get_failed")
-            logger.exception(url)
+            logger.exception("dirapi.feed_list")
             return 2
 
         try:
             items = data['results']
             rcount = data['count']
         except Exception as e:
-            logger.exception(url)
+            logger.exception("bad response")
             batch_stat("format")
             return 4
 
