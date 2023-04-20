@@ -11,11 +11,6 @@ celery and rq), the work stream is open ended.
 
 Possible improvements:
 
-Use "pickle" instead of JSON.  The advantages of JSON were: 1:
-printable for easy bringup. 2: can be easily delimited with newline
-(but that's not being done; since only one call at a time is sent to a
-Worker, a large "recv" has sufficed to pick up requests/responses.
-
 COULD create extra Worker processes on demand (up to some limit), and
 retire excess Workers when not needed.
 
@@ -29,7 +24,7 @@ but that's not necessary.
 # Python
 import collections
 import logging
-import json
+import pickle
 import os
 import select
 import signal
@@ -45,7 +40,7 @@ from setproctitle import setproctitle
 from fetcher import APP
 from fetcher.config import conf
 
-MAXJSON = 32 * 1024             # max JSON request/response
+MAXDATA = 32 * 1024             # max request/response
 TIMEOUT = conf.TASK_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
@@ -121,12 +116,12 @@ class Worker:
         while True:
             setproctitle(f"{APP} {n}: idle")
             try:
-                msg = csock.recv(MAXJSON)
+                msg = csock.recv(MAXDATA)
             except ConnectionResetError:  # remote fully closed?
                 break
             if not msg:
                 break       # EOF
-            method_name, args, kw = json.loads(msg)  # see Manager.send
+            method_name, args, kw = pickle.loads(msg)  # see Manager.send
             ret = {'method': method_name,
                    'args': args,
                    'kw': kw}
@@ -149,13 +144,13 @@ class Worker:
             if timeout:
                 set_job_timeout()
 
-            # XXX do json.dumps under separate try (so can report error!)?
+            # XXX do pickle.dumps under separate try (so can send error!)?
 
             try:
-                csock.send(json.dumps(ret).encode('utf8'))
+                csock.send(pickle.dumps(ret))
             except BrokenPipeError:  # remote closed for read
                 break
-            except TypeError:   # JSON encoding error
+            except TypeError:   # pickle encoding error?
                 break
         sys.exit(0)
 
@@ -177,9 +172,9 @@ class Worker:
         assert not self.wactive
         self.manager.idle_workers.remove(self)
         # XXX verify method_name exists w/ hasattr(self, name)???
-        msg = json.dumps([method_name, args, kw])
+        msg = pickle.dumps([method_name, args, kw])
         # XXX wrap in try?
-        self.sock.send(msg.encode('utf8'))
+        self.sock.send(msg)
         self.wactive = True
         self.manager.active_workers += 1
 
@@ -188,11 +183,11 @@ class Worker:
         call ONLY after a "call" to wait for result (or on EOF)
         """
         # XXX use buffered I/O?
-        msg = self.sock.recv(MAXJSON)
+        msg = self.sock.recv(MAXDATA)
         if msg:
             # print(self.fileno(), '->', msg)
             # book keeping done in Manager.poll
-            return True, json.loads(msg)
+            return True, pickle.loads(msg)
         # XXX mark as closed
         return False, None
 

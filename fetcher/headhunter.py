@@ -74,14 +74,6 @@ class Item(NamedTuple):
     # calculated (for scoreboards):
     fqdn: Optional[str]         # None if bad URL
 
-    @staticmethod
-    def _from_dict(d: Dict[str, Any]) -> 'Item':
-        """
-        create an Item from a dict
-        (for process communication w/o pickling)
-        """
-        return Item(**d)
-
 # should be Feed static method; XXX FIXME after sqlalchemy 2.x upgrade
 
 

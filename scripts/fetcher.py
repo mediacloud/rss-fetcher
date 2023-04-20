@@ -59,17 +59,17 @@ def main() -> None:
 
     # here for access to hunter!
     class FetcherWorker(Worker):
-        def fetch(self, d: Dict[str, Any]) -> None:  # called in Worker to do work
+        def fetch(self, item: Item) -> None:  # called in Worker to do work
             """
             passed entire item (as dict) for use by fetch_done
             """
-            item = Item._from_dict(d)
+            print("here", item)
             feed_worker(item)
 
         def fetch_done(self, ret: Dict) -> None:  # callback in Manager
             # print("fetch_done", ret)
-            # first positional arg is dict of Item values
-            item = Item._from_dict(ret['args'][0])
+            # first positional arg is Item
+            item = ret['args'][0]
             hunter.completed(item)
 
     # XXX pass command line args for concurrency, fetches/sec??
@@ -133,8 +133,8 @@ def main() -> None:
                 # print("UPDATED", res.rowcount)
                 session.commit()
 
-            w.call('fetch', item._asdict())  # call method in child process
-            worker_stats()                   # to report max busyness
+            w.call('fetch', item)  # call method in a Worker process
+            worker_stats()         # to report max busyness
 
         if not looked_for_work:
             hunter.check_stale()
