@@ -6,6 +6,7 @@ import csv
 import datetime as dt
 import json
 import logging
+from mediacloud.api import DirectoryApi
 from random import random       # low-fi random ok
 import sys
 import time
@@ -15,7 +16,6 @@ from fetcher.config import conf
 from fetcher.database import Session
 import fetcher.database.models as models
 import fetcher.database.property as prop
-from fetcher.mcweb_api import MCWebAPI, MODIFIED_BEFORE
 from fetcher.stats import Stats
 
 
@@ -46,13 +46,10 @@ def identity(x: Any) -> Any:
 
 # all arguments must be passed, and by keyword
 def run(*,
-        random_interval_mins: int,
-        mcweb_timeout: int,
-        verify_certificates: bool,
-        batch_limit: int,
-        sleep_seconds: float,
-        max_batches: int) -> int:
+        mcweb_token: str,
+        sleep_seconds: float) -> int:
 
+    limit = 1000
     totals: StatsDict = {}
     batches: StatsDict = {}
     stats = Stats.get()         # get singleton
@@ -64,45 +61,23 @@ def run(*,
         batches[stat] = batches.get(stat, 0) + 1
         stats.incr('update.batches', labels=[('status', stat)])
 
-    mcweb = MCWebAPI(timeout=mcweb_timeout)
+    dirapi = DirectoryApi(mcweb_token)
 
-    if batch_limit:             # doing short sprints?
-        # try resuming from saved URL, if any
-        url = prop.UpdateFeeds.next_url.get()
-        if url:
-            logger.info(f"batch_limit set, next_url: {url}")
-            if '?' in url:
-                _, query = url.split('?', 1)
-                for param in query.split('&'):
-                    if param.startswith(MODIFIED_BEFORE):
-                        if '=' in param:
-                            _, nstr = param.split('=', 1)
-                            now = float(nstr)
-                        else:
-                            logger.warning(f"no '=' in {param}")
-                            url = None
-                        break
-                else:           # for param...
-                    logger.warning(f"{MODIFIED_BEFORE} not in {url}")
-            else:
-                logger.warning(f"no query in {url}")
-                url = None
+    vers = dirapi.version()
+    server_now = vers.get('now')
+    if server_now is None:
+        batch_stat("vers_err")  # not a batch error
+        return 1
 
-    if not url:
-        vers = mcweb.version()
-        web_now = vers.get('now')
-        if web_now is None:
-            batch_stat("vers_err")  # not a batch error
-            return 1
+    modified_since = float(prop.UpdateFeeds.modified_since.get() or '0')
+    logger.info(f"Fetching updates after {modified_since} before {server_now}")
 
-        last_update = float(prop.UpdateFeeds.modified_since.get() or '0')
-        logger.info(f"Fetching updates after {last_update} before {web_now}")
-        url = mcweb.feeds_url(last_update, web_now, batch_limit)
-
-    while url:
-        logger.info(f"Fetching {url}")
+    offset = 0
+    while True:
         try:
-            data = mcweb.get_url_dict(url)  # XXX timeout?
+            data = dirapi.feed_list(modified_since=modified_since,
+                                    modified_before=server_now,
+                                    limit=limit, offset=offset)
         except Exception as e:
             batch_stat("get_failed")
             logger.exception(url)
@@ -110,7 +85,6 @@ def run(*,
 
         try:
             items = data['results']
-            nxt = data['next']
             rcount = data['count']
         except Exception as e:
             logger.exception(url)
@@ -127,8 +101,12 @@ def run(*,
         need_commit = False
         dtnow = dt.datetime.utcnow()
 
+        if not items:
+            break
+
         with Session() as session:
             for item in items:
+                offset += 1
                 try:
                     iid = int(item['id'])
                 except (ValueError, KeyError) as e:
@@ -139,8 +117,6 @@ def run(*,
                 if f is None:
                     f = models.Feed()
                     f.id = iid
-                    sec = random() * random_interval_mins * 60
-                    f.next_fetch_attempt = dtnow + dt.timedelta(seconds=sec)
                     logger.info(f"CREATE {iid}")
                     create = True
                 else:
@@ -165,7 +141,7 @@ def run(*,
                             logger.info(
                                 f"  ignoring {dest} from {curr} to {new}")
                         return 0
-                    if new != curr:
+
                         if curr:
                             logger.info(
                                 f"  updating {dest} from {curr} to {new}")
@@ -197,11 +173,12 @@ def run(*,
                         logger.info(" no change")
                         inc('no_change')
                         continue
-                    session.add(f)
+
                     if create:
-                        inc('created')
+                        inc('create')
+                        session.add(f)
                     else:
-                        inc('modified')
+                        inc('update')
                     need_commit = True
                 except Exception:
                     logger.exception('bad')
@@ -211,28 +188,14 @@ def run(*,
             if need_commit:
                 session.commit()
         # end with session
-        url = nxt
-        if items:
-            batch_stat("ok")
+        batch_stat("ok")
+        logger.info(f"sleeping {sleep_seconds} sec")
+        time.sleep(sleep_seconds)
 
-        if max_batches:
-            # before url check (clear property if value is None)
-            prop.UpdateFeeds.next_url.set(url)
-
-        if url:
-            if max_batches > 1:
-                max_batches -= 1
-            elif max_batches == 1:
-                logger.info("reached batch limit")
-                break
-
-            logger.info(f"sleeping {sleep_seconds} sec")
-            time.sleep(sleep_seconds)
-    else:                       # while url
-        new = str(web_now)
-        logger.info(f"setting new modified_since: {new}")
-        prop.UpdateFeeds.modified_since.set(new)
-        prop.UpdateFeeds.next_url.unset()
+    new = str(server_now)
+    logger.info(f"setting new modified_since: {new}")
+    prop.UpdateFeeds.modified_since.set(new)
+    prop.UpdateFeeds.next_url.unset()  # no longer used
 
     log_stats(batches, "BATCHES")
     log_stats(totals, "FEEDS")
@@ -248,29 +211,14 @@ if __name__ == '__main__':
     logger = logging.getLogger(SCRIPT)
     p = LogArgumentParser(SCRIPT, 'update feeds using mcweb API')
 
-    BATCH = 500
-    p.add_argument('--batch-limit', default=BATCH, type=int,
-                   help=f"feed batch size to request (default: {BATCH})")
-
-    MAX_BATCHES = 0
-    p.add_argument('--max-batches', default=MAX_BATCHES, type=int,
-                   help=f"number of batches to fetch (default: {MAX_BATCHES});"
-                   " zero means no limit")
-
     p.add_argument('--reset-last-modified', action='store_true',
                    help="reset saved last-modified time first")
-
-    p.add_argument('--reset-next-url', action='store_true',
-                   help="reset saved next batch URL to fetch")
 
     SLEEP = 0.5
     p.add_argument('--sleep-seconds', default=SLEEP, type=float,
                    help=f"time to sleep between batch requests in seconds (default: {SLEEP})")
 
-    # all of these _COULD_ be command line options....
-    random_interval_mins: int = conf.DEFAULT_INTERVAL_MINS
-    mcweb_timeout: int = conf.MCWEB_TIMEOUT
-    verify_certificates: bool = conf.VERIFY_CERTIFICATES
+    mcweb_token: str = conf.MCWEB_TOKEN
 
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
@@ -278,18 +226,13 @@ if __name__ == '__main__':
     if args.reset_last_modified:
         prop.UpdateFeeds.modified_since.unset()
 
-    if args.reset_next_url:
-        prop.UpdateFeeds.next_url.unset()
+    prop.UpdateFeeds.next_url.unset()  # no longer used
 
     try:
         with PidFile(SCRIPT):
             sys.exit(
-                run(random_interval_mins=random_interval_mins,
-                    mcweb_timeout=mcweb_timeout,
-                    verify_certificates=verify_certificates,
-                    batch_limit=args.batch_limit,
-                    sleep_seconds=args.sleep_seconds,
-                    max_batches=args.max_batches))
+                run(mcweb_token=mcweb_token,
+                    sleep_seconds=args.sleep_seconds))
     except LockedException:
         logger.error("could not get lock")
         exit(255)

@@ -83,6 +83,8 @@ class Item(NamedTuple):
         return Item(**d)
 
 # should be Feed static method; XXX FIXME after sqlalchemy 2.x upgrade
+
+
 def _where_active(q):
     return q.where(Feed.active.is_(True),
                    Feed.system_enabled.is_(True))

@@ -112,6 +112,7 @@ class Worker:
         #   (basing file name on pid would mean pruning of
         #   files from a previous run would not occur)???
         logger.debug(f"Worker {n} child process starting")
+
         def alarm_handler(sig: int, frame: Optional[FrameType]) -> None:
             raise JobTimeoutException()
         signal.signal(signal.SIGALRM, alarm_handler)
