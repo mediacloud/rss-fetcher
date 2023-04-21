@@ -24,7 +24,7 @@ from fetcher.database import Session
 from fetcher.database.models import Feed, utc
 from fetcher.direct import Manager, Worker
 from fetcher.headhunter import HeadHunter, Item, ready_feeds
-from fetcher.logargparse import LogArgumentParser
+from fetcher.logargparse import LogArgumentParser, log_file_wrapper
 from fetcher.stats import Stats
 from fetcher.tasks import feed_worker
 
@@ -51,7 +51,7 @@ def main() -> None:
                    help='Fetch specific feeds and exit.')
 
     # parse logging args, output start message
-    args = p.my_parse_args(pid=True)
+    args = p.my_parse_args()
 
     hunter = HeadHunter()
 
@@ -59,6 +59,10 @@ def main() -> None:
 
     # here for access to hunter!
     class FetcherWorker(Worker):
+        def child_log_file(self, fork: int) -> None:
+            log_file_wrapper.open_log_file(fork)
+            logger.info(f"here {fork}")
+
         def fetch(self, item: Item) -> None:  # called in Worker to do work
             """
             passed entire item (as dict) for use by fetch_done

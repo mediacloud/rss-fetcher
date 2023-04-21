@@ -103,6 +103,8 @@ class Worker:
         child process: loop reading method & args, returning result.
         called from __init__, and never returns.
         """
+        self.child_log_file(n)
+
         # XXX close log file, and open new one based on "n"
         #   (basing file name on pid would mean pruning of
         #   files from a previous run would not occur)???
@@ -196,6 +198,11 @@ class Worker:
         pid, status = os.waitpid(self.pid, os.WNOHANG)
         return status
 
+    def child_log_file(self, fork: int) -> None:
+        """
+        called in child to open new, per-fork log file
+        """
+        raise Exception("Worker.child_log_file not overridden")
 
 class Manager:
     """

@@ -31,6 +31,68 @@ LEVEL_DEST = 'log_level'        # args entry name!
 
 logger = logging.getLogger(__name__)
 
+class LogFileWrapper:
+    """
+    singleton object wrapper around file loghandler
+    (so subprocesses can open their own log file)
+    """
+    def __init__(self):
+        self.prog = None
+        self.dyno = None
+        self.handler = None
+
+    def basic_config(self, format: str, level: int) -> None:
+        """
+        call once, before set_filename
+        """
+        # save, in case needed in a child process
+        self.format = format
+        self.level = level
+        logging.basicConfig(format=format, level=level)
+
+    def set_filename(self, fname: str) -> None:
+        """
+        called once, when parsing command line
+        """
+        if fname.endswith('.log'):
+            fname = fname[0:-4]
+        self.prefix = fname
+        self.open_log_file()
+
+    def open_log_file(self, fork: Optional[int] = None) -> bool:
+        """
+        call after forking with an integer fork id (NOTE! using pid means
+        new files will be created each time (which are unlikely to be pruned),
+        so scripts/fetcher.py passes a small integer (worker number).
+        """
+        if not self.prefix:
+            return False        # no log file name set
+
+        root_logger = logging.getLogger(None)
+        if self.handler:
+            root_logger.removeHandler(self.handler)
+            self.handler = None
+
+        fname = self.prefix
+        if fork is not None:
+            fname += f"-{fork}"
+        fname += '.log'
+
+        # rotate file daily, after midnight (UTC)
+        self.handler = \
+            logging.handlers.TimedRotatingFileHandler(
+                fname, when='D', utc=True,
+                backupCount=conf.LOG_BACKUP_COUNT)
+
+        self.handler.setFormatter(logging.Formatter(self.format))
+
+        root_logger.addHandler(self.handler)
+
+        logger.info(f"process {os.getpid()} logging to {fname}")
+
+        return True
+
+log_file_wrapper = LogFileWrapper()  # ONLY instance
 
 class LogArgumentParser(argparse.ArgumentParser):
     def __init__(self, prog: str, descr: str):
@@ -83,7 +145,7 @@ class LogArgumentParser(argparse.ArgumentParser):
 
     # PLB: wanted to override parse_args, but couldn't get typing right for
     # mypy
-    def my_parse_args(self, pid: bool = False) -> argparse.Namespace:
+    def my_parse_args(self) -> argparse.Namespace:
         args = self.parse_args()
 
         if args.set:
@@ -103,11 +165,13 @@ class LogArgumentParser(argparse.ArgumentParser):
         else:
             level = level.upper()
 
-        log_format = '%(asctime)s | %(levelname)s | %(name)s | '
-        if pid:
-            log_format += '%(process)d | '
-        log_format += '%(message)s'
-        logging.basicConfig(format=log_format, level=level)
+        # format created here so that command line options
+        # (or arguments to this function) can alter format.
+
+        # XXX might want to include pid [%(process)d] in multi-process parent stdout????
+        format = '%(asctime)s | %(levelname)s | %(name)s | %(message)s'
+
+        log_file_wrapper.basic_config(format=format, level=level)
 
         if args.log_config:
             # lifted from uvicorn/config.py:
@@ -136,24 +200,16 @@ class LogArgumentParser(argparse.ArgumentParser):
         if args.log_file:
             path.check_dir(path.LOG_DIR)
             log_path = os.path.join(path.LOG_DIR, args.log_file)
-
-            # rotate file after midnight (UTC), keep 7 old files
-            fileHandler = logging.handlers.TimedRotatingFileHandler(
-                log_path, when='midnight', utc=True,
-                backupCount=conf.LOG_BACKUP_COUNT)
-            fileHandler.setFormatter(logging.Formatter(log_format))
-            logging.getLogger(None).addHandler(
-                fileHandler)  # attach to root logger
+            log_file_wrapper.set_filename(log_path)
 
         # log startup banner and deferred config msgs
         conf.start(self.prog, self.description)
 
-        fetcher.sentry.init()
-
-        if args.log_file:       # after startup banner
-            logger.info(f"Logging to {log_path}")
-        else:
+        # after startup banner, config
+        if not args.log_file:
             logger.info("Not logging to a file")
+
+        fetcher.sentry.init()
 
         # NOTE! pushing this down (from script top level)
         # may have been a mistake: Trying to pass a "workers"
