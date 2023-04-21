@@ -60,8 +60,9 @@ def main() -> None:
     # here for access to hunter!
     class FetcherWorker(Worker):
         def child_log_file(self, fork: int) -> None:
+            # open new log file for child process
             log_file_wrapper.open_log_file(fork)
-            logger.info(f"here {fork}")
+
 
         def fetch(self, item: Item) -> None:  # called in Worker to do work
             """

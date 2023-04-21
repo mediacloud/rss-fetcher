@@ -103,7 +103,7 @@ class Worker:
         child process: loop reading method & args, returning result.
         called from __init__, and never returns.
         """
-        self.child_log_file(n)
+        self.child_log_file(n)  # open new log file
 
         # XXX close log file, and open new one based on "n"
         #   (basing file name on pid would mean pruning of
@@ -200,7 +200,9 @@ class Worker:
 
     def child_log_file(self, fork: int) -> None:
         """
-        called in child to open new, per-fork log file
+        called in child to open new, per-fork log file.
+        Keeps direct.py independent of application logging framework.
+        MUST establish per-process log file (if using a rotating file logger).
         """
         raise Exception("Worker.child_log_file not overridden")
 
