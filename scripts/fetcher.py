@@ -63,7 +63,6 @@ def main() -> None:
             """
             passed entire item (as dict) for use by fetch_done
             """
-            print("here", item)
             feed_worker(item)
 
         def fetch_done(self, ret: Dict) -> None:  # callback in Manager
