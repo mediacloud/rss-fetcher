@@ -81,7 +81,7 @@ class LogFileWrapper:
         # rotate file daily, after midnight (UTC)
         self.handler = \
             logging.handlers.TimedRotatingFileHandler(
-                fname, when='D', utc=True,
+                fname, when='midnight', utc=True,
                 backupCount=conf.LOG_BACKUP_COUNT)
 
         self.handler.setFormatter(logging.Formatter(self.format))
