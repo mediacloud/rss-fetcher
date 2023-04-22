@@ -1,7 +1,20 @@
 Change Log
 ==========
 
-Make-over: no-queue fetcher.py
+## v0.14.0 2023-MM-DD
+
+NOTE! Untuned!! almost certainly queries database more than needed!
+
+* fully adaptive fetching (adjusts poll_minutes both up and down)
+* replace work queue with direct process management
+  + replace scripts/{queue_feeds,worker}.py with scripts/fetcher.py
+  + removed fetcher/queue.py
+  + added fetcher/{direct,headhunter,scoreboard}.py
+* use official PyPI mediacloud package for scripts/update_feeds.py
+* dokku-scripts improvements:
+  + moved dokku instance configuration to config.sh
+  + run config.sh from push.sh
+  + instance.sh saves INSTANCE_SH_GIT_HASH, checked by push.sh
 
 ## v0.13.0 2023-03-14
 
