@@ -37,6 +37,8 @@ trap "rm -f $TMP" 0
 touch $TMP
 chmod 600 $TMP
 
+# XXX check that this script is clean (checked in?)
+
 case "$OP" in
 create|destroy)
     case "$NAME" in
@@ -84,10 +86,7 @@ MCWEB_APP=${PREFIX}mcweb
 NET=mcweb
 
 # Service names:
-# Generated docker container names are dokku.{postgres,redis}.APP
-# so no need for more specifics in service names.
-REDIS_SVC=$APP
-DATABASE_SVC=$APP
+DATABASE_SVC=$(app_to_db_svc $APP)
 
 # non-volatile storage mount for generated RSS files, db CSV files, logs
 STORAGE=${APP}-storage
@@ -135,23 +134,6 @@ if [ "x$OP" = xdestroy ]; then
 
     exit 0
 fi
-
-################
-# set config vars:
-
-add_vars() {
-    VARS="$VARS $*"
-}
-
-# set dokku timeout values to half the default values:
-add_vars DOKKU_WAIT_TO_RETIRE=30
-add_vars DOKKU_DEFAULT_CHECKS_WAIT=5
-
-# display/log time in UTC:
-add_vars TZ=UTC
-
-# used by queue_feeds w/o --loop argument:
-add_vars MAX_FEEDS=15000
 
 ################
 # before taking any actions:
@@ -348,10 +330,6 @@ destroy_service redis $REDIS_SVC
 # see https://github.com/dokku/dokku-postgres
 check_service postgres $DATABASE_SVC $APP
 
-# postgres: URLs deprecated in SQLAlchemy 1.4
-DATABASE_URL=$(dokku postgres:info $DATABASE_SVC --dsn | sed 's@^postgres:@postgresql:@')
-add_vars DATABASE_URL=$DATABASE_URL
-
 ################
 # non-volatile storage
 
@@ -370,44 +348,11 @@ else
 fi
 
 ################
-# fetcher related vars
-
-add_vars SAVE_RSS_FILES=0
-
-################
-
 # check for, or create stats service, and link to our app
+
 echo checking for stats service...
 $SCRIPT_DIR/create-stats.sh $APP
 echo ''
-
-# using automagic STATSD_URL in fetcher/stats.py
-
-STATSD_PREFIX="mc.${TYPE_OR_UNAME}.rss-fetcher"
-add_vars STATSD_PREFIX=$STATSD_PREFIX
-
-################
-# set config vars
-# make all add_vars calls before this!!!
-
-# config:set causes redeployment, so check first
-dokku config:show $APP | tail -n +2 | sed 's/: */=/' > $TMP
-NEED=""
-# loop for var=val pairs
-for VV in $VARS; do
-    # VE var equals
-    VE=$(echo $VV | sed 's/=.*$/=/')
-    # find current value
-    CURR=$(grep "^$VE" $TMP)
-    if [ "x$VV" != "x$CURR" ]; then
-	NEED="$NEED $VV"
-    fi
-done
-
-if [ "x$NEED" != x ]; then
-    echo need to set config: $NEED
-    dokku config:set $APP $NEED
-fi
 
 ################
 
@@ -641,3 +586,8 @@ if dokku apps:exists $MCWEB_APP >/dev/null 2>&1; then
 	fi
     fi
 fi
+
+# save script fingerprint of this, so push can check instance up-to-date
+# XXX should check that script checked in at top!
+SCRIPT_HASH=$(git_hash $0)
+dokku config:set --no-restart $APP INSTANCE_SH_GIT_HASH=$SCRIPT_HASH

@@ -128,6 +128,17 @@ if ! grep "^$DOKKU_GIT_REMOTE$TAB" $REMOTES >/dev/null; then
     exit 1
 fi
 
+# before check for no changes!
+echo checking INSTANCE_SH_GIT_HASH
+INSTANCE_SH_CURR_GIT_HASH=$(dokku config:get pbudne-rss-fetcher INSTANCE_SH_GIT_HASH)
+INSTANCE_SH_FILE_GIT_HASH=$(git_hash $SCRIPT_DIR/instance.sh)
+if [ "x$INSTANCE_SH_CURR_GIT_HASH" != "x$INSTANCE_SH_FILE_GIT_HASH" ]; then
+    echo $APP INSTANCE_SH_FILE_GIT_HASH $INSTANCE_SH_CURR_GIT_HASH 1>&2
+    echo does not match $SCRIPT_DIR/instance.sh hash $INSTANCE_SH_FILE_GIT_HASH 1>&2
+    echo re-run $SCRIPT_DIR/instance.sh create NAME 1>&2
+    exit 1
+fi
+
 git fetch $DOKKU_GIT_REMOTE
 # have a --push-if-no-changes option?
 if git diff --quiet $BRANCH $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH --; then
@@ -200,6 +211,9 @@ echo ''
 echo stopping processes...
 dokku ps:stop $APP
 
+echo checking dokku config...
+$SCRIPT_DIR/config.sh $APP
+
 echo ''
 if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
     # not first push, safe to push by tag name
@@ -243,7 +257,7 @@ for REMOTE in $PUSH_TAG_TO; do
     echo "================"
 done
 
-# start fetcher/worker procoesses (only needed first time)
+# start fetcher/worker processes (only needed first time)
 echo scaling up
 PROCS="fetcher=1 web=1"
 dokku ps:scale --skip-deploy $APP $PROCS
