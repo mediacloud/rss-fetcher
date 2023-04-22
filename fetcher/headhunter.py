@@ -170,7 +170,7 @@ class HeadHunter:
         #    to do better would require getting next_fetch_attempt
         #    from fetched feeds, and refetching at that time???
 
-        # if nothing is returned (ready empty) will requery
+        # if nothing is returned (ready empty) will re-query
         # at next wakeup.
         self.next_db_check = int(time.time() + DB_READY_SEC)
 
@@ -183,10 +183,12 @@ class HeadHunter:
 
     def check_stale(self) -> None:
         if time.time() > self.next_db_check:
+            self.stats.incr('hunter.stale')
             self.ready_list = []
 
     def find_work(self) -> Optional[Item]:
         blocked = 0
+        self.stats.incr('hunter.find_work')
 
         def blocked_stats(stalled: bool) -> None:
             self.stats.gauge('hunter.blocked', blocked)
