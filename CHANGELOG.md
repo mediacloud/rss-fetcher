@@ -1,7 +1,13 @@
 Change Log
 ==========
 
-## v0.14.0 2023-MM-DD
+## v0.14.1 2023-04-22
+
+* dokku-scripts cleanup
+* add RSS_FETCH_READY_LIMIT
+* update prod dashboard .json file
+
+## v0.14.0 2023-04-22
 
 NOTE! Untuned!! almost certainly queries database more than needed!
 
