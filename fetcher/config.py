@@ -288,9 +288,6 @@ class _Config:                  # only instantiated in this file
     # last_fetch_failures by fractional values.
     MAX_FAILURES = conf_int('MAX_FAILURES', 30)
 
-    # feeds for queuer to queue before quitting (if not looping)
-    MAX_FEEDS = conf_int('MAX_FEEDS', 10000)
-
     # maximum length URL to accept from feeds
     MAX_URL = conf_int('MAX_URL', 2048)
 
@@ -332,6 +329,15 @@ class _Config:                  # only instantiated in this file
     # Make a float to allow more than 60 fetches/second
     # (or change parameter to RSS_FETCH_FEED_PER_MINUTE?)
     RSS_FETCH_FEED_SECS = conf_int('RSS_FETCH_FEED_SECS', 5)  # 5s = 12/min
+
+    # ready items for fetch to keep "on hand": if too small could
+    # return ONLY unissuable feeds.  more than can be fetched in
+    # DB_READY_SEC wastes effort, *AND* the current algorithm is O(n^2)
+    # in the WORST case (lots of unissuable feeds)!!!  In April
+    # 2023 when this comment was written, there were 15 sources with
+    # OVER 900 active/enabled feeds (one of those over 12K, and two
+    # over 2K)!!
+    RSS_FETCH_READY_LIMIT = conf_int('RSS_FETCH_READY_LIMIT', 2000)
 
     # timeout in sec. for fetching an RSS file
     RSS_FETCH_TIMEOUT_SECS = conf_int('RSS_FETCH_TIMEOUT_SECS', 30)

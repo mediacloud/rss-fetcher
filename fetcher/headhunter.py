@@ -55,13 +55,7 @@ ScoreBoardsDict = Dict[str, ScoreBoard]
 # how often to refill ready_list (query DB for ready entries)
 DB_READY_SEC = 60
 
-# ready items to return: if too small could return ONLY unissuable
-# feeds.  more than can be fetched in DB_READY_SEC wastes effort,
-# *AND* the current algorithm is O(n^2 - n) in the WORST case
-# (lots of unissuable feeds)!!!  In April 2023 when this comment
-# was written, there were 15 sources with OVER 900 active/enabled feeds
-# (one of those over 12K, and two over 2K)!!
-DB_READY_LIMIT = 1000
+DB_READY_LIMIT = conf.RSS_FETCH_READY_LIMIT
 
 ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url]
 
