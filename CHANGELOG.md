@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+## v0.14.2 2023-04-23
+
+* Update to sqlalchemy 2.0, psycopg 3.1
+  + use "rank" in headhunter ready query
+  + all server methods are aync
+
 ## v0.14.1 2023-04-22
 
 * dokku-scripts cleanup
