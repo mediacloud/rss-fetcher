@@ -319,7 +319,7 @@ class _Config:                  # only instantiated in this file
     REDIS_URL = conf_required('REDIS_URL')
 
     # number of parallel fetches for feeds that have the same scoreboard entry
-    RSS_FETCH_FEED_CONCURRENCY = conf_int('RSS_FETCH_FEED_CONCURRENCY', 1)
+    RSS_FETCH_FEED_CONCURRENCY = conf_int('RSS_FETCH_FEED_CONCURRENCY', 4)
 
     # minimum interval between starting fetches for the same scoreboard entry.
     # NOTE:
