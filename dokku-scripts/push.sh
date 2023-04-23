@@ -130,7 +130,7 @@ fi
 
 # before check for no changes!
 echo checking INSTANCE_SH_GIT_HASH
-INSTANCE_SH_CURR_GIT_HASH=$(dokku config:get pbudne-rss-fetcher INSTANCE_SH_GIT_HASH)
+INSTANCE_SH_CURR_GIT_HASH=$(dokku config:get $APP INSTANCE_SH_GIT_HASH)
 INSTANCE_SH_FILE_GIT_HASH=$(git_hash $SCRIPT_DIR/instance.sh)
 if [ "x$INSTANCE_SH_CURR_GIT_HASH" != "x$INSTANCE_SH_FILE_GIT_HASH" ]; then
     echo $APP INSTANCE_SH_FILE_GIT_HASH $INSTANCE_SH_CURR_GIT_HASH 1>&2
