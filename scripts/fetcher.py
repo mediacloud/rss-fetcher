@@ -137,6 +137,7 @@ def main() -> None:
                 # print("UPDATED", res.rowcount)
                 session.commit()
 
+            logger.info(f"{w.n}: feed {item.id} srcid {item.sources_id} fqdn {item.fqdn}")
             w.call('fetch', item)  # call method in a Worker process
             worker_stats()         # to report max busyness
 
