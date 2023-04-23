@@ -1,11 +1,18 @@
 Change Log
 ==========
 
+## v0.14.3 2023-04-23
+
+* Raise staging/prod workers to 32
+* Raise default concurrency to 2
+* Fudge SBItem.next_start to avoid extra waits
+* Log feeds in Manager process
+
 ## v0.14.2 2023-04-23
 
 * Update to sqlalchemy 2.0, psycopg 3.1
-  + use "rank" in headhunter ready query
-  + all server methods are aync
+* Use "rank" in headhunter ready query (from legacy crawler_provider/__init__.py)
+* All server methods are aync
 
 ## v0.14.1 2023-04-22
 

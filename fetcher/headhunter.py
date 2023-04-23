@@ -129,6 +129,7 @@ class HeadHunter:
                            .over(partition_by=Feed.sources_id, order_by=nfa)\
                            .label('rank')
 
+            # Subquery for "rank" from legacy crawler_provider/__init__.py
             # XXX include next_fetch_attempt for outer query ORDER BY?
             #   for more accurate ordereding between feeds? does it matter???
             subq = Feed.select_where_ready(*ITEM_COLS, rank_col)
