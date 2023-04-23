@@ -101,7 +101,7 @@ prod|staging)
 	echo "Need $VARS_FILE file w/ SENTRY_DSN RSS_FETCHER_{USER,PASS}" 1>&2
 	exit 1
     fi
-    WORKERS=16
+    WORKERS=32
     ;;
 *)
     UNAME=$TYPE_OR_UNAME
