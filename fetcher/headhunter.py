@@ -134,8 +134,10 @@ class HeadHunter:
             subq = Feed.select_where_ready(*ITEM_COLS, rank_col)
             # print("subq", subq)
             subq_cols = [getattr(subq.c, col) for col in ITEM_COL_NAMES]
+            max_rank = (DB_READY_SEC//RSS_FETCH_FEED_SECS *
+                        RSS_FETCH_FEED_CONCURRENCY)
             q = select(*subq_cols, subq.c.rank)\
-                .where(subq.c.rank <= RSS_FETCH_FEED_CONCURRENCY)\
+                .where(subq.c.rank <= max_rank)\
                 .order_by(subq.c.rank)\
                 .limit(DB_READY_LIMIT)
             # print("q", q)
@@ -188,6 +190,8 @@ class HeadHunter:
                 return None
         else:
             self.check_stale()  # may clear ready_list
+            # except when stale_check clear list, more likely
+            # to have non-empty list with stalled entries
             if not self.ready_list:
                 self.refill()
 
