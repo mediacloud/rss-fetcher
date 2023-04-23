@@ -6,7 +6,7 @@ import csv
 import datetime as dt
 import json
 import logging
-from mediacloud.api import DirectoryApi
+from mediacloud.api import DirectoryApi  # type: ignore[import]
 from random import random       # low-fi random ok
 import sys
 import time

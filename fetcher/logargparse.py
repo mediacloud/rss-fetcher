@@ -36,10 +36,10 @@ class LogFileWrapper:
     singleton object wrapper around file loghandler
     (so subprocesses can open their own log file)
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.prog = None
         self.dyno = None
-        self.handler = None
+        self.handler: Optional[logging.Handler] = None
 
     def basic_config(self, format: str, level: int) -> None:
         """
