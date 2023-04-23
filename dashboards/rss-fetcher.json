@@ -8,6 +8,12 @@
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
         "type": "dashboard"
       }
     ]
@@ -20,11 +26,17 @@
   "panels": [
     {
       "aliasColors": {},
-      "bars": true,
+      "bars": false,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Local Graphite",
+      "datasource": null,
       "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -33,6 +45,7 @@
         "x": 0,
         "y": 0
       },
+      "hiddenSeries": false,
       "id": 6,
       "legend": {
         "avg": false,
@@ -43,13 +56,15 @@
         "total": false,
         "values": false
       },
-      "lines": false,
+      "lines": true,
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
+        "alertThreshold": true,
         "dataLinks": []
       },
       "percentage": false,
+      "pluginVersion": "8.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -63,23 +78,30 @@
         }
       ],
       "spaceLength": 10,
-      "stack": true,
-      "steppedLine": true,
+      "stack": false,
+      "steppedLine": false,
       "targets": [
         {
           "refCount": 0,
           "refId": "A",
-          "target": "stats.gauges.mc.prod.rss-fetcher.queue_feeds.db.queued"
+          "target": "stats.gauges.mc.prod.rss-fetcher.fetcher.db.ready"
         },
         {
           "refCount": 0,
           "refId": "C",
-          "target": "stats.gauges.mc.prod.rss-fetcher.queue_feeds.db.ready"
+          "target": "stats.gauges.mc.prod.rss-fetcher.fetcher.db.running"
         },
         {
+          "hide": false,
           "refCount": 0,
           "refId": "B",
-          "target": "stats.gauges.mc.prod.rss-fetcher.queue_feeds.hi_water",
+          "target": "stats.gauges.mc.prod.rss-fetcher.fetcher.on_hand"
+        },
+        {
+          "hide": false,
+          "refCount": 0,
+          "refId": "D",
+          "target": "stats.gauges.mc.prod.rss-fetcher.fetcher.hunter.blocked",
           "textEditor": false
         }
       ],
@@ -87,7 +109,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "feed status in database",
+      "title": "feed status",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -131,6 +153,12 @@
       "dashes": false,
       "datasource": null,
       "description": "max time from next_fetch_attempt until start of fetch\n",
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -139,6 +167,7 @@
         "x": 12,
         "y": 0
       },
+      "hiddenSeries": false,
       "id": 12,
       "legend": {
         "avg": false,
@@ -153,9 +182,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
+        "alertThreshold": true,
         "dataLinks": []
       },
       "percentage": false,
+      "pluginVersion": "8.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -167,18 +198,18 @@
         {
           "refCount": 0,
           "refId": "A",
-          "target": "stats.timers.mc.prod.rss-fetcher.worker.start_delay.upper"
+          "target": "stats.timers.mc.prod.rss-fetcher.fetcher.start_delay.upper"
         },
         {
           "refCount": 0,
           "refId": "B",
-          "target": "stats.timers.mc.prod.rss-fetcher.worker.start_delay.lower"
+          "target": "stats.timers.mc.prod.rss-fetcher.fetcher.start_delay.lower"
         },
         {
           "hide": true,
           "refCount": 0,
           "refId": "C",
-          "target": "stats.timers.mc.prod.rss-fetcher.worker.start_delay.mean"
+          "target": "stats.timers.mc.prod.rss-fetcher.fetcher.start_delay.mean"
         }
       ],
       "thresholds": [],
@@ -225,217 +256,25 @@
     {
       "aliasColors": {},
       "bars": true,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "description": "",
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 9
-      },
-      "id": 2,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": false,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [
-        {
-          "alias": "/hi_water/",
-          "bars": false,
-          "color": "#5794F2",
-          "fill": 0,
-          "lines": true,
-          "stack": false
-        }
-      ],
-      "spaceLength": 10,
-      "stack": true,
-      "steppedLine": true,
-      "targets": [
-        {
-          "refCount": 0,
-          "refId": "A",
-          "target": "stats.gauges.mc.prod.rss-fetcher.queue_feeds.qlen"
-        },
-        {
-          "refCount": 0,
-          "refId": "B",
-          "target": "stats.gauges.mc.prod.rss-fetcher.queue_feeds.added"
-        },
-        {
-          "refCount": 0,
-          "refId": "C",
-          "target": "stats.gauges.mc.prod.rss-fetcher.queue_feeds.hi_water",
-          "textEditor": false
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "work queue",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": true,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "description": "min and max time in queue",
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 9
-      },
-      "id": 14,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": false,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refCount": 0,
-          "refId": "A",
-          "target": "stats.timers.mc.prod.rss-fetcher.worker.time_in_queue.upper"
-        },
-        {
-          "refCount": 0,
-          "refId": "B",
-          "target": "stats.timers.mc.prod.rss-fetcher.worker.time_in_queue.lower"
-        }
-      ],
-      "thresholds": [],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "time in queue",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "ms",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": true,
       "cacheTimeout": "",
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Local Graphite",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
         "h": 11,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 9
       },
+      "hiddenSeries": false,
       "id": 4,
       "legend": {
         "avg": false,
@@ -450,9 +289,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
+        "alertThreshold": true,
         "dataLinks": []
       },
       "percentage": false,
+      "pluginVersion": "8.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -463,14 +304,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "stats.counters.mc.prod.rss-fetcher.worker.feeds.*.count"
+          "target": "stats.counters.mc.prod.rss-fetcher.fetcher.feeds.*.rate"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "feeds processed",
+      "title": "feeds processed / second",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -514,14 +355,21 @@
       "dashes": false,
       "datasource": null,
       "description": "maximum time to fetch, parse, and store\n",
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
         "h": 11,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 9
       },
+      "hiddenSeries": false,
       "id": 13,
       "legend": {
         "avg": false,
@@ -536,9 +384,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
+        "alertThreshold": true,
         "dataLinks": []
       },
       "percentage": false,
+      "pluginVersion": "8.1.3",
       "pointradius": 2,
       "points": true,
       "renderer": "flot",
@@ -549,7 +399,7 @@
       "targets": [
         {
           "refId": "A",
-          "target": "stats.timers.mc.prod.rss-fetcher.worker.total.*.upper"
+          "target": "stats.timers.mc.prod.rss-fetcher.fetcher.total.*.upper"
         }
       ],
       "thresholds": [],
@@ -598,15 +448,22 @@
       "bars": true,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Local Graphite",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 29
+        "y": 20
       },
+      "hiddenSeries": false,
       "id": 8,
       "legend": {
         "avg": false,
@@ -621,9 +478,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
+        "alertThreshold": true,
         "dataLinks": []
       },
       "percentage": false,
+      "pluginVersion": "8.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -634,14 +493,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "stats.counters.mc.prod.rss-fetcher.worker.stories.*.count"
+          "target": "stats.counters.mc.prod.rss-fetcher.fetcher.stories.*.rate"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Stories",
+      "title": "stories processed / second",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -683,15 +542,22 @@
       "bars": true,
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Local Graphite",
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 29
+        "y": 20
       },
+      "hiddenSeries": false,
       "id": 10,
       "legend": {
         "avg": false,
@@ -706,9 +572,11 @@
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
+        "alertThreshold": true,
         "dataLinks": []
       },
       "percentage": false,
+      "pluginVersion": "8.1.3",
       "pointradius": 2,
       "points": false,
       "renderer": "flot",
@@ -766,19 +634,19 @@
     {
       "aliasColors": {},
       "bars": false,
+      "cacheTimeout": "",
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
-      "description": "Number of rss fetcher worker processes",
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 38
+        "y": 29
       },
-      "id": 16,
+      "id": 27,
       "legend": {
         "avg": false,
         "current": false,
@@ -801,11 +669,11 @@
       "seriesOverrides": [],
       "spaceLength": 10,
       "stack": false,
-      "steppedLine": true,
+      "steppedLine": false,
       "targets": [
         {
           "refId": "A",
-          "target": "stats.gauges.mc.prod.rss-fetcher.queue_feeds.workers",
+          "target": "stats.gauges.mc.prod.rss-fetcher.fetcher.workers.*",
           "textEditor": true
         }
       ],
@@ -813,7 +681,178 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Workers",
+      "title": "worker processes",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": true,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
+      "id": 29,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": false,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "stats.counters.mc.prod.rss-fetcher.fetcher.adjust.*.count",
+          "textEditor": true
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "auto-adjust",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
+      "id": 25,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "refId": "A",
+          "target": "stats.counters.mc.prod.rss-fetcher.fetcher.hunter.*.count"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "hunter counters",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -879,5 +918,5 @@
   "timezone": "",
   "title": "rss-fetcher",
   "uid": "sWyOqlVVk",
-  "version": 3
+  "version": 8
 }
