@@ -135,53 +135,6 @@ if [ "x$OP" = xdestroy ]; then
     exit 0
 fi
 
-################
-# before taking any actions:
-
-if public_server; then
-    # not in global config on tarbell:
-    add_vars DOKKU_LETSENCRYPT_EMAIL=$DOKKU_LETSENCRYPT_EMAIL
-fi
-
-# used in fetcher/__init__.py to set APP
-# ('cause I didn't see it available any other way -phil)
-add_vars MC_APP=$APP
-
-case "$TYPE" in
-prod|staging)
-    # XXX maybe use .$TYPE (.staging vs .prod) file??
-    # could get from "vault" file if using ansible.
-    VARS_FILE=.prod
-    VF=$TMP
-    # get vars for count, and to ignore comment lines!
-    egrep '^(SENTRY_DSN|RSS_FETCHER_(USER|PASS))=' $VARS_FILE > $VF
-    if [ $(wc -l < $VF) != 3 ]; then
-	echo "Need $VARS_FILE file w/ SENTRY_DSN RSS_FETCHER_{USER,PASS}" 1>&2
-	exit 1
-    fi
-    WORKERS=16
-    ;;
-*)
-    VF=.pw.$UNAME
-    if [ -f $VF ]; then
-	echo using rss-fetcher API user/password in $VF
-    else
-	# XXX _could_ check .env file (used for non-dokku development)
-	# creating from .env.template
-	# and adding vars if needed.
-	echo generating rss-fetcher API user/password, saving in $VF
-	echo RSS_FETCHER_USER=$UNAME$$ > $VF
-	echo RSS_FETCHER_PASS=$(openssl rand -base64 15) >> $VF
-    fi
-    chown $UNAME $VF
-    ;;
-esac
-add_vars $(cat $VF)
-
-if [ "x$WORKERS" != x ]; then
-    add_vars RSS_FETCH_WORKERS=$WORKERS
-fi
-
 ################ ssh key management
 
 if [ "x$UNAME" = x ]; then
