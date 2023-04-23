@@ -103,7 +103,8 @@ class ScoreBoard:
         if not item:
             item = self.board[index] = SBItem()
         item.current += 1
-        item.next_start = time.time() + self.interval
+        # trying fudging to avoid waiting two intervals
+        item.next_start = int(time.time()) + self.interval - 0.1
 
     def completed(self, index: SBIndex) -> None:
         """
