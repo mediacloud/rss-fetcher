@@ -57,7 +57,8 @@ DB_READY_SEC = 60
 
 DB_READY_LIMIT = conf.RSS_FETCH_READY_LIMIT
 
-ITEM_COLS = [Feed.id, Feed.sources_id, Feed.url]
+ITEM_COL_NAMES = ['id', 'sources_id', 'url']
+ITEM_COLS = [getattr(Feed, col) for col in ITEM_COL_NAMES]
 
 
 class Item(NamedTuple):
@@ -116,23 +117,34 @@ class HeadHunter:
         self.stats.incr('hunter.refill')
 
         # start DB query
+        nfa = Feed.next_fetch_attempt.asc().nullsfirst()
         if feeds:
             q = Feed.select_where_active(*ITEM_COLS)\
                     .where(Feed.id.in_(feeds),
                            Feed.queued.is_(False))
+            q = q.order_by(nfa)
             self.fixed = True
         else:
-            q = Feed.select_where_ready(*ITEM_COLS)\
-                    .limit(DB_READY_LIMIT)
+            rank_col = func.row_number()\
+                           .over(partition_by=Feed.sources_id, order_by=nfa)\
+                           .label('rank')
 
-        q = q.order_by(Feed.next_fetch_attempt.asc().nullsfirst())
-        # add Feed.poll_minutes.asc().nullslast() to preference fast feeds??
-
+            # XXX include next_fetch_attempt for outer query ORDER BY?
+            #   for more accurate ordereding between feeds? does it matter???
+            subq = Feed.select_where_ready(*ITEM_COLS, rank_col)
+            # print("subq", subq)
+            subq_cols = [getattr(subq.c, col) for col in ITEM_COL_NAMES]
+            q = select(*subq_cols, subq.c.rank)\
+                .where(subq.c.rank <= RSS_FETCH_FEED_CONCURRENCY)\
+                .order_by(subq.c.rank)\
+                .limit(DB_READY_LIMIT)
+            # print("q", q)
         self.ready_list = []
         with Session() as session:
             self.get_ready(session)  # send stats
 
             for feed in session.execute(q):
+                # NOTE! columns here needs to be in FEED_COL_NAMES!!!
                 d = Item(id=feed.id, sources_id=feed.sources_id, url=feed.url,
                          # calculated:
                          fqdn=fqdn(feed.url))
