@@ -54,8 +54,7 @@ def dump_fetch_events(now: str, events: int, delete: bool) -> bool:
         from_temp_table = f"FROM temp_table WHERE rank > {events}"
 
         logger.info("counting")
-        count = conn.execute(
-            text(f"SELECT COUNT(1) {from_temp_table}")).one()[0]
+        count = conn.scalar(text(f"SELECT COUNT(1) {from_temp_table}"))
         logger.info(f"found {count} fetch_events to archive")
         if count == 0:
             return True
@@ -68,7 +67,7 @@ def dump_fetch_events(now: str, events: int, delete: bool) -> bool:
         logger.info(f"writing {fname}")
         with gzip.open(fname, 'wt') as f:
             writer = csv.writer(f)
-            first = next(cursor)
+            first = next(cursor)._asdict()
             writer.writerow(first.keys())
             writer.writerow(first)
             writer.writerows(cursor)
@@ -100,7 +99,7 @@ def dump_stories(now: str, limit: str, delete: bool) -> bool:
         logger.info(f"writing {fname}")
         with gzip.open(fname, 'wt') as f:
             writer = csv.writer(f)
-            first = next(cursor)
+            first = next(cursor)._asdict()
             writer.writerow(first.keys())
             writer.writerow(first)
             writer.writerows(cursor)
