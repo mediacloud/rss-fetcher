@@ -57,7 +57,8 @@ if __name__ == '__main__':
             filename = f"mc-{day_str}.rss.gz"
             compressed_filepath = os.path.join(target_dir, filename)
             if not os.path.exists(compressed_filepath):
-                with gzip.open(compressed_filepath, 'wt') as outfile:
+                tmp_path = compressed_filepath + '.tmp'
+                with gzip.open(tmp_path, 'wt') as outfile:
                     incr_files('created')
                     rsswriter.add_header(outfile, day)
                     # grab the stories fetched on that day
@@ -71,7 +72,7 @@ if __name__ == '__main__':
                     with engine.begin() as connection:  # will auto-close
                         result = connection.execute(text(query))
                         for row in result:
-                            story = dict(row)
+                            story = row._asdict()
                             try:
                                 rsswriter.add_item(outfile, story['url'], story['published_at'], story['domain'],
                                                    util.clean_str(story['title']) if 'title' in story else '')
@@ -84,6 +85,7 @@ if __name__ == '__main__':
                                 incr_stories('skipped')
                             story_count += 1
                     rsswriter.add_footer(outfile)
+                os.rename(tmp_path, compressed_filepath)
                 logger.info(f"   Found {story_count} stories")
                 logger.info(f"   Wrote out to {compressed_filepath}")
             else:
