@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+## v0.14.5 2023-04-24
+
+* scripts/db_archive.py: fix for SQLAlchemy 2.0
+* gen_daily_story_rss.py: fix for SQLAlchemy 2.0, write to .tmp file and rename
+* dokku-scripts/configure.sh: lower prod/staging worker count to 16
+
 ## v0.14.4 2023-04-23
 
 * server (API) fixes for SQLAlchemy 2.0
