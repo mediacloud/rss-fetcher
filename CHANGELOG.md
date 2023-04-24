@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.14.4 2023-04-23
+
+* server (API) fixes for SQLAlchemy 2.0
+
 ## v0.14.3 2023-04-23
 
 * Raise staging/prod workers to 32
