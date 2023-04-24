@@ -334,6 +334,9 @@ remove_process_type() {
 	sed -i "/^$NAME=/d" $SCALE_FILE
     fi
 }
+remove_process_type archiver
+remove_process_type generator
+remove_process_type update
 remove_process_type worker
 
 ################
