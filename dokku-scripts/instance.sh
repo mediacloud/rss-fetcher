@@ -232,7 +232,11 @@ if [ "x$NET" != x ]; then
 	# get the http port for mcweb listener
 	MCWEB_URL=$(app_http_url $MCWEB_APP)
 	echo MCWEB_URL=$MCWEB_URL
-	add_vars MCWEB_URL=$MCWEB_URL
+
+	CURR_MCWEB_URL=$(dokku config:get $APP MCWEB_URL)
+	if [ "x$MCWEB_URL" != "x$CURR_MCWEB_URL" ]; then
+	    dokku config:set $APP MCWEB_URL=$MCWEB_URL
+	fi
     fi
 fi
 
