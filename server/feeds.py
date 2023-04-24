@@ -64,15 +64,16 @@ async def get_feed_history(
             # if limit supplied return N most recent
             query = query.order_by(FetchEvent.id.desc()).limit(_limit)
 
-        results = await session.execute(query)
+        results = await session.scalars(query)
         return [event.as_dict_public() for event in results]
-
 
 @router.get("/{feed_id}", dependencies=[Depends(auth.read_access)])
 @api_method
 async def get_feed(feed_id: int) -> Optional[Dict]:
     async with AsyncSession() as session:
-        feed: Optional[Feed] = await session.get(Feed, feed_id)
+        q = select(Feed).where(Feed.id == feed_id)
+        res = await session.scalars(q)
+        feed = res.one_or_none()
         if feed:
             return feed.as_dict_public()
         else:

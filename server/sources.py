@@ -26,11 +26,10 @@ router = APIRouter(
 @api_method
 async def sources_feeds(sources_id: int) -> List[Dict]:
     async with AsyncSession() as session:
-        feeds = await session.execute(
+        feeds = await session.scalars(
             select(Feed)
             .where(Feed.sources_id == sources_id))
-        # was .as_dict_public, but fails w/ async?
-        return [feed._asdict() for feed in feeds]
+        return [feed.as_dict_public() for feed in feeds]
 
 
 @router.post("/{sources_id}/fetch-soon",
