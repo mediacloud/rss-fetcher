@@ -31,11 +31,13 @@ LEVEL_DEST = 'log_level'        # args entry name!
 
 logger = logging.getLogger(__name__)
 
+
 class LogFileWrapper:
     """
     singleton object wrapper around file loghandler
     (so subprocesses can open their own log file)
     """
+
     def __init__(self) -> None:
         self.prog = None
         self.dyno = None
@@ -92,7 +94,9 @@ class LogFileWrapper:
 
         return True
 
+
 log_file_wrapper = LogFileWrapper()  # ONLY instance
+
 
 class LogArgumentParser(argparse.ArgumentParser):
     def __init__(self, prog: str, descr: str):
@@ -168,7 +172,8 @@ class LogArgumentParser(argparse.ArgumentParser):
         # format created here so that command line options
         # (or arguments to this function) can alter format.
 
-        # XXX might want to include pid [%(process)d] in multi-process parent stdout????
+        # XXX might want to include pid [%(process)d] in multi-process parent
+        # stdout????
         format = '%(asctime)s | %(levelname)s | %(name)s | %(message)s'
 
         log_file_wrapper.basic_config(format=format, level=level)

@@ -206,6 +206,7 @@ class Worker:
         """
         raise Exception("Worker.child_log_file not overridden")
 
+
 class Manager:
     """
     manager for subprocess workers

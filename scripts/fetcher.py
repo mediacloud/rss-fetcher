@@ -63,7 +63,6 @@ def main() -> None:
             # open new log file for child process
             log_file_wrapper.open_log_file(fork)
 
-
         def fetch(self, item: Item) -> None:  # called in Worker to do work
             """
             passed entire item (as dict) for use by fetch_done
@@ -137,7 +136,8 @@ def main() -> None:
                 # print("UPDATED", res.rowcount)
                 session.commit()
 
-            logger.info(f"{w.n}: feed {item.id} srcid {item.sources_id} fqdn {item.fqdn}")
+            logger.info(
+                f"{w.n}: feed {item.id} srcid {item.sources_id} fqdn {item.fqdn}")
             w.call('fetch', item)  # call method in a Worker process
             worker_stats()         # to report max busyness
 

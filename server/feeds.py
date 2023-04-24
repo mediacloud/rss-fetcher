@@ -67,6 +67,7 @@ async def get_feed_history(
         results = await session.scalars(query)
         return [event.as_dict_public() for event in results]
 
+
 @router.get("/{feed_id}", dependencies=[Depends(auth.read_access)])
 @api_method
 async def get_feed(feed_id: int) -> Optional[Dict]:

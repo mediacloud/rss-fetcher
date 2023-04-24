@@ -135,7 +135,7 @@ class HeadHunter:
             subq = Feed.select_where_ready(*ITEM_COLS, rank_col)
             # print("subq", subq)
             subq_cols = [getattr(subq.c, col) for col in ITEM_COL_NAMES]
-            max_rank = (DB_READY_SEC//RSS_FETCH_FEED_SECS *
+            max_rank = (DB_READY_SEC // RSS_FETCH_FEED_SECS *
                         RSS_FETCH_FEED_CONCURRENCY)
             q = select(*subq_cols, subq.c.rank)\
                 .where(subq.c.rank <= max_rank)\

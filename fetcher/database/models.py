@@ -98,7 +98,7 @@ class Feed(Base):
 
     @classmethod
     def select_where_ready(cls,
-            *entities: _ColumnsClauseArgument[Any]) -> Select[Any]:
+                           *entities: _ColumnsClauseArgument[Any]) -> Select[Any]:
         """
         Helper for defining queries.
         Should be the ONE place where the "ready" test is coded.
@@ -109,6 +109,7 @@ class Feed(Base):
                   .where(Feed.queued.is_(False),
                          or_(Feed.next_fetch_attempt <= now,
                              Feed.next_fetch_attempt.is_(None)))
+
 
 class Story(Base):
     __tablename__ = 'stories'
