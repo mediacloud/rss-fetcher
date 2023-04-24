@@ -6,6 +6,7 @@ Change Log
 * scripts/db_archive.py: fix for SQLAlchemy 2.0
 * gen_daily_story_rss.py: fix for SQLAlchemy 2.0, write to .tmp file and rename
 * dokku-scripts/configure.sh: lower prod/staging worker count to 16
+* updated runtime.txt to Python 3.10.10 for security fixes
 
 ## v0.14.4 2023-04-23
 
@@ -22,7 +23,7 @@ Change Log
 
 * Update to sqlalchemy 2.0, psycopg 3.1
 * Use "rank" in headhunter ready query (from legacy crawler_provider/__init__.py)
-* All server methods are aync
+* All server methods are async
 
 ## v0.14.1 2023-04-22
 
