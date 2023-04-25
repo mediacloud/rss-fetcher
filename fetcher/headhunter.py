@@ -8,7 +8,7 @@ Terminology used is that of CPU instruction scheduling:
 "blocked" and "unsafe": cannot currently be issued
 "scoreboard": machinery that tracks issued feeds
 
-not super-efficient [at least O(n^3)]?!
+not super-efficient!!!
 
 Possible improvements:
 
@@ -176,6 +176,7 @@ class HeadHunter:
             self.stats.incr('hunter.stale')
             self.ready_list = []
 
+    # O(n); iterative calls are O(n^2)
     def find_work(self) -> Optional[Item]:
         blocked = 0
         self.stats.incr('hunter.find_work')
@@ -191,8 +192,8 @@ class HeadHunter:
                 return None
         else:
             self.check_stale()  # may clear ready_list
-            # except when stale_check clear list, more likely
-            # to have non-empty list with stalled entries
+            # except when above stale_check cleared list,
+            # MUCH more likely to have non-empty list with stalled entries
             if not self.ready_list:
                 self.refill()
 
@@ -208,9 +209,9 @@ class HeadHunter:
                     if not sb.safe(itemval):
                         logger.debug(f"  UNSAFE {sbname} {itemval}")
                         blocked += 1
-                        break   # check next item
-                else:
-                    # made it through the gauntlet.
+                        break  # break scoreboard loop: check next item
+                else:  # (scoreboard loop)
+                    # here if safe on all scoreboards (didn't break loop)
                     # mark item as issued on all scoreboards:
                     self.debug_item("issue", item)
                     for sbname in SCOREBOARDS:
@@ -219,6 +220,8 @@ class HeadHunter:
                         logger.debug(f"  issue {sbname} {itemval}")
                         sb.issue(itemval)
                     # print("find_work ->", item)
+
+                    # O(n); iterative calls are O(n^2):
                     self.ready_list.remove(item)
                     self.on_hand_stats()  # report updated list length
                     blocked_stats(False)  # not stalled
