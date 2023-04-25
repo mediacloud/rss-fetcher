@@ -159,7 +159,8 @@ def main() -> None:
             # XXX add counter?
             stime = 0.5         # quick snooze just in case
 
-        # waits stime seconds, or until a worker result is available:
+        # waits stime seconds, or until worker results are available,
+        # will call back to fetch_done for each completed call.
         manager.poll(stime)
 
     # here when feeds given command line: wait for completion
