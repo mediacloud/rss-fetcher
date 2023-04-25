@@ -318,7 +318,11 @@ class _Config:                  # only instantiated in this file
     # rq uses only redis for queues; use dokku-redis supplied URL
     REDIS_URL = conf_required('REDIS_URL')
 
-    # number of parallel fetches for feeds that have the same scoreboard entry
+    # number of parallel fetches for feeds that have the same scoreboard entry.
+    # with current (c)lock-step rate control, concurrency will only happen
+    # when a fetch takes longer than RSS_FETCH_FEED_SECS.  This is likely
+    # to happen if the server is down, in which case high concurrency values
+    # will only tie up more workers.
     RSS_FETCH_FEED_CONCURRENCY = conf_int('RSS_FETCH_FEED_CONCURRENCY', 2)
 
     # minimum interval between starting fetches for the same scoreboard entry.
