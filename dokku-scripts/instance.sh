@@ -87,6 +87,8 @@ NET=mcweb
 
 # Service names:
 DATABASE_SVC=$(app_to_db_svc $APP)
+# needed to delete old service:
+REDIS_SVC=$APP
 
 # non-volatile storage mount for generated RSS files, db CSV files, logs
 STORAGE=${APP}-storage
