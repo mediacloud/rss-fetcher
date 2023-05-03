@@ -53,7 +53,7 @@ class JobTimeoutException(Exception):
 def set_job_timeout(sec: float = 0.0) -> None:
     """
     for use in Worker process ONLY!
-    may be called by used defined methods!!
+    may be called by user defined methods!!
     by default clears timeout.
     """
     signal.setitimer(signal.ITIMER_REAL, sec)
