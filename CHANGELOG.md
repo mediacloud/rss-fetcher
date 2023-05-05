@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+## v0.14.6 2023-05-05
+
+* fetcher/config.py: lower AUTO_ADJUST_MIN_POLL_MINUTES default to 10 minutes(!)
+* dokku-scripts/instance.sh: fix MCWEB URL, redis removal
+
 ## v0.14.5 2023-04-24
 
 * scripts/db_archive.py: fix for SQLAlchemy 2.0
