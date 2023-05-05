@@ -85,7 +85,7 @@ prod|staging)
     else
 	# pushing to mediacloud repo should NOT be optional
 	# for production or staging!!!
-	echo "$MCREMOTE $BRANCH branch not up to date.  push first!!"
+	echo "$MCREMOTE $BRANCH branch not up to date. run 'git push' first!!"
 	exit 1
     fi
     # push tag back to JUST github mediacloud branch
