@@ -53,10 +53,6 @@ add_vars DOKKU_DEFAULT_CHECKS_WAIT=5
 # display/log time in UTC:
 add_vars TZ=UTC
 
-# used by queue_feeds w/o --loop argument:
-# XXX obsolete
-add_vars MAX_FEEDS=15000
-
 ################
 # "postgres:" URLs deprecated in SQLAlchemy 1.4
 # NOTE: sqlalchemy 2.0 + psycopg3 wants postgresql+psycopg:
