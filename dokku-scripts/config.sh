@@ -85,6 +85,13 @@ fi
 # ('cause I didn't see it available any other way -phil)
 add_vars MC_APP=$APP
 
+# before VF, to allow override??
+if [ "x$TYPE_OR_UNAME" = xprod ]; then
+    # production only settings:
+    # XXX want 60? 90??
+    add_vars RSS_OUTPUT_DAYS=30
+fi
+
 case "$TYPE_OR_UNAME" in
 prod|staging)
     # XXX maybe use .$TYPE (.staging vs .prod) file??
