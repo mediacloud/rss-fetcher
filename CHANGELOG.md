@@ -4,8 +4,9 @@ Change Log
 ## v0.14.7 2023-05-18
 
 * added LICENSE (Apache 2.0)
-* dokku-scripts/config.sh: set RSS_OUTPUT_DAYS=90 for production
+* dokku-scripts/config.sh: set RSS_OUTPUT_DAYS=90 for production, removed MAX_FEEDS
 * server/sources.py: use queued.isnot(True)
+* .env.template: removed MAX_FEEDS
 
 ## v0.14.6 2023-05-05
 
