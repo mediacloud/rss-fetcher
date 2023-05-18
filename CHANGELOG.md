@@ -1,6 +1,12 @@
 Change Log
 ==========
 
+## v0.14.7 2023-05-18
+
+* added LICENSE (Apache 2.0)
+* dokku-scripts/config.sh: set RSS_OUTPUT_DAYS=90 for production
+* server/sources.py: use queued.isnot(True)
+
 ## v0.14.6 2023-05-05
 
 * fetcher/config.py: lower AUTO_ADJUST_MIN_POLL_MINUTES default to 10 minutes(!)
