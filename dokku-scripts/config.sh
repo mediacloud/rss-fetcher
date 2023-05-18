@@ -88,8 +88,9 @@ add_vars MC_APP=$APP
 # before VF, to allow override??
 if [ "x$TYPE_OR_UNAME" = xprod ]; then
     # production only settings:
-    # XXX want 60? 90??
-    add_vars RSS_OUTPUT_DAYS=30
+
+    # story retention, RSS file (re)generation:
+    add_vars RSS_OUTPUT_DAYS=90
 fi
 
 case "$TYPE_OR_UNAME" in
