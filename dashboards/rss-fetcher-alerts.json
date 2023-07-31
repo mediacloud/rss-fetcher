@@ -25,9 +25,9 @@
           {
             "evaluator": {
               "params": [
-                35
+                50004
               ],
-              "type": "lt"
+              "type": "gt"
             },
             "operator": {
               "type": "and"
@@ -35,13 +35,13 @@
             "query": {
               "params": [
                 "A",
-                "1h",
+                "5m",
                 "now"
               ]
             },
             "reducer": {
               "params": [],
-              "type": "sum"
+              "type": "avg"
             },
             "type": "query"
           }
@@ -51,8 +51,12 @@
         "frequency": "1m",
         "handler": 1,
         "name": "feeds added to queue alert",
-        "noDataState": "alerting",
-        "notifications": []
+        "noDataState": "no_data",
+        "notifications": [
+          {
+            "uid": "_ApAP7FVk"
+          }
+        ]
       },
       "aliasColors": {},
       "bars": false,
@@ -96,8 +100,8 @@
         {
           "refCount": 0,
           "refId": "A",
-          "target": "movingAverage(stats.counters.mc.prod.rss-fetcher.queue_feeds.queued_feeds.count, '5min')",
-          "textEditor": true
+          "target": "movingAverage(stats.gauges.mc.prod.rss-fetcher.fetcher.db.ready, '5min')",
+          "textEditor": false
         }
       ],
       "thresholds": [
@@ -105,14 +109,14 @@
           "colorMode": "critical",
           "fill": true,
           "line": true,
-          "op": "lt",
-          "value": 35
+          "op": "gt",
+          "value": 50004
         }
       ],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "feeds added to queue",
+      "title": "feeds ready to be fetched",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -183,7 +187,11 @@
         "handler": 1,
         "name": "rss stories output alert",
         "noDataState": "no_data",
-        "notifications": []
+        "notifications": [
+          {
+            "uid": "_ApAP7FVk"
+          }
+        ]
       },
       "aliasColors": {},
       "bars": false,
@@ -284,7 +292,7 @@
           {
             "evaluator": {
               "params": [
-                35
+                0.5
               ],
               "type": "lt"
             },
@@ -300,7 +308,7 @@
             },
             "reducer": {
               "params": [],
-              "type": "sum"
+              "type": "avg"
             },
             "type": "query"
           }
@@ -309,9 +317,14 @@
         "for": "30m",
         "frequency": "1m",
         "handler": 1,
+        "message": "",
         "name": "feeds fetched alert",
         "noDataState": "no_data",
-        "notifications": []
+        "notifications": [
+          {
+            "uid": "_ApAP7FVk"
+          }
+        ]
       },
       "aliasColors": {},
       "bars": false,
@@ -353,7 +366,7 @@
       "targets": [
         {
           "refId": "A",
-          "target": "movingAverage(stats.timers.mc.prod.rss-fetcher.worker.total.status_SUCC.count, '5min')"
+          "target": "movingAverage(stats.counters.mc.prod.rss-fetcher.fetcher.feeds.stat_ok.rate, '5min')"
         }
       ],
       "thresholds": [
@@ -362,7 +375,7 @@
           "fill": true,
           "line": true,
           "op": "lt",
-          "value": 35
+          "value": 0.5
         }
       ],
       "timeFrom": null,
@@ -412,7 +425,7 @@
           {
             "evaluator": {
               "params": [
-                500
+                25
               ],
               "type": "lt"
             },
@@ -439,7 +452,11 @@
         "handler": 1,
         "name": "stories processed alert",
         "noDataState": "alerting",
-        "notifications": []
+        "notifications": [
+          {
+            "uid": "_ApAP7FVk"
+          }
+        ]
       },
       "aliasColors": {},
       "bars": false,
@@ -482,7 +499,7 @@
       "targets": [
         {
           "refId": "A",
-          "target": "movingAverage(sumSeries(stats.counters.mc.prod.rss-fetcher.worker.stories.*.count), '5min')",
+          "target": "movingAverage(sumSeries(stats.counters.mc.prod.rss-fetcher.fetcher.stories.stat_ok.count), '5min')",
           "textEditor": false
         }
       ],
@@ -492,7 +509,7 @@
           "fill": true,
           "line": true,
           "op": "lt",
-          "value": 500
+          "value": 25
         }
       ],
       "timeFrom": null,
@@ -544,12 +561,12 @@
     "list": []
   },
   "time": {
-    "from": "now-24h",
+    "from": "now-7d",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "rss-fetcher alerts",
   "uid": "YVUKAfDVk",
-  "version": 18
+  "version": 19
 }
