@@ -79,6 +79,8 @@ dokku config:set $PROXY_APP DOKKU_LETSENCRYPT_EMAIL=system@mediacloud.org
 dokku letsencrypt:enable $PROXY_APP
 
 echo "NOTE!!!! Make sure $PROXY_APP.$DOMAIN is accepted at $REMOTE_HOST!!!"
+echo "ie; for a dokku app run 'dokku domain:add LOCAL-APP-NAME $PROXY_APP.$DOMAIN'"
+
 # for a dokku app:
 #	dokku domains:set $APP $PROXY_APP.$BASTION.$PUBLIC_DOMAIN
 # for a docker-graphite service:
