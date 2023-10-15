@@ -185,7 +185,7 @@ fi
 if dokku apps:exists $APP >/dev/null 2>&1; then
     echo found app $APP 1>&2
 else
-    echo echo creating app $APP
+    echo creating app $APP
     if dokku apps:create $APP; then
 	echo OK
     else
