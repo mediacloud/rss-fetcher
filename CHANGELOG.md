@@ -1,6 +1,15 @@
 Change Log
 ==========
 
+## v0.14.8 2023-10-14
+
+* redeploy with latest mcmetadata
+* update to python-3.10.13
+* dashboards/rss-fetcher-alerts.json updated
+* dokku-scripts/http-proxy.sh: add helpful message
+* dokku-scripts/install-dokku.sh: fix apt update command
+* dokku-scripts/instance.sh: remove double echo
+
 ## v0.14.7 2023-05-18
 
 * added LICENSE (Apache 2.0)
