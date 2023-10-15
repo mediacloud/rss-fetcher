@@ -79,8 +79,8 @@ for SRC in $SOURCES; do
 done
 
 if [ "x$NEED_APT_UPDATE" != x ]; then
-    echo 'running apt-update:'
-    apt-update
+    echo 'running apt update:'
+    apt update
     echo ''
 fi
 
