@@ -132,12 +132,24 @@ def run(*,
                     """
                     returns 1 if field changed, else 0
                     """
-                    if optional and src not in item:
-                        return 0
+                    if src not in item:
+                        if optional:
+                            logger.debug(" check: %s/%s optional and missing", src, dest)
+                        else:
+                            logger.warning(" check: %s/%s missing", src, dest)
+                            return 0
 
                     curr = getattr(f, dest)
-                    new = cast(item[src])  # maybe wrap in a try?
+                    raw = item[src]
+                    try:
+                        new = cast(raw)
+                    except RuntimeError as e: # _should_ be a ValueError
+                        logger.error("  check: error for %s/%s value %s: %r",
+                                     src, dest, raw, e)
+                        return 0
+
                     if new == curr:
+                        logger.debug(" check: %r == %r", new, curr)
                         return 0  # no change
 
                     # test if already set, and do not change:
