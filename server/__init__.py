@@ -20,6 +20,11 @@ from server.util import api_method
 
 logger = logging.getLogger(__name__)
 
+# startup fails if OUTPUT_RSS_DIR does not yet exist!
+if not os.path.isdir(OUTPUT_RSS_DIR):
+    logger.info("creating %s", OUTPUT_RSS_DIR)
+    os.makedirs(OUTPUT_RSS_DIR)
+
 app = FastAPI(
     title="RSS Fetcher",
     description="Regularly fetch RSS files",
