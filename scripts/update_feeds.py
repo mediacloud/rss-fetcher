@@ -129,27 +129,27 @@ def run(*,
                           cast: Callable[[Any], Any] = identity,
                           allow_change: bool = True,
                           optional: bool = False) -> int:
+                    """
+                    returns 1 if field changed, else 0
+                    """
                     if optional and src not in item:
                         return 0
+
                     curr = getattr(f, dest)
-                    new = cast(item[src])
+                    new = cast(item[src])  # maybe wrap in a try?
+                    if new == curr:
+                        return 0  # no change
 
                     # test if already set, and do not change:
-                    if curr and not allow_change:
-                        # ignore "ignoring" message if no change!
-                        if new != curr:
-                            logger.info(
-                                f"  ignoring {dest} from {curr} to {new}")
-                        return 0
-
-                        if curr:
-                            logger.info(
-                                f"  updating {dest} from {curr} to {new}")
-                        else:
-                            logger.info(f"  setting {dest} to {new}")
-                        setattr(f, dest, new)
-                        return 1
-                    return 0
+                    if curr:
+                        if not allow_change:
+                            logger.info(f"  ignoring {dest} from {curr} to {new}")
+                            return 0  # no change
+                        logger.info(f"  updating {dest} from {curr} to {new}")
+                    else:       # no current value
+                        logger.info(f"  setting {dest} to {new}")
+                    setattr(f, dest, new)
+                    return 1    # changed
 
                 try:
                     changes = 0
@@ -163,11 +163,10 @@ def run(*,
                     changes += check('sources_id', 'source', int)
                     changes += check('active', 'admin_rss_enabled', bool)
 
-                    # should NOT be optional (does not auto-populate),
-                    # only accept first time
+                    # should NOT be optional (does not auto-populate)
                     changes += check('created_at', 'created_at',
                                      parse_timestamp,
-                                     allow_change=False)
+                                     allow_change=False) # only accept on create
 
                     if changes == 0:
                         logger.info(" no change")
