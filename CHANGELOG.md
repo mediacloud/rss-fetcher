@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.14.9 2023-10-16
+
+* fix check function in scripts/update_feeds.py: was not picking up new feeds!
+
 ## v0.14.8 2023-10-14
 
 * redeploy with latest mcmetadata
