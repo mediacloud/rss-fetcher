@@ -72,7 +72,7 @@ async def fetch_source_feeds_soon(sources_id: int) -> int:
                    Feed.queued.isnot(True))
             .values(next_fetch_attempt=soon)
         )
-        count = result.rowcount  # type: ignore[attr-defined]
+        count = result.rowcount
         await session.commit()
     return int(count)
 

@@ -20,7 +20,7 @@ import warnings
 import http.client
 
 # PyPI
-import feedparser
+import feedparser               # type: ignore[import-untyped]
 import mcmetadata.urls
 from psycopg.errors import UniqueViolation
 import requests

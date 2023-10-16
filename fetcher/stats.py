@@ -10,7 +10,7 @@ import logging
 from typing import Any, List, Optional, Tuple
 
 # PyPi
-import statsd                   # type: ignore[import]
+import statsd                   # type: ignore[import-untyped]
 from sqlalchemy.engine.url import make_url
 
 from fetcher.config import conf

@@ -45,7 +45,7 @@ async def fetch_feed_soon(feed_id: int) -> int:
                     last_fetch_failures=0,
                     system_enabled=True)
         result = await session.execute(upd)
-        count = result.rowcount   # type: ignore[attr-defined]
+        count = result.rowcount
         await session.commit()
     return int(count)
 
