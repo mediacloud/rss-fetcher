@@ -134,7 +134,8 @@ def run(*,
                     """
                     if src not in item:
                         if optional:
-                            logger.debug(" check: %s/%s optional and missing", src, dest)
+                            logger.debug(
+                                " check: %s/%s optional and missing", src, dest)
                         else:
                             logger.warning(" check: %s/%s missing", src, dest)
                             return 0
@@ -143,7 +144,7 @@ def run(*,
                     raw = item[src]
                     try:
                         new = cast(raw)
-                    except RuntimeError as e: # _should_ be a ValueError
+                    except RuntimeError as e:  # _should_ be a ValueError
                         logger.error("  check: error for %s/%s value %s: %r",
                                      src, dest, raw, e)
                         return 0
@@ -155,7 +156,8 @@ def run(*,
                     # test if already set, and do not change:
                     if curr:
                         if not allow_change:
-                            logger.info(f"  ignoring {dest} from {curr} to {new}")
+                            logger.info(
+                                f"  ignoring {dest} from {curr} to {new}")
                             return 0  # no change
                         logger.info(f"  updating {dest} from {curr} to {new}")
                     else:       # no current value
@@ -178,7 +180,7 @@ def run(*,
                     # should NOT be optional (does not auto-populate)
                     changes += check('created_at', 'created_at',
                                      parse_timestamp,
-                                     allow_change=False) # only accept on create
+                                     allow_change=False)  # only accept on create
 
                     if changes == 0:
                         logger.info(" no change")
