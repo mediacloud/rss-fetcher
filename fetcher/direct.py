@@ -209,10 +209,9 @@ class Worker:
 
 class Manager:
     """
-    manager for subprocess workers
-    encapsulated for reuse
-    depends on exclusive use of SIGALRM.
-    (cannot currently have multiple Managers at same time)
+    manager for subprocess workers.
+    encapsulated for reuse.
+    not tested with multiple instances!
     """
 
     def __init__(self,
@@ -231,6 +230,9 @@ class Manager:
             self._create_worker(i)
 
     def _create_worker(self, n: int) -> Worker:
+        """
+        called from __init__ and when a child needs replacement
+        """
         w = self.worker_class(self, n, self.timeout)
         self.worker_by_fd[w.fileno()] = w
         self.idle_workers.append(w)
