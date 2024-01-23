@@ -25,9 +25,9 @@
           {
             "evaluator": {
               "params": [
-                50004
+                100
               ],
-              "type": "gt"
+              "type": "lt"
             },
             "operator": {
               "type": "and"
@@ -50,20 +50,20 @@
         "for": "30m",
         "frequency": "1m",
         "handler": 1,
-        "name": "feeds added to queue alert",
-        "noDataState": "no_data",
+        "name": "stories processed alert",
+        "noDataState": "alerting",
         "notifications": [
           {
-            "uid": "_ApAP7FVk"
+            "uid": "Mqmz8gcSz"
           }
         ]
       },
       "aliasColors": {},
-      "bars": false,
+      "bars": true,
       "cacheTimeout": "",
       "dashLength": 10,
       "dashes": false,
-      "datasource": "Local Graphite",
+      "datasource": null,
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
@@ -72,7 +72,7 @@
         "x": 0,
         "y": 0
       },
-      "id": 4,
+      "id": 6,
       "legend": {
         "avg": false,
         "current": false,
@@ -82,7 +82,7 @@
         "total": false,
         "values": false
       },
-      "lines": true,
+      "lines": false,
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
@@ -98,9 +98,8 @@
       "steppedLine": false,
       "targets": [
         {
-          "refCount": 0,
           "refId": "A",
-          "target": "movingAverage(stats.gauges.mc.prod.rss-fetcher.fetcher.db.ready, '5min')",
+          "target": "summarize(stats.counters.mc.prod.rss-fetcher.fetcher.stories.stat_ok.count, '1h', 'sum', false)",
           "textEditor": false
         }
       ],
@@ -109,14 +108,15 @@
           "colorMode": "critical",
           "fill": true,
           "line": true,
-          "op": "gt",
-          "value": 50004
+          "op": "lt",
+          "value": 100,
+          "yaxis": "left"
         }
       ],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "feeds ready to be fetched",
+      "title": "stories processed per hour",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -189,12 +189,13 @@
         "noDataState": "no_data",
         "notifications": [
           {
-            "uid": "_ApAP7FVk"
+            "uid": "Mqmz8gcSz"
           }
         ]
       },
       "aliasColors": {},
-      "bars": false,
+      "bars": true,
+      "cacheTimeout": "",
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
@@ -216,7 +217,7 @@
         "total": false,
         "values": false
       },
-      "lines": true,
+      "lines": false,
       "linewidth": 1,
       "nullPointMode": "null",
       "options": {
@@ -233,7 +234,7 @@
       "targets": [
         {
           "refId": "A",
-          "target": "stats.counters.mc.prod.rss-fetcher.gen_rss.stories.status_added.count"
+          "target": "summarize(stats.counters.mc.prod.rss-fetcher.gen_rss.stories.status_added.count, '1h', 'sum', false)"
         }
       ],
       "thresholds": [
@@ -284,276 +285,9 @@
         "align": false,
         "alignLevel": null
       }
-    },
-    {
-      "alert": {
-        "alertRuleTags": {},
-        "conditions": [
-          {
-            "evaluator": {
-              "params": [
-                0.5
-              ],
-              "type": "lt"
-            },
-            "operator": {
-              "type": "and"
-            },
-            "query": {
-              "params": [
-                "A",
-                "1h",
-                "now"
-              ]
-            },
-            "reducer": {
-              "params": [],
-              "type": "avg"
-            },
-            "type": "query"
-          }
-        ],
-        "executionErrorState": "alerting",
-        "for": "30m",
-        "frequency": "1m",
-        "handler": 1,
-        "message": "",
-        "name": "feeds fetched alert",
-        "noDataState": "no_data",
-        "notifications": [
-          {
-            "uid": "_ApAP7FVk"
-          }
-        ]
-      },
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": "Local Graphite",
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 8
-      },
-      "id": 2,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refId": "A",
-          "target": "movingAverage(stats.counters.mc.prod.rss-fetcher.fetcher.feeds.stat_ok.rate, '5min')"
-        }
-      ],
-      "thresholds": [
-        {
-          "colorMode": "critical",
-          "fill": true,
-          "line": true,
-          "op": "lt",
-          "value": 0.5
-        }
-      ],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "feeds fetched",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
-    },
-    {
-      "alert": {
-        "alertRuleTags": {},
-        "conditions": [
-          {
-            "evaluator": {
-              "params": [
-                25
-              ],
-              "type": "lt"
-            },
-            "operator": {
-              "type": "and"
-            },
-            "query": {
-              "params": [
-                "A",
-                "5m",
-                "now"
-              ]
-            },
-            "reducer": {
-              "params": [],
-              "type": "sum"
-            },
-            "type": "query"
-          }
-        ],
-        "executionErrorState": "alerting",
-        "for": "30m",
-        "frequency": "1m",
-        "handler": 1,
-        "name": "stories processed alert",
-        "noDataState": "alerting",
-        "notifications": [
-          {
-            "uid": "_ApAP7FVk"
-          }
-        ]
-      },
-      "aliasColors": {},
-      "bars": false,
-      "cacheTimeout": "",
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": null,
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 17
-      },
-      "id": 6,
-      "legend": {
-        "avg": false,
-        "current": false,
-        "max": false,
-        "min": false,
-        "show": true,
-        "total": false,
-        "values": false
-      },
-      "lines": true,
-      "linewidth": 1,
-      "nullPointMode": "null",
-      "options": {
-        "dataLinks": []
-      },
-      "percentage": false,
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "refId": "A",
-          "target": "movingAverage(sumSeries(stats.counters.mc.prod.rss-fetcher.fetcher.stories.stat_ok.count), '5min')",
-          "textEditor": false
-        }
-      ],
-      "thresholds": [
-        {
-          "colorMode": "critical",
-          "fill": true,
-          "line": true,
-          "op": "lt",
-          "value": 25
-        }
-      ],
-      "timeFrom": null,
-      "timeRegions": [],
-      "timeShift": null,
-      "title": "stories processed",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "buckets": null,
-        "mode": "time",
-        "name": null,
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        },
-        {
-          "format": "short",
-          "label": null,
-          "logBase": 1,
-          "max": null,
-          "min": null,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false,
-        "alignLevel": null
-      }
     }
   ],
-  "refresh": "30s",
+  "refresh": false,
   "schemaVersion": 20,
   "style": "dark",
   "tags": [],
@@ -561,12 +295,12 @@
     "list": []
   },
   "time": {
-    "from": "now-7d",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "rss-fetcher alerts",
   "uid": "YVUKAfDVk",
-  "version": 19
+  "version": 23
 }

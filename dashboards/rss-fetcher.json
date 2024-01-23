@@ -79,7 +79,7 @@
       ],
       "spaceLength": 10,
       "stack": false,
-      "steppedLine": false,
+      "steppedLine": true,
       "targets": [
         {
           "refCount": 0,
@@ -349,7 +349,13 @@
       }
     },
     {
-      "aliasColors": {},
+      "aliasColors": {
+        "stats.timers.mc.prod.rss-fetcher.fetcher.total.status_HARD.upper": "red",
+        "stats.timers.mc.prod.rss-fetcher.fetcher.total.status_NOUPD.upper": "blue",
+        "stats.timers.mc.prod.rss-fetcher.fetcher.total.status_SOFT.upper": "orange",
+        "stats.timers.mc.prod.rss-fetcher.fetcher.total.status_SUCC.upper": "green",
+        "stats.timers.mc.prod.rss-fetcher.fetcher.total.status_TEMP.upper": "yellow"
+      },
       "bars": false,
       "dashLength": 10,
       "dashes": false,
@@ -632,13 +638,16 @@
       }
     },
     {
-      "aliasColors": {},
+      "aliasColors": {
+        "stats.gauges.mc.prod.rss-fetcher.fetcher.workers.current": "red",
+        "stats.gauges.mc.prod.rss-fetcher.fetcher.workers.n": "blue"
+      },
       "bars": false,
       "cacheTimeout": "",
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
-      "fill": 1,
+      "fill": 0,
       "fillGradient": 0,
       "gridPos": {
         "h": 8,
@@ -669,7 +678,7 @@
       "seriesOverrides": [],
       "spaceLength": 10,
       "stack": false,
-      "steppedLine": false,
+      "steppedLine": true,
       "targets": [
         {
           "refId": "A",
@@ -805,12 +814,15 @@
       }
     },
     {
-      "aliasColors": {},
+      "aliasColors": {
+        "stats.counters.mc.prod.rss-fetcher.fetcher.hunter.find_work.count": "yellow",
+        "stats.counters.mc.prod.rss-fetcher.fetcher.hunter.get_ready.count": "green"
+      },
       "bars": false,
       "dashLength": 10,
       "dashes": false,
       "datasource": null,
-      "fill": 1,
+      "fill": 0,
       "fillGradient": 0,
       "gridPos": {
         "h": 8,
@@ -841,7 +853,7 @@
       "seriesOverrides": [],
       "spaceLength": 10,
       "stack": false,
-      "steppedLine": false,
+      "steppedLine": true,
       "targets": [
         {
           "refId": "A",
@@ -918,5 +930,5 @@
   "timezone": "",
   "title": "rss-fetcher",
   "uid": "sWyOqlVVk",
-  "version": 8
+  "version": 11
 }
