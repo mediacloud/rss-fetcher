@@ -65,9 +65,9 @@ if __name__ == '__main__':
                     # (ignore ones that didn't have URLs - ie. podcast feeds, which have `<enclosure url="...">` instead)
                     story_count = 0
                     query = f"""
-                        select id, url, guid, published_at, domain, title
-                        from stories
-                        where fetched_at::date = '{day_str}'::date and url is not NULL
+                        select s.id, s.url, s.guid, s.published_at, s.domain, s.title, s.feed_id, s.sources_id, f.url as feed_url
+                        from stories s, feeds f
+                        where fetched_at::date = '{day_str}'::date and url is not NULL and s.feed_id = f.id
                     """
                     with engine.begin() as connection:  # will auto-close
                         result = connection.execute(text(query))
@@ -75,7 +75,12 @@ if __name__ == '__main__':
                             story = row._asdict()
                             try:
                                 rsswriter.add_item(outfile, story['url'], story['published_at'], story['domain'],
-                                                   util.clean_str(story['title']) if 'title' in story else '')
+                                                   util.clean_str(
+                                    story['title']) if 'title' in story else '',
+                                    feed_url=story['feed_url'],
+                                    feed_id=story['feed_id'],
+                                    source_id=story['sources_id'],
+                                )
                                 incr_stories('added')
                             except Exception as e:
                                 # probably some kind of XML encoding problem,
