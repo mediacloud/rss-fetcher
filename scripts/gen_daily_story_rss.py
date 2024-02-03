@@ -67,7 +67,7 @@ if __name__ == '__main__':
                     query = f"""
                         select s.id, s.url, s.guid, s.published_at, s.domain, s.title, s.feed_id, s.sources_id, f.url as feed_url
                         from stories s, feeds f
-                        where fetched_at::date = '{day_str}'::date and url is not NULL and s.feed_id = f.id
+                        where s.fetched_at::date = '{day_str}'::date and s.url is not NULL and s.feed_id = f.id
                     """
                     with engine.begin() as connection:  # will auto-close
                         result = connection.execute(text(query))
