@@ -1,2 +1,2 @@
-<item><link>{{ link }}</link><pubDate>{{ pub_date }}</pubDate><domain>{{ domain }}</domain><title>{{ title }}</title><source url="{{ feed_url }}" mcFeedId="{{ feed_id }}" mcSourceId="{{ source_id }}"/></item>
+<item><link>{{ link }}</link><pubDate>{{ pub_date }}</pubDate><domain>{{ domain }}</domain><title>{{ title }}</title><source url="{{ feed_url }}" mcFeedId="{{ feed_id }}" mcSourceId="{{ sources_id }}"/></item>
 
