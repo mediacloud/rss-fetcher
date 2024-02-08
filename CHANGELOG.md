@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+## v0.15.0 2023-08-07
+
+* updated dashboards directory json files
+* create OUTPUT_RSS_DIR if it doesn't yet exist!
+* cleanup from runs of autopep8.sh and mypy.sh
+* add <source/> tag to RSS file
+
 ## v0.14.9 2023-10-16
 
 * fix check function in scripts/update_feeds.py: was not picking up new feeds!
