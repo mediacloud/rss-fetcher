@@ -350,7 +350,18 @@ def _check_auto_adjust(update: Update, feed: Feed,
                        next_min: int,
                        prev_success: Optional[dt.datetime]) -> int:
     """
-    Check if auto-adjust to poll_minutes needed.
+    Check if auto-adjust (adjustment of poll_minutes based on the
+    ammount of duplicate stories returned on a successful poll) is
+    needed.
+
+    NOTE! This is distinct from "backoff" which is how the base poll
+    rate is interpreted based on the number of consecutive fetch
+    failures!!
+
+    The code grew sufficently large that separate helper functions
+    _check_auto_adjust_longer and _check_auto_adjust_shorter handle
+    the two adjustment directions.
+
     Returns (possibly updated) next_min (minutes to next fetch).
     Separate function for easy exit, and to avoid clutter.
     """
