@@ -423,9 +423,6 @@ def update_feed(session: SessionType,
 
     start_time used for fetch/processing time, last_fetch_attempt,
     Stories.created_at, FetchEvent.created_at, last_fetch_success
-
-    ***NOTE!!*** Any changes here in requeue policy
-    need to be reflected in fetches_per_minite (above)
     """
 
     status = update.status               # for log, FetchEvent.Event
@@ -489,10 +486,8 @@ def update_feed(session: SessionType,
         # 3. default
         # (update_minutes is either a value from feed, or NULL)
 
-        # On error, next_minutes is multipled by last_fetch_failures.
-
-        # NOTE! changes HERE *MUST* be reflected in "fetches_per_minute"
-        # function above!!!  Consider
+        # On error, next_minutes is multipled by last_fetch_failures
+        # (see mult variable).
 
         next_minutes = (f.poll_minutes or
                         f.update_minutes or
@@ -549,9 +544,6 @@ def update_feed(session: SessionType,
                 if next_minutes > MAXIMUM_BACKOFF_MINS:
                     next_minutes = MAXIMUM_BACKOFF_MINS
 
-            # NOTE!! logic here is replicated (in an SQL query)
-            # in fetches_per_minute() function above, and any
-            # changes need to be reflected there as well!!!
             if f.poll_minutes is None:
                 if next_minutes < MINIMUM_INTERVAL_MINS:
                     next_minutes = MINIMUM_INTERVAL_MINS
@@ -797,7 +789,7 @@ def fetch_and_process_feed(
                 or not f.queued
                 # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
                 # or f.next_fetch_attempt and f.next_fetch_attempt > now
-                ):
+            ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
             # tempting to clear f.queued here if set, but that
