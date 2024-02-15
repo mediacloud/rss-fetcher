@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.15.1 2024-02-15
+
+* use mcmetadata (v0.12.0) webpages.MEDIA_CLOUD_USER_AGENT
+
 ## v0.15.0 2023-08-07
 
 * updated dashboards directory json files
