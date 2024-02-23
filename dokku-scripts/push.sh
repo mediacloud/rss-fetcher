@@ -163,7 +163,7 @@ if [ "x$BRANCH" = xprod ]; then
     # XXX check if pushed to github/mediacloud/PROJECT prod branch??
     # (for staging too?)
 
-    TAG=v$(grep '^VERSION' fetcher/__init__.py | sed -e 's/^.*= *//' -e 's/"//g' -e "s/'//g")
+    TAG=v$(grep '^VERSION' fetcher/__init__.py | sed -e 's/^.*= *//' -e 's/"//g' -e "s/'//g" -e 's/#.*//')
     echo "Found version number: $TAG"
 
     # NOTE! fgrep -x (-F -x) to match literal whole line (w/o regexps)
