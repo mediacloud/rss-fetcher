@@ -12,10 +12,12 @@ VALUES
 ,(1001, 1, 'NYT > NXDOM', 'http://www.nytimes.abc/services/xml/rss/nyt/bogus.xml') -- bad hostname
 ,(9765, 19347, 'Latest Articles', 'http://www.freerepublic.com/tag/*/feed.rss') -- 25 RSS items, update quickly
 
+,(10959, 1096, 'NPR Topics: Health & Science', 'http://www.npr.org/rss/rss.php?id=1007') -- read timeout
 ,(11678, 1726, 'foobar', 'http://www.kommersant.ru/rss/section-business.xml') -- CharacterEncodingOverride
 ,(49511, 27377, 'Oakland North', 'http://oaklandnorth.net//?feed=rss2') -- 60 min
 ,(68346, 38970, 'Western People', 'http://www.westernpeople.ie/?feed=rdf') -- 10 items, fast update, 60 min
 ,(89855, 41809, 'LExpress.fr', 'http://www.lexpress.fr/rss/edito-video-christophe-barbier.xml') -- > 100 headers
+
 
 ,(348146, 902, 'Between the Columns','http://www.betweenthecolumns.com/feeds/posts/default') -- weak etags
 ,(400599, 26146, 'Black Star News','http://www.blackstarnews.com/rss.xml') -- nginx N-M etag
