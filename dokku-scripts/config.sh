@@ -100,9 +100,9 @@ prod|staging)
     VARS_FILE=.prod
     VF=$TMP
     # get vars for count, and to ignore comment lines!
-    egrep '^(SENTRY_DSN|RSS_FETCHER_(USER|PASS))=' $VARS_FILE > $VF
-    if [ $(wc -l < $VF) != 3 ]; then
-	echo "Need $VARS_FILE file w/ SENTRY_DSN RSS_FETCHER_{USER,PASS}" 1>&2
+    egrep '^(MCWEB_TOKEN|SENTRY_DSN|RSS_FETCHER_(USER|PASS))=' $VARS_FILE > $VF
+    if [ $(wc -l < $VF) != 4 ]; then
+	echo "Need $VARS_FILE file w/ MCWEB_TOKEN SENTRY_DSN RSS_FETCHER_{USER,PASS}" 1>&2
 	exit 1
     fi
     WORKERS=16
