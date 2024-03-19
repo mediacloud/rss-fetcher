@@ -14,6 +14,7 @@ from fetcher.path import OUTPUT_RSS_DIR
 import fetcher.sentry
 
 import server.feeds as feeds
+import server.rss_entries as rss_entries
 import server.sources as sources
 import server.stories as stories
 from server.util import api_method
@@ -44,6 +45,7 @@ app = FastAPI(
     ]
 )
 app.include_router(feeds.router)
+app.include_router(rss_entries.router)
 app.include_router(sources.router)
 app.include_router(stories.router)
 
