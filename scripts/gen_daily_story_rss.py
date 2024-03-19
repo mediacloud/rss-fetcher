@@ -65,8 +65,10 @@ if __name__ == '__main__':
                     # (ignore ones that didn't have URLs - ie. podcast feeds, which have `<enclosure url="...">` instead)
                     story_count = 0
                     query = f"""
-                        select s.id, s.url, s.guid, s.published_at, s.domain, s.title, s.feed_id, s.sources_id, f.url as feed_url
-                        from stories s, feeds f
+                        select s.id, s.url, s.published_at, s.domain, s.title, s.feed_id, s.sources_id, f.url as feed_url
+                        from stories s
+                        left join feeds f
+                        on s.feed_id = f.id
                         where s.fetched_at::date = '{day_str}'::date and s.url is not NULL and s.feed_id = f.id
                     """
                     with engine.begin() as connection:  # will auto-close
@@ -77,7 +79,7 @@ if __name__ == '__main__':
                                 rsswriter.add_item(outfile, story['url'], story['published_at'], story['domain'],
                                                    util.clean_str(
                                     story['title']) if 'title' in story else '',
-                                    feed_url=story['feed_url'],
+                                    feed_url=story['feed_url'] or '',
                                     feed_id=story['feed_id'],
                                     source_id=story['sources_id'],
                                 )
