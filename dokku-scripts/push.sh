@@ -215,39 +215,26 @@ echo checking dokku config...
 $SCRIPT_DIR/config.sh $APP
 
 echo ''
-if git log -n1 $DOKKU_GIT_REMOTE/$DOKKU_GIT_BRANCH -- >/dev/null 2>&1; then
-    # not first push, safe to push by tag name
-    echo "Pushing $TAG to $DOKKU_GIT_REMOTE $DOKKU_GIT_BRANCH"
-    if git push $PUSH_FLAGS $DOKKU_GIT_REMOTE $TAG:$DOKKU_GIT_BRANCH; then
-	echo OK 2>&1
-    else
-	STATUS=$?
-	echo "$0: git push failed with status $STATUS" 2>&1
-	git tag -d $TAG >/dev/null 2>&1
-	exit $STATUS
-    fi
-else
-    # first push for new app, cannot push tag, or confusion ensues
-    # (maybe not w/ manually configured deploy-branch??)
-
+CURR_GIT_BRANCH=$(dokku git:report $APP | awk '/Git deploy branch:/ { print $4 }')
+if [ "x$CURR_GIT_BRANCH" != "x$DOKKU_GIT_BRANCH" ]; then
     echo "Setting $APP deploy-branch to $DOKKU_GIT_BRANCH"
     dokku git:set $APP deploy-branch $DOKKU_GIT_BRANCH
-
-    echo "pushing $BRANCH to $DOKKU_GIT_REMOTE $DOKKU_GIT_BRANCH (first push)"
-    if git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH; then
-	echo OK
-    else
-	STATUS=$?
-	echo "$0: initial git push failed with status $STATUS" 2>&1
-	git tag -d $TAG >/dev/null 2>&1
-	exit $STATUS
-    fi
-    echo "================"
-
-    echo "First push: pushing tag $TAG"
-    # suppress "WARNING: deploy did not complete, you must push to main."
-    git push $DOKKU_GIT_REMOTE $TAG >/dev/null 2>&1
 fi
+
+echo "pushing branch $BRANCH to $DOKKU_GIT_REMOTE $DOKKU_GIT_BRANCH"
+if git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH; then
+    echo OK
+else
+    STATUS=$?
+    echo "$0: git push $DOKKU_GIT_REMOTE $BRANCH:$DOKKU_GIT_BRANCH failed with status $STATUS" 2>&1
+    echo "deleting local tag $TAG"
+    git tag -d $TAG >/dev/null 2>&1
+    exit $STATUS
+fi
+
+echo "pushing tag $TAG to $DOKKU_GIT_REMOTE"
+# suppress "WARNING: deploy did not complete, you must push to main."
+git push $DOKKU_GIT_REMOTE $TAG >/dev/null 2>&1
 echo "================"
 
 # push tag to upstream repos
