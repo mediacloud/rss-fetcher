@@ -1,11 +1,15 @@
 Change Log
 ==========
 
+## v0.16.1 2024-03-23
+
+* server/rss_entries.py: add fetched_at
+
 ## v0.16.0 2024-03-19
 
 * dokku-scripts/config.sh: require/pick-up MCWEB_TOKEN
 * scripts/gen_daily_story_rss.py: generate items even if feed_url unavailable
-* new rss_entries.py: add /api/rss_entries endpoint
+* new server/rss_entries.py: add /api/rss_entries endpoint
 
 ## v0.15.1 2024-02-15
 
