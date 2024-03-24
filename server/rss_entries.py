@@ -27,7 +27,8 @@ async def get_rss_entries(
     logger.info("rss_entries id %d limit %d", story_id, _limit)
 
     query = """
-        select s.id, s.url, s.published_at, s.domain, s.title, s.feed_id, s.sources_id, f.url as feed_url
+        select s.id, s.url, s.published_at, s.domain, s.title,
+            s.fetched_at, s.feed_id, s.sources_id, f.url as feed_url
         from stories s
         left join feeds f
         on s.feed_id = f.id
