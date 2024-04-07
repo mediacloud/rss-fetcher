@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+## v0.16.2 2024-04-07
+
+* add HTTP_KEEP_CONNECTION_HEADER (defaults to off)
+	stops akamai https npr.org feeds from timing out
+
 ## v0.16.1 2024-03-23
 
 * server/rss_entries.py: add fetched_at

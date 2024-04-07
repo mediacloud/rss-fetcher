@@ -141,7 +141,7 @@ AUTO_ADJUST_SMALL_MINS = conf.AUTO_ADJUST_SMALL_MINS
 
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 HTTP_CONDITIONAL_FETCH = conf.HTTP_CONDITIONAL_FETCH
-HTTP_REMOVE_CONNECTION_HEADER = conf.HTTP_REMOVE_CONNECTION_HEADER
+HTTP_KEEP_CONNECTION_HEADER = conf.HTTP_KEEP_CONNECTION_HEADER
 MAX_FAILURES = conf.MAX_FAILURES
 MAX_URL = conf.MAX_URL
 MAXIMUM_BACKOFF_MINS = conf.MAXIMUM_BACKOFF_MINS
@@ -673,8 +673,9 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
         # AkamaiGHost Server (used by npr.org) hangs w/ both
         # "Connection: keep-alive" (default) AND
         # "Connection: close", so try removing it altogether.
-        if HTTP_REMOVE_CONNECTION_HEADER:
+        if not HTTP_KEEP_CONNECTION_HEADER:
             del sess.headers["Connection"]
+
         response = sess.get(
             feed['url'],
             headers=headers,
