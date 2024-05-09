@@ -10,6 +10,8 @@
 # I use this to expose the grafana interface from a dokku-graphite
 # instance running on ifill as https://stats.ifill.tarbell.mediacloud.org/
 
+# Also used to make mcweb-staging, running on stenam (SIC) visible.
+
 SCRIPT_DIR=$(dirname $0)
 INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
 if [ ! -f $INSTALL_CONF ]; then
@@ -28,6 +30,12 @@ if [ "x$PROXY_APP" = x -o \
 	"x$REMOTE_HOST" = x -o \
 	"x$REMOTE_PORT" = x ]; then
     echo "Usage: $0 PROXY_APP_NAME REMOTE_HOST [ REMOTE_PORT ]" 1>&2
+    exit 1
+fi
+
+# 2024-05-09: nginx on tarbell startup failing when DNS name used!
+if ! expr "$REMOTE_HOST" : '^[1-9][0-9]*\.[1-9][0-9]*\.[1-9][0-9]*\.[1-9][0-9]*$' >/dev/null; then
+    echo "Use IP address for remote server"
     exit 1
 fi
 
