@@ -415,6 +415,10 @@ EOF
 DB_BACKUP_POLICY=mediacloud-web-tools-db-backup-get-put-delete
 DB_BACKUP_KEYNAME=mediacloud-webtools-db-backup
 
+# change to true to enable backup of roll-over files:
+# off 5/21/2024 -phil
+BACKUP_DB_ARCHIVE=false
+
 if [ "x$TYPE" = xprod ]; then
     if dpkg --list | grep awscli >/dev/null; then
 	echo found awscli
@@ -459,7 +463,7 @@ if [ "x$TYPE" = xprod ]; then
 	fi
     }
 
-    check_aws_creds $DB_BACKUP_PROFILE $DB_BACKUP_POLICY $DB_BACKUP_KEYNAME
+    $BACKUP_DB_ARCHIVE && check_aws_creds $DB_BACKUP_PROFILE $DB_BACKUP_POLICY $DB_BACKUP_KEYNAME
     check_aws_creds $RSS_PROFILE mediacloud-public-get-put-delete mediawords-public-s3
     chmod 600 $AWS_CREDS
     chown $BACKUP_USER $AWS_CREDS
@@ -468,7 +472,7 @@ if [ "x$TYPE" = xprod ]; then
     echo "45 * * * * $BACKUP_USER aws s3 --profile $RSS_PROFILE sync $STDIR/rss-output-files/ s3://$RSS_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-rss-mc.log 2>&1" >> $CRONTEMP
 
     # copy archived rows in CSV files to private bucket (NOTE! After "run archiver" entry created above)
-    echo "45 1 * * * $BACKUP_USER aws s3 --profile $DB_BACKUP_PROFILE sync $STDIR/db-archive/ s3://$DB_BACKUP_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-dbarch-mc.log 2>&1" >> $CRONTEMP
+    $BACKUP_DB_ARCHIVE && echo "45 1 * * * $BACKUP_USER aws s3 --profile $DB_BACKUP_PROFILE sync $STDIR/db-archive/ s3://$DB_BACKUP_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-dbarch-mc.log 2>&1" >> $CRONTEMP
 
     # sync feeds from mcweb (web-search server)
     echo "*/5 * * * * root $DOKKU_RUN_PERIODIC python -m scripts.update_feeds > $LOGDIR/rss-fetcher-update.log 2>&1" >> $CRONTEMP
