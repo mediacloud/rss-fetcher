@@ -435,13 +435,16 @@ if [ "x$TYPE" = xprod ]; then
 
     # profiles (section) in $AWS_CREDS file
     DB_BACKUP_PROFILE=${APP}-backup
-    RSS_PROFILE=${APP}-rss
-
     DB_BACKUP_BUCKET=mediacloud-rss-fetcher-backup
-    RSS_BUCKET=mediacloud-public/backup-daily-rss
 
-    BOGUS_DB_BACKUP_CRED="${DB_BACKUP_PROFILE}-key-here"
-    BOGUS_RSS_CRED="${RSS_PROFILE}-key-here"
+    # requires section in ~BACKUP_USER/.aws/credentials
+    S3_RSS_PROFILE=${APP}-rss
+    S3_RSS_BUCKET=mediacloud-public/backup-daily-rss
+
+    # requires section in ~BACKUP_USER/.aws/credentials
+    B2_RSS_PROFILE=mediacloud-public-rw
+    B2_RSS_BUCKET=mediacloud-public/daily-rss/rss-fetcher
+    B2_RSS_REGION=us-east-005
 
     test -d $AWS_CREDS_DIR || mkdir $AWS_CREDS_DIR
     check_aws_creds() {
@@ -459,17 +462,23 @@ if [ "x$TYPE" = xprod ]; then
 	if grep $BOGUS $AWS_CREDS >/dev/null; then
 	    echo '' 1>&2
 	    echo "*** Need valid $PROFILE profile/section in $AWS_CREDS ***" 1>&2
-	    echo " (requires key with $POLICY policy attached (ie; $KEYNAME key)" 1>&2
+	    if [ "x$POLICY" != x ]; then
+		echo " (requires key with $POLICY policy attached (ie; $KEYNAME key)" 1>&2
+	    fi
 	fi
     }
 
     $BACKUP_DB_ARCHIVE && check_aws_creds $DB_BACKUP_PROFILE $DB_BACKUP_POLICY $DB_BACKUP_KEYNAME
-    check_aws_creds $RSS_PROFILE mediacloud-public-get-put-delete mediawords-public-s3
+    check_aws_creds $S3_RSS_PROFILE mediacloud-public-get-put-delete mediawords-public-s3
+    check_aws_creds $B2_RSS_PROFILE '' mediacloud-public-rw
     chmod 600 $AWS_CREDS
     chown $BACKUP_USER $AWS_CREDS
 
     # copy generated RSS files to public S3 bucket
-    echo "45 * * * * $BACKUP_USER aws s3 --profile $RSS_PROFILE sync $STDIR/rss-output-files/ s3://$RSS_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-rss-mc.log 2>&1" >> $CRONTEMP
+    echo "45 * * * * $BACKUP_USER aws s3 --profile $S3_RSS_PROFILE sync $STDIR/rss-output-files/ s3://$S3_RSS_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-rss-mc.log 2>&1" >> $CRONTEMP
+
+    # copy generated RSS files to public B2 bucket using aws command
+    echo "45 * * * * $BACKUP_USER aws s3 --profile b2-rss-fetcher-rss --endpoint https://s3.${B2_RSS_REGION}.backblazeb2.com sync $STDIR/rss-output-files/ s3://$B2_RSS_BUCKET > $LOGDIR/rss-fetcher-bb-sync-rss-mc.log 2>&1" >> $CRONTEMP
 
     # copy archived rows in CSV files to private bucket (NOTE! After "run archiver" entry created above)
     $BACKUP_DB_ARCHIVE && echo "45 1 * * * $BACKUP_USER aws s3 --profile $DB_BACKUP_PROFILE sync $STDIR/db-archive/ s3://$DB_BACKUP_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-dbarch-mc.log 2>&1" >> $CRONTEMP
@@ -486,7 +495,7 @@ if [ -f $CRONTAB ]; then
 	SAVE=/tmp/$APP.cron.$$
 	echo $CRONTAB differs, saving as $SAVE
 	mv $CRONTAB $SAVE
-	echo installing new $CRONTAB
+	echo updating $CRONTAB
 	mv $CRONTEMP $CRONTAB
     fi
 else
