@@ -10,7 +10,7 @@ import datetime as dt
 from enum import Enum
 import hashlib
 import json
-from typing import Any, Dict, NamedTuple, Optional, Tuple
+from typing import Any, Dict, NamedTuple, Optional, Tuple, cast
 import logging
 import logging.handlers
 import os
@@ -22,6 +22,7 @@ import http.client
 # PyPI
 import feedparser               # type: ignore[import-untyped]
 import mcmetadata.urls
+import mc_sitemap_tools.parser as sitemap_parser
 from mcmetadata.webpages import MEDIA_CLOUD_USER_AGENT
 from psycopg.errors import UniqueViolation
 import requests
@@ -63,6 +64,11 @@ SOFT_FAILURE_INCREMENT = 0.5
 
 # non-zero, in case permanent!
 TEMP_FAILURE_INCREMENT = 0.25
+
+
+# feedparser doesn't have type hints, types treated as Any
+# so avoid need to suppress warnings
+FeedParserDict = Any
 
 
 class DupPct:
@@ -588,8 +594,7 @@ def update_feed(session: SessionType,
     # end "with session.begin()"
 
 
-def _feed_update_period_mins(   # type: ignore[no-any-unimported]
-        parsed_feed: feedparser.FeedParserDict) -> Optional[int]:
+def _feed_update_period_mins(parsed_feed: FeedParserDict) -> Optional[int]:
     """
     Extract feed update period in minutes, if any from parsed feed.
     Returns None if <sy:updatePeriod> not present, or bogus in some way.
@@ -757,6 +762,74 @@ def request_exception_to_status(
     return Status.SOFT, "unknown"
 
 
+def _iso2dt(iso: str) -> dt.datetime:
+    """
+    parse ISO datetime, return datetime object
+    """
+    if iso.endswith("Z"):       # replace trailing Z with +00:00
+        iso = iso[:-1] + "+00:00"
+    try:
+        # accepts yyyy-mm-dd[Thh:mm[:ss[.mmm]][+/-hh:mm]]
+        return dt.datetime.fromisoformat(iso)
+    except ValueError:
+        # try again, handling extra digits of fractional seconds
+        return dt.datetime.strptime(iso, "%Y-%m-%dT%H:%M:%S.%f%z")
+
+
+def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> FeedParserDict:
+    """
+    convert sitemap_parser.SitemapEntry to MINIMAL FeedParserDict:
+    """
+    d: dict[str, str | list[int]] = {"url": sme["loc"]}
+    title = sme.get("news_title")
+    if title:
+        d["title"] = title
+    pub = sme.get("news_pub_date")
+    if pub:
+        try:
+            assert isinstance(pub, str)
+            d["published_parsed"] = list(_iso2dt(pub).utctimetuple())
+        except BaseException:
+            pass
+    return feedparser.FeedParserDict(d)
+
+
+def parse(url: str, response: requests.Response) -> FeedParserDict:
+    """
+    NOTE!! Any exception from this routine will be captured as a "note" for the feed
+    """
+
+    # NOTE! passing undecoded bytes!
+    parsed_feed = feedparser.parse(response.content)
+
+    # legacy common/src/python/mediawords/feed/parse.py
+    # ignores "bozo", checks only "version"
+    vers = parsed_feed.get('version', '')
+    if vers:
+        return parsed_feed
+
+    if not response.content:
+        raise Exception("empty")
+
+    # Try parsing as sitemap.
+    # Pass decoded string.  Spec'ed to always be UTF-8.
+    p = sitemap_parser.XMLSitemapParser(url, response.text)
+    sitemap = p.sitemap()
+
+    s_type = sitemap.get("type")
+    if not s_type:
+        raise Exception("could not parse")
+    if s_type != "urlset":
+        raise Exception(s_type)
+
+    # Convert to a FeedParserDict.
+    # forge only those fields we look at!
+    # (the majority of parsing is in Story.from_rss_entry)
+    urlset = cast(sitemap_parser.Urlset, sitemap)
+    return feedparser.FeedParserDict(
+        {"version": s_type, "entries": [_sm2fpd(sme) for sme in urlset["pages"]]})
+
+
 def fetch_and_process_feed(
         session: SessionType, feed_id: int, now: dt.datetime) -> Update:
     """
@@ -794,11 +867,11 @@ def fetch_and_process_feed(
         #     Marx Brothers' "Night at the Opera" (1935)
 
         if (not f.active
-                or not f.system_enabled
-                or not f.queued
-                # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
-                # or f.next_fetch_attempt and f.next_fetch_attempt > now
-            ):
+                    or not f.system_enabled
+                    or not f.queued
+                    # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
+                    # or f.next_fetch_attempt and f.next_fetch_attempt > now
+                ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
             # tempting to clear f.queued here if set, but that
@@ -904,18 +977,8 @@ def fetch_and_process_feed(
 
     # try to parse the content, parsing all the stories
     try:
-        # NOTE! passing undecoded bytes!
-        parsed_feed = feedparser.parse(response.content)
-        # legacy common/src/python/mediawords/feed/parse.py
-        # ignores "bozo", checks only "version"
+        parsed_feed = parse(feed['url'], response)
         vers = parsed_feed.get('version', '')
-        if not vers:
-            if not response.content:
-                raise Exception("empty")
-            top = response.content[:1024].lower()
-            if top.find(b'<!doctype html') or top.find(b'<html'):
-                raise Exception("html?")
-            raise Exception("no version")
         logger.debug(f"  Feed {feed_id} version {vers}")
     except JobTimeoutException:
         raise
@@ -965,10 +1028,10 @@ def fetch_and_process_feed(
                   start_delay=start_delay)
 
 
-def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimported]
+def save_stories_from_feed(session: SessionType,
                            now: dt.datetime,
                            feed: Dict,
-                           parsed_feed: feedparser.FeedParserDict) -> Tuple[int, int, int]:
+                           parsed_feed: FeedParserDict) -> Tuple[int, int, int]:
     """
     Take parsed feed, so insert all the (valid) entries.
     returns (saved_count, dup_count, skipped_count)
@@ -1076,8 +1139,8 @@ def save_stories_from_feed(session: SessionType,  # type: ignore[no-any-unimport
     return saved_count, dup_count, skipped_count
 
 
-def check_feed_title(feed: Dict,  # type: ignore[no-any-unimported]
-                     parsed_feed: feedparser.FeedParserDict,
+def check_feed_title(feed: Dict,
+                     parsed_feed: FeedParserDict,
                      feed_col_updates: Dict) -> None:
     # update feed title (if it has one and it changed)
     try:
