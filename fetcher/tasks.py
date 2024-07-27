@@ -764,12 +764,13 @@ def request_exception_to_status(
 
 def _iso2dt(iso: str) -> dt.datetime:
     """
-    parse ISO datetime, return datetime object
+    parse ISO datetime, return datetime object.
+    raises ValueError if cannot be parsed
     """
     if iso.endswith("Z"):       # replace trailing Z with +00:00
         iso = iso[:-1] + "+00:00"
     try:
-        # accepts yyyy-mm-dd[Thh:mm[:ss[.mmm]][+/-hh:mm]]
+        # accepts yyyy-mm-dd[Thh:mm[:ss[.mmm]][(+|-)hh:mm]]
         return dt.datetime.fromisoformat(iso)
     except ValueError:
         # try again, handling extra digits of fractional seconds
@@ -789,8 +790,9 @@ def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> FeedParserDict:
         try:
             assert isinstance(pub, str)
             d["published_parsed"] = list(_iso2dt(pub).utctimetuple())
-        except BaseException:
+        except ValueError:
             pass
+    logger.info("_sm2fpd %r", d)
     return feedparser.FeedParserDict(d)
 
 
