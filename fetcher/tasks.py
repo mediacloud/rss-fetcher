@@ -784,7 +784,7 @@ def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> FeedParserDict:
     d: dict[str, str | time.struct_time] = {"link": sme["loc"]}
     title = sme.get("news_title")
     if title:
-        d["title"] = title
+        d["title"] = title.strip()
     pub = sme.get("news_pub_date")
     if pub:
         try:
@@ -793,7 +793,6 @@ def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> FeedParserDict:
             d["published_parsed"] = _iso2dt(pub).timetuple()
         except ValueError:
             pass
-    logger.info("_sm2fpd %r", d)
     return feedparser.FeedParserDict(d)
 
 
