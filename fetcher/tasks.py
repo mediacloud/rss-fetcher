@@ -781,7 +781,7 @@ def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> FeedParserDict:
     """
     convert sitemap_parser.SitemapEntry to MINIMAL FeedParserDict:
     """
-    d: dict[str, str | list[int]] = {"url": sme["loc"]}
+    d: dict[str, str | list[int]] = {"link": sme["loc"]}
     title = sme.get("news_title")
     if title:
         d["title"] = title
