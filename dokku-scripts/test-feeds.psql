@@ -59,4 +59,7 @@ VALUES
 
 -- can't trust ETag, Last-Modified old
 ,(1700037, 366647, 'Conservative News Today', 'https://www.bizpacreview.com/feed')
+
+-- hand added (made up feed_id) sitemap urlset pages:
+,(1089, 9000000, 'reuters', 'https://www.reuters.com/arc/outboundfeeds/news-sitemap/?outputType=xml')
 ;
