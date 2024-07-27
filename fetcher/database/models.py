@@ -153,7 +153,6 @@ class Story(Base):
             time_struct = entry.published_parsed
             s.published_at = dt.datetime.fromtimestamp(mktime(time_struct))
         except Exception as _:  # likely to be an unknown string format - let the pipeline guess it from HTML later
-            print("published", time_struct, repr(_))
             s.published_at = None
         try:
             # code prior to this should have checked for title uniqueness biz
