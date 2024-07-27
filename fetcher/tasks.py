@@ -826,8 +826,11 @@ def parse(url: str, response: requests.Response) -> FeedParserDict:
     # forge only those fields we look at!
     # (the majority of parsing is in Story.from_rss_entry)
     urlset = cast(sitemap_parser.Urlset, sitemap)
-    return feedparser.FeedParserDict(
-        {"version": s_type, "entries": [_sm2fpd(sme) for sme in urlset["pages"]]})
+    return feedparser.FeedParserDict({
+        "entries": [_sm2fpd(sme) for sme in urlset["pages"]],
+        "feed": feedparser.FeedParserDict(),
+        "version": s_type
+    })
 
 
 def fetch_and_process_feed(
