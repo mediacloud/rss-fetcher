@@ -781,7 +781,7 @@ def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> FeedParserDict:
     """
     convert sitemap_parser.SitemapEntry to MINIMAL FeedParserDict:
     """
-    d: dict[str, str | list[int]] = {"link": sme["loc"]}
+    d: dict[str, str | time.struct_time] = {"link": sme["loc"]}
     title = sme.get("news_title")
     if title:
         d["title"] = title
@@ -789,7 +789,8 @@ def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> FeedParserDict:
     if pub:
         try:
             assert isinstance(pub, str)
-            d["published_parsed"] = list(_iso2dt(pub).utctimetuple())
+            # NOTE! NOT utctimetuple!!
+            d["published_parsed"] = _iso2dt(pub).timetuple()
         except ValueError:
             pass
     logger.info("_sm2fpd %r", d)
