@@ -68,7 +68,7 @@ TEMP_FAILURE_INCREMENT = 0.25
 
 # feedparser doesn't have type hints, types treated as Any
 # so avoid need to suppress warnings
-FeedParserDict = Any
+_FeedParserDict = Any
 
 
 class DupPct:
@@ -594,7 +594,7 @@ def update_feed(session: SessionType,
     # end "with session.begin()"
 
 
-def _feed_update_period_mins(parsed_feed: FeedParserDict) -> Optional[int]:
+def _feed_update_period_mins(parsed_feed: _FeedParserDict) -> Optional[int]:
     """
     Extract feed update period in minutes, if any from parsed feed.
     Returns None if <sy:updatePeriod> not present, or bogus in some way.
@@ -777,7 +777,7 @@ def _iso2dt(iso: str) -> dt.datetime:
         return dt.datetime.strptime(iso, "%Y-%m-%dT%H:%M:%S.%f%z")
 
 
-def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> FeedParserDict:
+def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> _FeedParserDict:
     """
     convert sitemap_parser.SitemapEntry to MINIMAL FeedParserDict:
     """
@@ -796,7 +796,7 @@ def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> FeedParserDict:
     return feedparser.FeedParserDict(d)
 
 
-def parse(url: str, response: requests.Response) -> FeedParserDict:
+def parse(url: str, response: requests.Response) -> _FeedParserDict:
     """
     NOTE!! Any exception from this routine will be captured as a "note" for the feed
     """
@@ -822,15 +822,27 @@ def parse(url: str, response: requests.Response) -> FeedParserDict:
     if not s_type:
         raise Exception("could not parse")
     if s_type != "urlset":
-        raise Exception(s_type)
+        raise Exception(s_type)  # html, sitemapindex here
+
+    urlset = cast(sitemap_parser.Urlset, sitemap)
+
+    # no overall header in urlset; if any article has
+    # a publication name, grab that as the feed title.
+    # NOTE! Tends to be VERY short, and likely to be the
+    # same across multiple sitemaps from the same site...
+    feed = feedparser.FeedParserDict()
+    for sme in urlset["pages"]:
+        pub_name = sme.get("news_pub_name")  # google <news:name>
+        if pub_name:
+            feed.title = pub_name
+            break
 
     # Convert to a FeedParserDict.
     # forge only those fields we look at!
     # (the majority of parsing is in Story.from_rss_entry)
-    urlset = cast(sitemap_parser.Urlset, sitemap)
     return feedparser.FeedParserDict({
         "entries": [_sm2fpd(sme) for sme in urlset["pages"]],
-        "feed": feedparser.FeedParserDict(),
+        "feed": feed,
         "version": s_type
     })
 
@@ -872,11 +884,11 @@ def fetch_and_process_feed(
         #     Marx Brothers' "Night at the Opera" (1935)
 
         if (not f.active
-                    or not f.system_enabled
-                    or not f.queued
-                    # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
+            or not f.system_enabled
+            or not f.queued
+            # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
                     # or f.next_fetch_attempt and f.next_fetch_attempt > now
-                ):
+            ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
             # tempting to clear f.queued here if set, but that
@@ -1036,7 +1048,7 @@ def fetch_and_process_feed(
 def save_stories_from_feed(session: SessionType,
                            now: dt.datetime,
                            feed: Dict,
-                           parsed_feed: FeedParserDict) -> Tuple[int, int, int]:
+                           parsed_feed: _FeedParserDict) -> Tuple[int, int, int]:
     """
     Take parsed feed, so insert all the (valid) entries.
     returns (saved_count, dup_count, skipped_count)
@@ -1145,7 +1157,7 @@ def save_stories_from_feed(session: SessionType,
 
 
 def check_feed_title(feed: Dict,
-                     parsed_feed: FeedParserDict,
+                     parsed_feed: _FeedParserDict,
                      feed_col_updates: Dict) -> None:
     # update feed title (if it has one and it changed)
     try:

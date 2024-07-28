@@ -1,4 +1,6 @@
 #!/bin/sh
+export PATH=venv/bin:$PATH
+
 # skip migrations directory, virtual env (created by mypy.sh)
 find . -name versions -prune -o \
      -name venv\* -prune -o \
