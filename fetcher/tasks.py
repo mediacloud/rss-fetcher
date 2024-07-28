@@ -7,6 +7,7 @@ interrupted by a JobTimeoutException
 """
 
 import datetime as dt
+from dataclasses import dataclass
 from enum import Enum
 import hashlib
 import json
@@ -22,7 +23,8 @@ import http.client
 # PyPI
 import feedparser               # type: ignore[import-untyped]
 import mcmetadata.urls
-import mc_sitemap_tools.parser as sitemap_parser
+import mcmetadata.urls as urls
+import mcmetadata.titles as titles
 from mcmetadata.webpages import MEDIA_CLOUD_USER_AGENT
 from psycopg.errors import UniqueViolation
 import requests
@@ -35,6 +37,9 @@ from sqlalchemy.exc import (IntegrityError, PendingRollbackError)
 from sqlalchemy.sql.expression import case
 import sqlalchemy.sql.functions as func  # avoid overriding "sum"
 from urllib3.exceptions import InsecureRequestWarning
+
+# from sitemap-tools
+import mc_sitemap_tools.parser as sitemap_parser
 
 # feed fetcher:
 from fetcher import APP, DYNO
@@ -64,11 +69,6 @@ SOFT_FAILURE_INCREMENT = 0.5
 
 # non-zero, in case permanent!
 TEMP_FAILURE_INCREMENT = 0.25
-
-
-# feedparser doesn't have type hints, types treated as Any
-# so avoid need to suppress warnings
-_FeedParserDict = Any
 
 
 class DupPct:
@@ -120,6 +120,27 @@ def NoUpdate(counter: str) -> Update:
     where Field row should NOT be updated
     """
     return Update(counter, Status.NOUPD, '')
+
+
+# feedparser doesn't come with type hints,
+# and with the addition of sitemaps, adding
+# internal, generic, typed dataclasses,
+# AND lessens time format conversions.
+@dataclass
+class ParsedEntry:
+    url: str
+    guid: str | None = None
+    published_dt: dt.datetime | None = None
+    title: str | None = None
+
+
+@dataclass
+class ParsedFeed:
+    entries: list[ParsedEntry]
+    format: str
+    feed_title: str | None
+    updatefrequency: str | None
+    updateperiod: str | None
 
 
 # HTTP status codes to consider "soft" errors:
@@ -594,18 +615,17 @@ def update_feed(session: SessionType,
     # end "with session.begin()"
 
 
-def _feed_update_period_mins(parsed_feed: _FeedParserDict) -> Optional[int]:
+def _feed_update_period_mins(parsed_feed: ParsedFeed) -> Optional[int]:
     """
     Extract feed update period in minutes, if any from parsed feed.
     Returns None if <sy:updatePeriod> not present, or bogus in some way.
     """
     try:
-        pff = parsed_feed.feed
         # (spec says default to 24h, but our current default is less,
         # so only process if tag present (which SHOULD manifest
         # as a string value, even if empty, in which case applying
         # the default is reasonable) and None if tag not present
-        update_period = pff.get('sy_updateperiod')
+        update_period = parsed_feed.updateperiod
         if update_period is None:  # tag not present
             return None
 
@@ -621,7 +641,7 @@ def _feed_update_period_mins(parsed_feed: _FeedParserDict) -> Optional[int]:
         # logger.debug(f" update_period {update_period} upm {upm}")
 
         # get divisor.  use default if not present or empty, or whitespace only
-        update_frequency = pff.get('sy_updatefrequency')
+        update_frequency = parsed_feed.updatefrequency
         if update_frequency is not None:
             # translate to number: have seen 0.1 as update_frequency!
             ufn = float(update_frequency.strip() or DEFAULT_UPDATE_FREQUENCY)
@@ -762,45 +782,86 @@ def request_exception_to_status(
     return Status.SOFT, "unknown"
 
 
-def _iso2dt(iso: str) -> dt.datetime:
+def _ts2dt(ts: time.struct_time | None) -> dt.datetime | None:
     """
-    parse ISO datetime, return datetime object.
+    convert optional struct_time (from feedparsed) to datetime
+    from models.Story.from_rss_entry
+    """
+    if ts is None:
+        return None
+
+    # mktime converts from local time
+    # container TZ is always "UTC"
+    # calendar.timegm always converts from UTC
+    return dt.datetime.fromtimestamp(time.mktime(ts))
+
+
+def _iso2dt(iso: str | None) -> dt.datetime | None:
+    """
+    parse optional ISO datetime, return datetime object.
     raises ValueError if cannot be parsed
     """
+    if iso is None:
+        return None
+
     if iso.endswith("Z"):       # replace trailing Z with +00:00
         iso = iso[:-1] + "+00:00"
     try:
         # accepts yyyy-mm-dd[Thh:mm[:ss[.mmm]][(+|-)hh:mm]]
         return dt.datetime.fromisoformat(iso)
     except ValueError:
+        pass
+
+    try:
         # try again, handling extra digits of fractional seconds
         return dt.datetime.strptime(iso, "%Y-%m-%dT%H:%M:%S.%f%z")
+    except ValueError:
+        pass
+
+    return None
 
 
-def _sm2fpd(sme: sitemap_parser.SitemapEntry) -> _FeedParserDict:
+def _strip(s: str | None) -> str | None:
+    if s is None:
+        return None
+    return s.strip()
+
+
+_FeedParserEntry = Any         # feed parser has no hints
+
+
+def _fpe2pfe(fpe: _FeedParserEntry) -> ParsedEntry:
     """
-    convert sitemap_parser.SitemapEntry to MINIMAL FeedParserDict:
+    convert feedparser entry to ParsedEntry
     """
-    d: dict[str, str | time.struct_time] = {"link": sme["loc"]}
-    title = sme.get("news_title")
-    if title:
-        d["title"] = title.strip()
-    pub = sme.get("news_pub_date")
-    if pub:
-        try:
-            assert isinstance(pub, str)
-            # NOTE! NOT utctimetuple!!
-            d["published_parsed"] = _iso2dt(pub).timetuple()
-        except ValueError:
-            pass
-    return feedparser.FeedParserDict(d)
+    url = _strip(fpe.link)
+    assert url
+    return ParsedEntry(
+        url=url,
+        guid=fpe.get("guid", None),
+        title=_strip(fpe.get("title")),
+        published_dt=_ts2dt(fpe.get("published_parsed")))
 
 
-def parse(url: str, response: requests.Response) -> _FeedParserDict:
+def _sme2pfe(sme: sitemap_parser.SitemapEntry) -> ParsedEntry:
+    """
+    convert sitemap_parser.SitemapEntry to ParsedEntry
+    """
+    url = _strip(sme["loc"])
+    assert url
+    return ParsedEntry(
+        url=url,
+        guid=None,
+        title=_strip(sme.get("news_title")),
+        published_dt=_iso2dt(sme.get("news_pub_date")))
+
+
+def parse(url: str, response: requests.Response) -> ParsedFeed:
     """
     NOTE!! Any exception from this routine will be captured as a "note" for the feed
     """
 
+    # try parsing as feed
     # NOTE! passing undecoded bytes!
     parsed_feed = feedparser.parse(response.content)
 
@@ -808,7 +869,23 @@ def parse(url: str, response: requests.Response) -> _FeedParserDict:
     # ignores "bozo", checks only "version"
     vers = parsed_feed.get('version', '')
     if vers:
-        return parsed_feed
+        # here with parsed feed; convert to internal ParsedFeed
+        title = updatefrequency = updateperiod = None
+        try:
+            pff = parsed_feed.feed
+            title = pff.get("title")
+            updatefrequency = pff.get("sy_updatefrequency")
+            updateperiod = pff.get("sy_updateperiod")
+        except AttributeError:
+            pass
+
+        # XXX discard bad entries?!
+        return ParsedFeed(
+            entries=[_fpe2pfe(entry) for entry in parsed_feed.entries],
+            format=vers,
+            feed_title=title,
+            updatefrequency=updatefrequency,
+            updateperiod=updateperiod)
 
     if not response.content:
         raise Exception("empty")
@@ -830,21 +907,48 @@ def parse(url: str, response: requests.Response) -> _FeedParserDict:
     # a publication name, grab that as the feed title.
     # NOTE! Tends to be VERY short, and likely to be the
     # same across multiple sitemaps from the same site...
-    feed = feedparser.FeedParserDict()
+    feed_title = None
     for sme in urlset["pages"]:
         pub_name = sme.get("news_pub_name")  # google <news:name>
         if pub_name:
-            feed.title = pub_name
+            feed_title = pub_name
             break
 
-    # Convert to a FeedParserDict.
-    # forge only those fields we look at!
-    # (the majority of parsing is in Story.from_rss_entry)
-    return feedparser.FeedParserDict({
-        "entries": [_sm2fpd(sme) for sme in urlset["pages"]],
-        "feed": feed,
-        "version": s_type
-    })
+    # XXX discard bad entries?!
+    return ParsedFeed(
+        entries=[_fpe2pfe(entry) for entry in parsed_feed.entries],
+        format=s_type,
+        feed_title=feed_title,
+        updatefrequency=updatefrequency,
+        updateperiod=updateperiod)
+
+
+def make_story(feed_id: int,
+               fetched_at: dt.datetime,
+               entry: ParsedEntry) -> Story:
+    s = Story()
+    s.feed_id = feed_id
+    s.url = url = entry.url
+    s.normalized_url = urls.normalize_url(url)
+    s.domain = urls.canonical_domain(url)
+    s.guid = entry.guid
+    s.published_at = entry.published_dt
+
+    try:
+        # code prior to this should have checked for title uniqueness biz
+        # logic
+        # make sure we can save it in the DB by removing NULL chars and
+        # such
+        s.title = util.clean_str(entry.title)
+        s.normalized_title = titles.normalize_title(entry.title or "")
+        s.normalized_title_hash = hashlib.md5(
+            s.normalized_title.encode()).hexdigest()
+    except AttributeError as _:
+        s.title = None
+        s.normalized_title = None
+        s.normalized_title_hash = None
+    s.fetched_at = fetched_at
+    return s
 
 
 def fetch_and_process_feed(
@@ -884,10 +988,10 @@ def fetch_and_process_feed(
         #     Marx Brothers' "Night at the Opera" (1935)
 
         if (not f.active
-            or not f.system_enabled
-            or not f.queued
-            # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
-                    # or f.next_fetch_attempt and f.next_fetch_attempt > now
+                or not f.system_enabled
+                or not f.queued
+                # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
+                # or f.next_fetch_attempt and f.next_fetch_attempt > now
             ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
@@ -995,7 +1099,7 @@ def fetch_and_process_feed(
     # try to parse the content, parsing all the stories
     try:
         parsed_feed = parse(feed['url'], response)
-        vers = parsed_feed.get('version', '')
+        vers = parsed_feed.format
         logger.debug(f"  Feed {feed_id} version {vers}")
     except JobTimeoutException:
         raise
@@ -1047,8 +1151,8 @@ def fetch_and_process_feed(
 
 def save_stories_from_feed(session: SessionType,
                            now: dt.datetime,
-                           feed: Dict,
-                           parsed_feed: _FeedParserDict) -> Tuple[int, int, int]:
+                           feed: Dict,  # db entry
+                           parsed_feed: ParsedFeed) -> Tuple[int, int, int]:
     """
     Take parsed feed, so insert all the (valid) entries.
     returns (saved_count, dup_count, skipped_count)
@@ -1062,7 +1166,7 @@ def save_stories_from_feed(session: SessionType,
     skipped_count = dup_count = saved_count = 0
     for entry in parsed_feed.entries:
         try:
-            link = getattr(entry, 'link', None)
+            link = entry.url
             if link is None:
                 logger.debug(" * skip missing URL")
                 stories_incr('nourl')
@@ -1099,7 +1203,7 @@ def save_stories_from_feed(session: SessionType,
                 skipped_count += 1
                 continue
 
-            s = Story.from_rss_entry(feed['id'], now, entry)
+            s = make_story(feed['id'], now, entry)
             # skip urls from high-quantity non-news domains
             # we see a lot in feeds
             if s.domain in mcmetadata.urls.NON_NEWS_DOMAINS:
@@ -1157,12 +1261,12 @@ def save_stories_from_feed(session: SessionType,
 
 
 def check_feed_title(feed: Dict,
-                     parsed_feed: _FeedParserDict,
+                     parsed_feed: ParsedFeed,
                      feed_col_updates: Dict) -> None:
     # update feed title (if it has one and it changed)
     try:
-        title = parsed_feed.feed.title
-        if len(title) > 0:
+        title = parsed_feed.feed_title
+        if title and len(title) > 0:
             title = ' '.join(title.split())  # condense whitespace
 
             if title and feed['rss_title'] != title:

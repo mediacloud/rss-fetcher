@@ -5,9 +5,6 @@ from time import mktime
 from typing import Any, Dict, List, Optional
 
 # PyPI:
-from feedparser.util import FeedParserDict
-import mcmetadata.urls as urls
-import mcmetadata.titles as titles
 from sqlalchemy import (
     Column, BigInteger, DateTime, String, Boolean, Integer, text, Float,
     or_, select)
@@ -129,46 +126,6 @@ class Story(Base):
 
     def __repr__(self) -> str:
         return f"<Story id={self.id}>"
-
-    @staticmethod
-    def from_rss_entry(feed_id: int,  # type: ignore[no-any-unimported]
-                       fetched_at: dt.datetime,
-                       entry: FeedParserDict,
-                       media_name: Optional[str] = None) -> 'Story':
-        s = Story()
-        s.feed_id = feed_id
-        try:
-            s.url = entry.link
-            s.normalized_url = urls.normalize_url(entry.link)
-            s.domain = urls.canonical_domain(entry.link)
-        except AttributeError as _:
-            s.url = None
-            s.normalized_url = None
-            s.domain = None
-        try:
-            s.guid = entry.id
-        except AttributeError as _:
-            s.guid = None
-        try:
-            time_struct = entry.published_parsed
-            s.published_at = dt.datetime.fromtimestamp(mktime(time_struct))
-        except Exception as _:  # likely to be an unknown string format - let the pipeline guess it from HTML later
-            s.published_at = None
-        try:
-            # code prior to this should have checked for title uniqueness biz
-            # logic
-            # make sure we can save it in the DB by removing NULL chars and
-            # such
-            s.title = util.clean_str(entry.title)
-            s.normalized_title = titles.normalize_title(s.title or "")
-            s.normalized_title_hash = hashlib.md5(
-                s.normalized_title.encode()).hexdigest()
-        except AttributeError as _:
-            s.title = None
-            s.normalized_title = None
-            s.normalized_title_hash = None
-        s.fetched_at = fetched_at
-        return s
 
 
 def _run_query(query: str) -> List[Any]:
