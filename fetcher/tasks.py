@@ -919,8 +919,8 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
         entries=[_fpe2pfe(entry) for entry in parsed_feed.entries],
         format=s_type,
         feed_title=feed_title,
-        updatefrequency=updatefrequency,
-        updateperiod=updateperiod)
+        updatefrequency=None,
+        updateperiod=None)
 
 
 def make_story(feed_id: int,
