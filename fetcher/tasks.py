@@ -827,8 +827,8 @@ def _strip(s: str | None) -> str | None:
     return s.strip()
 
 
-_FeedParserEntry = Any         # feed parser has no hints
-
+# feed parser has no hints; returns "FeedParserDict"
+_FeedParserEntry = Any
 
 def _fpe2pfe(fpe: _FeedParserEntry) -> ParsedEntry:
     """
@@ -845,7 +845,7 @@ def _fpe2pfe(fpe: _FeedParserEntry) -> ParsedEntry:
 
 def _sme2pfe(sme: sitemap_parser.SitemapEntry) -> ParsedEntry:
     """
-    convert sitemap_parser.SitemapEntry to ParsedEntry
+    convert sitemap_parser.SitemapEntry (TypedDict) to ParsedEntry
     """
     url = _strip(sme["loc"])
     assert url
@@ -1098,8 +1098,8 @@ def fetch_and_process_feed(
     # try to parse the content, parsing all the stories
     try:
         parsed_feed = parse(feed['url'], response)
-        vers = parsed_feed.format
-        logger.debug(f"  Feed {feed_id} version {vers}")
+        format = parsed_feed.format
+        logger.debug(f"  Feed {feed_id} format {format}")
     except JobTimeoutException:
         raise
     except Exception as exc:    # RARE catch-all!
