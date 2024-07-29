@@ -881,7 +881,7 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
 
         # XXX discard bad entries?!
         return ParsedFeed(
-            entries=[_fpe2pfe(entry) for entry in parsed_feed.entries],
+            entries=[_fpe2pfe(fpe) for fpe in parsed_feed.entries],
             format=vers,
             feed_title=title,
             updatefrequency=updatefrequency,
@@ -903,10 +903,9 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
 
     urlset = cast(sitemap_parser.Urlset, sitemap)
 
-    # no overall header in urlset; if any article has
-    # a publication name, grab that as the feed title.
-    # NOTE! Tends to be VERY short, and likely to be the
-    # same across multiple sitemaps from the same site...
+    # no overall header in urlset; if any article has a publication
+    # name, grab that as the feed title.  NOTE! Tends to be VERY
+    # short, and the same across multiple sitemaps from the same site.
     feed_title = None
     for sme in urlset["pages"]:
         pub_name = sme.get("news_pub_name")  # google <news:name>
@@ -916,7 +915,7 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
 
     # XXX discard bad entries?!
     return ParsedFeed(
-        entries=[_fpe2pfe(entry) for entry in parsed_feed.entries],
+        entries=[_sme2pfe(sme) for sme in urlset["pages"]],
         format=s_type,
         feed_title=feed_title,
         updatefrequency=None,
