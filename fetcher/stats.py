@@ -10,7 +10,7 @@ import logging
 from typing import Any, List, Optional, Tuple
 
 # PyPi
-import statsd                   # type: ignore[import-untyped]
+import statsd
 from sqlalchemy.engine.url import make_url
 
 from fetcher.config import conf
@@ -64,7 +64,7 @@ class Stats:
         if not _init_ok:
             raise Exception("Call Stats.init")
 
-        self.statsd: Optional[Any] = None
+        self.statsd: Optional[statsd.StatsdClient] = None
         self.host = self.port = self.prefix = None
 
         # STATSD URL set by dokku-graphite plugin
@@ -81,22 +81,9 @@ class Stats:
 
         if not self.host or not self.prefix:
             logger.warning("Not sending stats")
-        # connect on demand
 
-    def _connect(self) -> bool:
-        # return if have statsd, or insufficient config
-        if self.statsd:
-            return True
-
-        if not self.host or not self.prefix:
-            return False
-
-        try:
-            self.statsd = statsd.StatsdClient(
-                self.host, self.port, self.prefix)
-            return True
-        except BaseException:
-            return False
+        if self.host and self.port and self.prefix:
+            self.statsd = statsd.StatsdClient(self.host, self.port, self.prefix)
 
     def _name(self, name: str, labels: List[Tuple[str, Any]] = []) -> str:
         """
@@ -133,18 +120,8 @@ class Stats:
 
         Please use the convention that counter names end in "s".
         """
-        for tries in (1, 2):
-            if not self._connect():
-                return
-
-            if not self.statsd:
-                return
-
-            try:
-                self.statsd.incr(self._name(name, labels), value)
-                break
-            except BaseException:
-                self.statsd = None
+        if self.statsd:
+            self.statsd.incr(self._name(name, labels), value)
 
     def gauge(self, name: str, value: float,
               labels: List[Tuple[str, Any]] = []) -> None:
@@ -152,37 +129,17 @@ class Stats:
         Indicate value of a gauge
         (something that goes up and down, like a thermometer or speedometer)
         """
-        for tries in (1, 2):
-            if not self._connect():
-                return
-
-            if not self.statsd:
-                return
-
-            try:
-                self.statsd.gauge(self._name(name, labels), value)
-                break
-            except BaseException:
-                self.statsd = None
+        if self.statsd:
+            self.statsd.gauge(self._name(name, labels), value)
 
     def timing(self, name: str, sec: float,
                labels: List[Tuple[str, Any]] = []) -> None:
         """
         Report a timing (duration) in seconds
         """
-        for tries in (1, 2):
-            if not self._connect():
-                return
-
-            if not self.statsd:
-                return
-
-            try:
-                # statsd timings are in ms
-                self.statsd.timing(self._name(name, labels), sec * 1000)
-                break
-            except BaseException:
-                self.statsd = None
+        if self.statsd:
+            # statsd timings are in ms
+            self.statsd.timing(self._name(name, labels), sec * 1000)
 
     def timing_td(self, name: str, td: dt.timedelta,
                   labels: List[Tuple[str, Any]] = []) -> None:
