@@ -46,8 +46,13 @@ TIMEOUT = conf.TASK_TIMEOUT_SECONDS
 logger = logging.getLogger(__name__)
 
 
-class JobTimeoutException(Exception):
-    """class for job timeout exception"""
+class JobTimeoutException(BaseException):
+    """
+    class for job timeout exception
+
+    NOTE!! not a subclass of Exception, to be less likely to be caught
+    by "except Exception" in user or library code.
+    """
 
 
 def set_job_timeout(sec: float = 0.0) -> None:
