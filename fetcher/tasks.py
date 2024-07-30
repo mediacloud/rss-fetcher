@@ -1,9 +1,9 @@
 """
 Code for tasks run in worker processes.
 
-NOTE!! Great effort has been made to avoid catching
-(Base)Exception all over the place because queued tasks can be
-interrupted by a JobTimeoutException
+NOTE!! Great effort has been made to avoid catching all exceptions all
+over the place because queued tasks can be interrupted by a
+JobTimeoutException.
 """
 
 import datetime as dt
@@ -782,24 +782,48 @@ def request_exception_to_status(
     return Status.SOFT, "unknown"
 
 
-def _ts2dt(ts: time.struct_time | None) -> dt.datetime | None:
+def _st2dt(tm: time.struct_time | None) -> dt.datetime | None:
     """
-    convert optional struct_time (from feedparsed) to datetime
-    from models.Story.from_rss_entry
+    Convert optional UTC struct_time (from feedparser published_parsed) to datetime.
+    Called inside function called in comprehension! Avoid exceptions!!
     """
-    if ts is None:
+    if not isinstance(tm, time.struct_time):
         return None
 
-    # mktime converts from local time
-    # container TZ is always "UTC"
-    # calendar.timegm always converts from UTC
-    return dt.datetime.fromtimestamp(time.mktime(ts))
+    try:
+        return dt.datetime(tm.tm_year, tm.tm_mon, tm.tm_mday,
+                           tm.tm_hour, tm.tm_min, tm.tm_sec,
+                           tzinfo=dt.timezone.utc)
+    except ValueError:
+        return None
 
 
 def _iso2dt(iso: str | None) -> dt.datetime | None:
     """
-    parse optional ISO datetime, return datetime object.
-    raises ValueError if cannot be parsed
+    parse optional ISO datetime from <news:publication_date>,
+    return datetime object.
+    returns None if cannot be parsed
+
+    Called inside function called in comprehension! Avoid exceptions!!
+
+    https://developers.google.com/search/docs/crawling-indexing/sitemaps/news-sitemap
+    says:
+
+    The article publication date in W3C format. Use either the
+    "complete date" format (YYYY-MM-DD) or the "complete date plus
+    hours, minutes, and seconds" format with time zone designator
+    format (YYYY-MM-DDThh:mm:ssTZD). Specify the original date and
+    time when the article was first published on your site. Don't
+    specify the time when you added the article to your sitemap.
+
+    Google accepts any of the following formats:
+
+    Complete date: YYYY-MM-DD (1997-07-16)
+    Complete date plus hours and minutes: YYYY-MM-DDThh:mmTZD (1997-07-16T19:20+01:00)
+    Complete date plus hours, minutes, and seconds: YYYY-MM-DDThh:mm:ssTZD (1997-07-16T19:20:30+01:00)
+    Complete date plus hours, minutes, seconds, and a decimal fraction of a second: YYYY-MM-DDThh:mm:ss.sTZD (1997-07-16T19:20:30.45+01:00)
+
+    [Where "W3C format" above is a link to https://www.w3.org/TR/NOTE-datetime]
     """
     if iso is None:
         return None
@@ -807,21 +831,22 @@ def _iso2dt(iso: str | None) -> dt.datetime | None:
     if iso.endswith("Z"):       # replace trailing Z with +00:00
         iso = iso[:-1] + "+00:00"
     try:
-        # accepts yyyy-mm-dd[Thh:mm[:ss[.mmm]][(+|-)hh:mm]]
+        # accepts ONLY yyyy-mm-dd[Thh:mm[:ss[.uuuuuu]][(+|-)hh:mm]]
         return dt.datetime.fromisoformat(iso)
     except ValueError:
         pass
 
     try:
-        # try again, handling extra digits of fractional seconds
+        # try again, handling arbitrary digits of fractional seconds
         return dt.datetime.strptime(iso, "%Y-%m-%dT%H:%M:%S.%f%z")
     except ValueError:
-        pass
-
-    return None
+        return None
 
 
 def _strip(s: str | None) -> str | None:
+    """
+    Called inside function called in comprehension! Avoid exceptions!!
+    """
     if s is None:
         return None
     return s.strip()
@@ -831,27 +856,25 @@ def _strip(s: str | None) -> str | None:
 _FeedParserEntry = Any
 
 
-def _fpe2pfe(fpe: _FeedParserEntry) -> ParsedEntry:
+def _fpe2pe(fpe: _FeedParserEntry) -> ParsedEntry:
     """
-    convert feedparser entry to ParsedEntry
+    Convert feedparser entry to ParsedEntry.
+    Called from comprehension, cannot filter or raise exceptions!
     """
-    url = _strip(fpe.link)
-    assert url
     return ParsedEntry(
-        url=url,
-        guid=fpe.get("guid", None),
+        url=_strip(fpe.link) or "",
+        guid=fpe.get("guid"),
         title=_strip(fpe.get("title")),
-        published_dt=_ts2dt(fpe.get("published_parsed")))
+        published_dt=_st2dt(fpe.get("published_parsed")))
 
 
-def _sme2pfe(sme: sitemap_parser.SitemapEntry) -> ParsedEntry:
+def _sme2pe(sme: sitemap_parser.SitemapEntry) -> ParsedEntry:
     """
-    convert sitemap_parser.SitemapEntry (TypedDict) to ParsedEntry
+    Convert sitemap_parser.SitemapEntry (TypedDict) to ParsedEntry.
+    Called from comprehension, cannot filter or raise exceptions!
     """
-    url = _strip(sme["loc"])
-    assert url
     return ParsedEntry(
-        url=url,
+        url=_strip(sme["loc"]) or "",
         guid=None,
         title=_strip(sme.get("news_title")),
         published_dt=_iso2dt(sme.get("news_pub_date")))
@@ -880,9 +903,8 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
         except AttributeError:
             pass
 
-        # XXX discard bad entries?!
         return ParsedFeed(
-            entries=[_fpe2pfe(fpe) for fpe in parsed_feed.entries],
+            entries=[_fpe2pe(fpe) for fpe in parsed_feed.entries],
             format=vers,
             feed_title=title,
             updatefrequency=updatefrequency,
@@ -911,12 +933,11 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
     for sme in urlset["pages"]:
         pub_name = sme.get("news_pub_name")  # google <news:name>
         if pub_name:
-            feed_title = pub_name
+            feed_title = f"{pub_name} Google News sitemap"
             break
 
-    # XXX discard bad entries?!
     return ParsedFeed(
-        entries=[_sme2pfe(sme) for sme in urlset["pages"]],
+        entries=[_sme2pe(sme) for sme in urlset["pages"]],
         format=s_type,
         feed_title=feed_title,
         updatefrequency=None,
@@ -988,11 +1009,11 @@ def fetch_and_process_feed(
         #     Marx Brothers' "Night at the Opera" (1935)
 
         if (not f.active
-                    or not f.system_enabled
-                    or not f.queued
-                    # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
+            or not f.system_enabled
+            or not f.queued
+            # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
                     # or f.next_fetch_attempt and f.next_fetch_attempt > now
-                ):
+            ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
             # tempting to clear f.queued here if set, but that
