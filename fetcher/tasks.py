@@ -19,6 +19,7 @@ import random
 import time
 import warnings
 import http.client
+from xml.parsers.expat import ExpatError
 
 # PyPI
 import feedparser               # type: ignore[import-untyped]
@@ -862,7 +863,7 @@ def _fpe2pe(fpe: _FeedParserEntry) -> ParsedEntry:
     Called from comprehension, cannot filter or raise exceptions!
     """
     return ParsedEntry(
-        url=_strip(fpe.link) or "",
+        url=_strip(fpe.get("link")) or "",
         guid=fpe.get("guid"),
         title=_strip(fpe.get("title")),
         published_dt=_st2dt(fpe.get("published_parsed")))
@@ -874,7 +875,7 @@ def _sme2pe(sme: sitemap_parser.SitemapEntry) -> ParsedEntry:
     Called from comprehension, cannot filter or raise exceptions!
     """
     return ParsedEntry(
-        url=_strip(sme["loc"]) or "",
+        url=_strip(sme.get("loc")) or "",
         guid=None,
         title=_strip(sme.get("news_title")),
         published_dt=_iso2dt(sme.get("news_pub_date")))
@@ -910,13 +911,20 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
             updatefrequency=updatefrequency,
             updateperiod=updateperiod)
 
-    if not response.content:
-        raise Exception("empty")
-
     # Try parsing as sitemap.
     # Pass decoded string.  Spec'ed to always be UTF-8.
-    p = sitemap_parser.XMLSitemapParser(url, response.text)
-    sitemap = p.sitemap()
+    text = response.text
+    if not text:
+        raise Exception("empty")
+
+    p = sitemap_parser.XMLSitemapParser(url, text)
+    try:
+        sitemap = p.sitemap()
+    except ExpatError:          # try translateing ExpatError
+        top = response.content[:1024].lower()
+        if top.find(b'<!doctype') or top.find(b'<html'):
+            raise Exception("html?")
+        raise
 
     s_type = sitemap.get("type")
     if not s_type:
