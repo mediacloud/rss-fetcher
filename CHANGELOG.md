@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.16.3 2024-08-02
+
+* add sitemap parsing
+
 ## v0.16.2 2024-04-07
 
 * add HTTP_KEEP_CONNECTION_HEADER (defaults to off)
