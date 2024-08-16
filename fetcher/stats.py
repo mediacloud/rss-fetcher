@@ -83,7 +83,8 @@ class Stats:
             logger.warning("Not sending stats")
 
         if self.host and self.port and self.prefix:
-            self.statsd = statsd.StatsdClient(self.host, self.port, self.prefix)
+            self.statsd = \
+                statsd.StatsdClient(self.host, self.port, self.prefix)
 
     def _name(self, name: str, labels: List[Tuple[str, Any]] = []) -> str:
         """

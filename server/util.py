@@ -16,7 +16,8 @@ if TYPE_CHECKING:
     from mypy_extensions import VarArg, KwArg
 
     # return type for api_method decorator
-    APIMethodRet =  Callable[[VarArg(Any), KwArg(Any)], Coroutine[Any, Any, "ApiResults"]]
+    APIMethodRet = Callable[[VarArg(Any), KwArg(Any)],
+                            Coroutine[Any, Any, "ApiResults"]]
 else:
     APIMethodRet = Any
 
@@ -29,6 +30,7 @@ Status = OKStatus | ErrorStatus
 
 STATUS_OK: OKStatus = 'OK'
 STATUS_ERROR: ErrorStatus = 'ERROR'
+
 
 class TimeSeriesDatum(TypedDict):
     date: dt.date
