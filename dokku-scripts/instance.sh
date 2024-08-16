@@ -437,9 +437,10 @@ if [ "x$TYPE" = xprod ]; then
     DB_BACKUP_PROFILE=${APP}-backup
     DB_BACKUP_BUCKET=mediacloud-rss-fetcher-backup
 
+    # disabled 2024-08-16
     # requires section in ~BACKUP_USER/.aws/credentials
-    S3_RSS_PROFILE=${APP}-rss
-    S3_RSS_BUCKET=mediacloud-public/backup-daily-rss
+    #S3_RSS_PROFILE=${APP}-rss
+    #S3_RSS_BUCKET=mediacloud-public/backup-daily-rss
 
     # requires section in ~BACKUP_USER/.aws/credentials
     B2_RSS_PROFILE=mediacloud-public-rw
@@ -447,11 +448,15 @@ if [ "x$TYPE" = xprod ]; then
     B2_RSS_REGION=us-east-005
 
     test -d $AWS_CREDS_DIR || mkdir $AWS_CREDS_DIR
+    # check for profile in .aws/credentials file (or create bogus entry)
     check_aws_creds() {
 	local PROFILE=$1
 	local BOGUS=${PROFILE}-replace-me
 	local POLICY=$2
 	local KEYNAME=$3
+	if [ -z "$PROFILE" ]; then
+	    return
+	fi
 	if ! grep "\[$PROFILE\]" $AWS_CREDS >/dev/null 2>&1; then
 	    (
 		echo "[$PROFILE]"
@@ -469,13 +474,15 @@ if [ "x$TYPE" = xprod ]; then
     }
 
     $BACKUP_DB_ARCHIVE && check_aws_creds $DB_BACKUP_PROFILE $DB_BACKUP_POLICY $DB_BACKUP_KEYNAME
-    check_aws_creds $S3_RSS_PROFILE mediacloud-public-get-put-delete mediawords-public-s3
-    check_aws_creds $B2_RSS_PROFILE '' mediacloud-public-rw
+    check_aws_creds "$S3_RSS_PROFILE" mediacloud-public-get-put-delete mediawords-public-s3
+    check_aws_creds "$B2_RSS_PROFILE" '' mediacloud-public-rw
     chmod 600 $AWS_CREDS
     chown $BACKUP_USER $AWS_CREDS
 
-    # copy generated RSS files to public S3 bucket
-    echo "45 * * * * $BACKUP_USER aws s3 --profile $S3_RSS_PROFILE sync $STDIR/rss-output-files/ s3://$S3_RSS_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-rss-mc.log 2>&1" >> $CRONTEMP
+    # copy generated RSS files to public S3 bucket, if enabled
+    if [ -n "$S3_RSS_BUCKET" -a -n "$S3_RSS_PROFILE" ]; then
+	echo "45 * * * * $BACKUP_USER aws s3 --profile $S3_RSS_PROFILE sync $STDIR/rss-output-files/ s3://$S3_RSS_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-rss-mc.log 2>&1" >> $CRONTEMP
+    fi
 
     # copy generated RSS files to public B2 bucket using aws command
     echo "45 * * * * $BACKUP_USER aws s3 --profile b2-rss-fetcher-rss --endpoint https://s3.${B2_RSS_REGION}.backblazeb2.com sync $STDIR/rss-output-files/ s3://$B2_RSS_BUCKET > $LOGDIR/rss-fetcher-bb-sync-rss-mc.log 2>&1" >> $CRONTEMP

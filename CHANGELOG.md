@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.16.5 2024-08-16
+
+* update dokku-scripts/instance.sh to disable sync of RSS files to S3
+
 ## v0.16.4 2024-08-15
 
 * update runtime.txt to python-3.10.14
