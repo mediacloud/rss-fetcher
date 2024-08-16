@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+## v0.16.6 2024-08-16
+
+* RSS sync crontab fix
+
 ## v0.16.5 2024-08-16
 
 * update dokku-scripts/instance.sh to disable sync of RSS files to S3
