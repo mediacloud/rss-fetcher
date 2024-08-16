@@ -67,24 +67,6 @@ fi
 # NOTE! used for filename in /etc/cron.d, so must contain only alphanum dots and dashes?
 APP=${PREFIX}rss-fetcher
 
-MCWEB_APP=${PREFIX}mcweb
-
-# PLB: this may no longer be needed: UMass has set up DNS in the
-# angwin cluster so that *.tarbell.mediacloud.org resolves to the
-# private (10.x.x.x) address of tarbell.  This needs to be set up on a
-# per-server basis, and setting NET allows inter-app access on a
-# single server without special arrangement (*BUT* you still need to
-# use plaintext http and the private port, because getting a let's
-# encrypt certificate requires having an Internet accessible URL.
-
-# NET is OPTIONAL: if set, confers the ability to resolve docker
-# container names (ie; appname.procname.N) to container IP addresses.
-# The remote app does NOT need to be on the same docker network (unless they
-# also need to be able to resolve container names to IP addresses, as
-# is the case for mcweb and rss-fetcher), so the network doesn't
-# need to be "realm" (prod/staging/dev) specific.
-NET=mcweb
-
 # Service names:
 DATABASE_SVC=$(app_to_db_svc $APP)
 # needed to delete old service:
@@ -192,53 +174,6 @@ else
 	STATUS=$?
 	echo ERROR: $STATUS
 	exit $STATUS
-    fi
-fi
-
-################
-# helper to get internal web server port for an app
-
-app_http_port() {
-    APP=$1
-    # example DOKKU_PROXY_PORT_MAP value: http:80:5000 https:443:5000
-    dokku config:get $APP DOKKU_PROXY_PORT_MAP | awk '{ print $NF }' | awk -F: '{ print $3 }'
-}
-
-app_http_url() {
-    APP=$1
-    # return docker DNS name and port for APP's web server
-    # NOTE! mcweb.web wired into mcweb/settings.py ALLOWED_HOSTS list
-    echo "http://$APP.web:$(app_http_port $APP)"
-}
-
-if [ "x$NET" != x ]; then
-    if dokku network:exists $NET >/dev/null; then
-	echo network $NET exists
-    else
-	echo creating network $NET
-	dokku network:create $NET
-    fi
-
-    # see comments on NET= line above.
-    # mcweb app network set at end.
-    if [ "x$(dokku network:report $APP --network-attach-post-create)" = "x$NET" ]; then
-	echo app attach-post-create network already set
-    else
-	echo setting app attach-post-create network
-	dokku network:set $APP attach-post-create $NET
-    fi
-
-    if dokku apps:exists $MCWEB_APP >/dev/null 2>&1; then
-	echo found $MCWEB_APP app
-
-	# get the http port for mcweb listener
-	MCWEB_URL=$(app_http_url $MCWEB_APP)
-	echo MCWEB_URL=$MCWEB_URL
-
-	CURR_MCWEB_URL=$(dokku config:get $APP MCWEB_URL)
-	if [ "x$MCWEB_URL" != "x$CURR_MCWEB_URL" ]; then
-	    dokku config:set $APP MCWEB_URL=$MCWEB_URL
-	fi
     fi
 fi
 
@@ -533,39 +468,6 @@ if [ "x$TYPE" = xprod ]; then
     else
 	echo scheduling backup of $DATABASE_SVC service to s3 bucket $DB_BACKUP_BUCKET
 	dokku postgres:backup-schedule $DATABASE_SVC "0 1 * * *" $DB_BACKUP_BUCKET
-    fi
-fi
-
-# configure mcweb app
-if dokku apps:exists $MCWEB_APP >/dev/null 2>&1; then
-    echo found $MCWEB_APP app
-    if [ "x$NET" != x ]; then
-	echo network $NET
-        if [ "x$(dokku network:report $MCWEB_APP --network-attach-post-create)" = "x$NET" ]; then
-	    echo $MCWEB_APP attach-post-create network already set
-	else
-	    echo setting $MCWEB_APP attach-post-create network
-	    dokku network:set $MCWEB_APP attach-post-create $NET
-	    MCWEB_RESTART=1
-	fi
-
-	# get the http port for our OpenAPI listener inside web container
-	# (requires that rss-fetcher be deployed)
-	RSS_FETCHER_URL=$(app_http_url $APP)
-
-	if [ "x$(dokku config:get $MCWEB_APP RSS_FETCHER_URL)" = "x$RSS_FETCHER_URL" ]; then
-	    echo $MCWEB_APP RSS_FETCHER_URL already set
-	    if [ "x$MCWEB_RESTART" != x ]; then
-		# no config change, but need restart.
-		# only one process, so no need to get picky
-		echo restarting $MCWEB_APP app
-		dokku ps:restart $MCWEB_APP
-	    fi
-	else
-	    # will restart app
-	    echo setting $MCWEB_APP app RSS_FETCHER_URL config to $RSS_FETCHER_URL
-	    dokku config:set $MCWEB_APP RSS_FETCHER_URL=$RSS_FETCHER_URL
-	fi
     fi
 fi
 

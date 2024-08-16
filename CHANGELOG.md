@@ -4,6 +4,7 @@ Change Log
 ## v0.16.5 2024-08-16
 
 * update dokku-scripts/instance.sh to disable sync of RSS files to S3
+* remove mcweb network, use MCWEB_URL from .prod
 
 ## v0.16.4 2024-08-15
 
