@@ -378,7 +378,7 @@ if [ "x$TYPE" = xprod ]; then
     #S3_RSS_BUCKET=mediacloud-public/backup-daily-rss
 
     # requires section in ~BACKUP_USER/.aws/credentials
-    B2_RSS_PROFILE=mediacloud-public-rw
+    B2_RSS_PROFILE=b2-rss-fetcher-rss
     B2_RSS_BUCKET=mediacloud-public/daily-rss/rss-fetcher
     B2_RSS_REGION=us-east-005
 
@@ -420,7 +420,7 @@ if [ "x$TYPE" = xprod ]; then
     fi
 
     # copy generated RSS files to public B2 bucket using aws command
-    echo "45 * * * * $BACKUP_USER aws s3 --profile b2-rss-fetcher-rss --endpoint https://s3.${B2_RSS_REGION}.backblazeb2.com sync $STDIR/rss-output-files/ s3://$B2_RSS_BUCKET > $LOGDIR/rss-fetcher-bb-sync-rss-mc.log 2>&1" >> $CRONTEMP
+    echo "45 * * * * $BACKUP_USER aws s3 --profile $B2_RSS_PROFILE --endpoint https://s3.${B2_RSS_REGION}.backblazeb2.com sync $STDIR/rss-output-files/ s3://$B2_RSS_BUCKET > $LOGDIR/rss-fetcher-b2-sync-rss-mc.log 2>&1" >> $CRONTEMP
 
     # copy archived rows in CSV files to private bucket (NOTE! After "run archiver" entry created above)
     $BACKUP_DB_ARCHIVE && echo "45 1 * * * $BACKUP_USER aws s3 --profile $DB_BACKUP_PROFILE sync $STDIR/db-archive/ s3://$DB_BACKUP_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-dbarch-mc.log 2>&1" >> $CRONTEMP
