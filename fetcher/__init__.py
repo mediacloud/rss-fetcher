@@ -8,7 +8,7 @@
 
 import os
 
-VERSION = "0.16.3"              # ALSO: update CHANGELOG.md!
+VERSION = "0.16.4"              # ALSO: update CHANGELOG.md!
 
 # paths moved to fetch.path
 

@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+## v0.16.4 2024-08-15
+
+* update runtime.txt to python-3.10.14
+* add sources_id index to stories table
+
 ## v0.16.3 2024-08-02
 
 * add sitemap parsing
