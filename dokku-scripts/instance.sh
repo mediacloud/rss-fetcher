@@ -305,9 +305,11 @@ if [ "x$ADD" != x ]; then
 fi
 
 if public_server; then
-    # Enable Let's Encrypt
-    # This requires $APP.$HOST.$PUBLIC_DOMAIN to be visible from Internet:
-    dokku letsencrypt:enable $APP
+    if ! dokku letsencrypt:active $APP >/dev/null; then
+	echo enabling lets encrypt
+	# This requires $APP.$HOST.$PUBLIC_DOMAIN to be visible from Internet:
+	dokku letsencrypt:enable $APP
+    fi
 fi
 ################ crontab
 
