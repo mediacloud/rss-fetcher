@@ -48,6 +48,9 @@ if __name__ == '__main__':
 
     # generate a file for each of the last N days (skipping today, which might
     # still be running)
+
+    # join stories.feed_id to feeds.id to get feed_url for <sources/> tag,
+    # it's ok if feed row doesn't exist, so left join
     query = f"""
                 select s.id, s.url, s.published_at, s.domain, s.title, s.feed_id, s.sources_id, f.url as feed_url
                 from stories s
@@ -55,7 +58,7 @@ if __name__ == '__main__':
                 on s.feed_id = f.id
                 where s.fetched_at >= :day and
                       s.fetched_at < :day_after and
-                      s.url is not NULL and s.feed_id = f.id
+                      s.url is not NULL;
                 """
     qtext = text(query)
 
