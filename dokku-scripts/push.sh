@@ -23,13 +23,11 @@ trap "rm -f $REMOTES" 0
 # hostname w/o any domain
 HOSTNAME=$(hostname --short)
 
-# get logged in user (even if su(do)ing)
-# (lookup utmp entry for name of tty from stdio)
-# will lose if run non-interactively via ssh (no utmp entry)
-LOGIN_USER=$(who am i | awk '{ print $1 }')
-if [ "x$LOGIN_USER" = x ]; then
-    # XXX fall back to whoami (look by uid)
-    echo could not find login user 2>&1
+# use current UID; allows su to another user
+# and invocation via ssh (no utmp entry)
+UNAME=$(whoami)
+if [ $UNAME = root ]; then
+    echo run as normal user 1>&2
     exit 1
 fi
 
@@ -104,7 +102,7 @@ prod|staging)
 	exit 1
     fi
 
-    DOKKU_GIT_REMOTE=dokku_$LOGIN_USER
+    DOKKU_GIT_REMOTE=dokku_$UNAME
     ;;
 esac
 
@@ -114,7 +112,7 @@ DOKKU_GIT_BRANCH=main
 case $BRANCH in
 prod) ;;
 staging) APP=staging-$APP;;
-*) APP=${LOGIN_USER}-$APP;;
+*) APP=${UNAME}-$APP;;
 esac
 
 if ! dokku apps:exists "$APP" >/dev/null 2>&1; then
@@ -163,7 +161,7 @@ if [ "x$BRANCH" = xprod ]; then
     # XXX check if pushed to github/mediacloud/PROJECT prod branch??
     # (for staging too?)
 
-    TAG=v$(grep '^VERSION' fetcher/__init__.py | sed -e 's/^.*= *//' -e 's/"//g' -e "s/'//g" -e 's/#.*//')
+    TAG=v$(grep '^VERSION' fetcher/__init__.py | sed -e 's/^.*= *//' -e 's/"//g' -e "s/'//g" -e 's/#.*//' -e 's/ *$//')
     echo "Found version number: $TAG"
 
     # NOTE! fgrep -x (-F -x) to match literal whole line (w/o regexps)
