@@ -10,7 +10,7 @@
 # I use this to expose the grafana interface from a dokku-graphite
 # instance running on ifill as https://stats.ifill.tarbell.mediacloud.org/
 
-# Also used to make mcweb-staging, running on stenam (SIC) visible.
+# Also used to make mcweb-staging, running on steinam (SIC) visible.
 
 SCRIPT_DIR=$(dirname $0)
 INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
