@@ -918,14 +918,7 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
         raise Exception("empty")
 
     p = sitemap_parser.XMLSitemapParser(url, text)
-    try:
-        sitemap = p.sitemap()
-    except ExpatError:          # try translateing ExpatError
-        top = response.content[:1024].lower()
-        if top.find(b'<!doctype') or top.find(b'<html'):
-            raise Exception("html?")
-        raise
-
+    sitemap = p.sitemap()       # now tries to detect HTML
     s_type = sitemap.get("type")
     if not s_type:
         raise Exception("could not parse")
