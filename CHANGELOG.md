@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+## v0.16.7 2024-09-03
+
+* scripts/gen_daily_story_rss.py: use date range for faster query
+* fetcher/rss/rsswriter.py: read item template once
+* requirements.txt: update to sitemap-tools v1.1.0 w/ HTML detection
+* fetcher/tasks.py: no need for HTML detection
+
 ## v0.16.6 2024-08-16
 
 * RSS sync crontab fix
