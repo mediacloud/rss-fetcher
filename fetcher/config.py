@@ -321,9 +321,6 @@ class _Config:                  # only instantiated in this file
     # days back to check for duplicate story URLs/titles
     NORMALIZED_TITLE_DAYS = conf_int('NORMALIZED_TITLE_DAYS', 7)
 
-    # rq uses only redis for queues; use dokku-redis supplied URL
-    REDIS_URL = conf_required('REDIS_URL')
-
     # number of parallel fetches for feeds that have the same scoreboard entry.
     # with current (c)lock-step rate control, concurrency will only happen
     # when a fetch takes longer than RSS_FETCH_FEED_SECS.  This is likely
@@ -388,6 +385,12 @@ class _Config:                  # only instantiated in this file
 
     # rq default is 180 sec (3m)
     TASK_TIMEOUT_SECONDS = conf_int('TASK_TIMEOUT_SECONDS', 3 * 60)
+
+    # if True, never disable bad feeds:
+    UNDEAD_FEEDS = conf_bool('UNDEAD_FEEDS', True)
+
+    # if UNDEAD_FEEDS, max delay between polls:
+    UNDEAD_FEED_MAX_DAYS = conf_int('UNDEAD_FEED_MAX_DAYS', 30)
 
     VERIFY_CERTIFICATES = conf_bool('VERIFY_CERTIFICATES', True)
 

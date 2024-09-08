@@ -180,6 +180,8 @@ RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 SAVE_PARSE_ERRORS = conf.SAVE_PARSE_ERRORS
 SKIP_HOME_PAGES = conf.SKIP_HOME_PAGES
+UNDEAD_FEEDS = conf.UNDEAD_FEEDS
+UNDEAD_FEED_MAX_DAYS = conf.UNDEAD_FEED_MAX_DAYS
 VERIFY_CERTIFICATES = conf.VERIFY_CERTIFICATES
 
 # disable SSL verification warnings w/ requests verify=False
@@ -539,7 +541,7 @@ def update_feed(session: SessionType,
             else:               # Status.TEMP
                 incr = TEMP_FAILURE_INCREMENT
             failures = f.last_fetch_failures = f.last_fetch_failures + incr
-            if failures >= MAX_FAILURES:
+            if failures >= MAX_FAILURES and not UNDEAD_FEEDS:
                 event = FetchEvent.Event.FETCH_FAILED_DISABLED
                 f.system_enabled = False  # disable feed
                 next_minutes = None  # don't reschedule
@@ -569,10 +571,17 @@ def update_feed(session: SessionType,
             # so only apply multiplier when >= 1!
             if mult >= 1:
                 next_minutes *= mult
+                # cap interval...
 
-                # but cap interval
-                if next_minutes > MAXIMUM_BACKOFF_MINS:
-                    next_minutes = MAXIMUM_BACKOFF_MINS
+                # if never killing feeds, allow larger max once a feed
+                # reaches the point where it would have been disabled.
+                if UNDEAD_FEEDS and failures > MAX_FAILURES:
+                    max_mins = UNDEAD_FEED_MAX_DAYS * _DAY_MINS
+                else:
+                    max_mins = MAXIMUM_BACKOFF_MINS
+
+                if next_minutes > max_mins:
+                    next_minutes = max_mins
 
             if f.poll_minutes is None:
                 if next_minutes < MINIMUM_INTERVAL_MINS:
