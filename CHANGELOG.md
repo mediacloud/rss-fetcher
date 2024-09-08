@@ -1,6 +1,14 @@
 Change Log
 ==========
 
+## v0.16.8 2024-09-08
+
+* fetcher/config.py: remove REDIS_URL, add UNDEAD_FEED{S,_MAX_DAYS}
+* fetcher/tasks.py: if UNDEAD_FEEDS set:
+	1. never disable feeds
+	2. use UNDEAD_FEED_MAX_DAYS instead of MAXIMUM_BACKOFF_MINS
+	   (if failures > MAX_FAILURES)
+
 ## v0.16.7 2024-09-03
 
 * scripts/gen_daily_story_rss.py: use date range for faster query
