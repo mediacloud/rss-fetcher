@@ -46,6 +46,10 @@ public_server() {
     test "x$(hostname -s)" = "x$BASTION"
 }
 
+zzz() {
+    echo $1 | tr 'A-Za-z' 'N-ZA-Mn-za-m'
+}
+
 ################################################################
 # directory for .list files
 APT_SOURCES_LIST_D=/etc/apt/sources.list.d
@@ -115,8 +119,12 @@ else
     }
 fi
 
-################
+CONFIG_REPO_ORG=zrqvnpybhq
+CONFIG_REPO_PREFIX=$(zzz tvg@tvguho.pbz:$CONFIG_REPO_ORG)
+CONFIG_REPO_NAME=$(zzz eff-srgpure-pbasvt)
+GIT_ORG=$(zzz $CONFIG_REPO_ORG)
 
+# check for local (non-mediacloud) overrides
 LOCAL_SH=$SCRIPT_DIR/local.sh
 if [ -f $LOCAL_SH ]; then
     echo reading $LOCAL_SH

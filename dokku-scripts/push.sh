@@ -72,7 +72,7 @@ prod|staging)
 
     # get remote for mediacloud account
     # ONLY match ssh remote, since will want to push tag.
-    # XXX need SRC_REPO_ORG!!
+    # XXX use GIT_ORG!!
     MCREMOTE=$(awk '/github\.com:mediacloud\// { print $1; exit }' $REMOTES)
     if [ "x$MCREMOTE" = x ]; then
 	echo could not find an ssh git remote for mediacloud org repo
