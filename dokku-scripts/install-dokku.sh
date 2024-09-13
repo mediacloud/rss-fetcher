@@ -11,23 +11,16 @@
 # written before I knew about
 # https://raw.githubusercontent.com/dokku/dokku/vX.Y.Z/bootstrap.sh
 
-if [ `whoami` != root ]; then
-    echo must be run as root 1>&2
-    exit 1
-fi
-
 SCRIPT_DIR=$(dirname $0)
-INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
-if [ ! -f $INSTALL_CONF ]; then
-    echo cannot find install-dokku.conf 1>&2
+COMMON_SH=$SCRIPT_DIR/common.sh
+INSTANCE=ignored
+if [ ! -f $COMMON_SH ]; then
+    echo cannot find $COMMON_SH 1>&2
     exit 1
 fi
-. $INSTALL_CONF
+. $COMMON_SH
 
-LOCAL_CONF=$SCRIPT_DIR/local-dokku.conf
-if [ -f $LOCAL_CONF ]; then
-    . $LOCAL_CONF
-fi
+check_root
 
 RELEASE_NAME=$(lsb_release -cs 2>/dev/null)
 if [ "x$RELEASE_NAME" = x ]; then

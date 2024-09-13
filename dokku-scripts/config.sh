@@ -1,154 +1,89 @@
 #!/bin/sh
-# helper to set dokku app config: called from push.sh
-# XXX check non-empty!
-APP=$1
 
-if [ "x$APP" = x ]; then
-    echo Usage: $0 DOKKU_APP_NAME 1>&2
-    exit 1
-fi
+# apply config to Dokku app
+# copied verbatim from web-search
+# intended to NOT be app-specific (could live in devops repo)
+# invoked from push.sh
 
-# XXX check app exists?
-
-# get from command line options?
-CONFIG_OPTIONS=--no-restart
-
-################
 SCRIPT_DIR=$(dirname $0)
-INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
-if [ ! -f $INSTALL_CONF ]; then
-    echo cannot find $INSTALL_CONF 1>&2
-    exit 1
+
+INSTANCE=$1
+shift
+CONFIG_FILE=$1
+shift
+# remainder passed as args to vars.py
+
+# uses INSTANCE, sets APP, defines dokku function
+. $SCRIPT_DIR/common.sh
+
+if [ -z "$INSTANCE" -o -z "$CONFIG_FILE" -o ! -f "$CONFIG_FILE" ]; then
+    echo Usage: $0 INSTANCE CONFIG_FILE 1>&2
+    echo '(this script is NOT meant for user invocation!)' 1>&2
+    exit $CONFIG_STATUS_ERROR
 fi
-. $INSTALL_CONF
 
-TMP=/tmp/dokku-config-$$
-trap "rm -f $TMP" 0
-touch $TMP
-chmod 600 $TMP
+if [ -z "$APP" ]; then
+    echo APP not set 1>&2
+    exit $CONFIG_STATUS_ERROR
+fi
 
-################
+# get current app setttings (fail out if app does not exist)
+CURR=/var/tmp/curr-config$$.json
+trap "rm -f $CURR" 0
+if ! dokku config:export --format=json $APP > $CURR; then
+    echo could not get $APP config 1>&2
+    exit $CONFIG_STATUS_ERROR
+fi
 
-DATABASE_SVC=$(app_to_db_svc $APP)
+# shell variable ("dotenv") files are hard to read, So use
+# python-dotenv.  Don't want to alter user or system installed
+# packages, and venv's are large, so make a private install of the
+# package.
+LIBDIR=$SCRIPT_DIR/.configlib
+if [ ! -d $LIBDIR ]; then
+    echo Installing private python library files in ${LIBDIR}...
+    mkdir $LIBDIR
+    echo "created by $0" > $LIBDIR/README
+    if ! python -m pip install --target $LIBDIR python-dotenv; then
+	exit $CONFIG_STATUS_ERROR
+    fi
+fi
 
-case $APP in
-rss-fetcher) TYPE_OR_UNAME=prod;;
-staging-rss-fetcher) TYPE_OR_UNAME=staging;;
-*) TYPE_OR_UNAME=$(echo $APP | sed 's/-rss-fetcher//');;
-esac
-
-################
-# set config vars:
-
-add_vars() {
-    VARS="$VARS $*"
+# takes any number of VAR=VALUE pairs
+# values with spaces probably lose!!!!!!
+add_extras() {
+    for x in $*; do
+	EXTRAS="$EXTRAS -S $x"
+    done
 }
+# added for all instances:
+# _could_ supply ..._ENV via private conf files, but supplying here makes
+# values consistant, and one place to change for apps that use this script
+# (if moved to devops repo).  Supplying "..._ENV" values separately per
+# facility is to avoid temptation to transmogrify values in code.
+add_extras "AIRTABLE_HARDWARE=$HOST" \
+	   "AIRTABLE_ENV=$INSTANCE" \
+	   "AIRTABLE_NAME=$INSTANCE" \
+	   "SENTRY_ENV=$INSTANCE"
 
-# set dokku timeout values to half the default values:
-# WISH: stop all processes before launching new ones?!
+# NOTE! vars.py output is shell-safe; it contains only VAR=BASE64ENCODEDVALUE ...
+# Want config:import! Whcih would avoid need for b64 (--encoded) values
+CONFIG_OPTIONS='--encoded'
 
-add_vars DOKKU_WAIT_TO_RETIRE=30
-add_vars DOKKU_DEFAULT_CHECKS_WAIT=5
-
-# display/log time in UTC:
-add_vars TZ=UTC
-
-################
-# "postgres:" URLs deprecated in SQLAlchemy 1.4
-# NOTE: sqlalchemy 2.0 + psycopg3 wants postgresql+psycopg:
-#	(currently handled by fix_database_url() function)
-
-DATABASE_URL=$(dokku postgres:info $DATABASE_SVC --dsn | sed 's@^postgres:@postgresql:@')
-add_vars DATABASE_URL=$DATABASE_URL
-
-################
-# fetcher related vars
-
-#add_vars SAVE_RSS_FILES=0
-
-################
-
-# using automagic STATSD_URL in fetcher/stats.py
-
-STATSD_PREFIX="mc.${TYPE_OR_UNAME}.rss-fetcher"
-add_vars STATSD_PREFIX=$STATSD_PREFIX
-
-################
-# before taking any actions:
-
-if public_server; then
-    # not in global config on tarbell:
-    add_vars DOKKU_LETSENCRYPT_EMAIL=$DOKKU_LETSENCRYPT_EMAIL
+# NO_CODE_CHANGES exported by push.sh:
+if [ -e "$NO_CODE_CHANGES" ]; then
+    # if code changes, don't restart before pushing
+    CONFIG_OPTIONS="$CONFIG_OPTIONS --no-restart"
 fi
 
-# used in fetcher/__init__.py to set APP
-# ('cause I didn't see it available any other way -phil)
-add_vars MC_APP=$APP
+CONFIG_VARS=$(PYTHONPATH=$LIBDIR python $SCRIPT_DIR/vars.py --file $CONFIG_FILE --current $CURR $EXTRAS "$@")
 
-# before VF, to allow override??
-if [ "x$TYPE_OR_UNAME" = xprod ]; then
-    # production only settings:
-
-    # story retention, RSS file (re)generation:
-    add_vars RSS_OUTPUT_DAYS=90
-fi
-
-case "$TYPE_OR_UNAME" in
-prod|staging)
-    # XXX maybe use .$TYPE (.staging vs .prod) file??
-    # could get from "vault" file if using ansible.
-    VARS_FILE=.prod
-    VF=$TMP
-    # get vars for count, and to ignore comment lines!
-    egrep '^(MCWEB_(TOKEN|URL)|SENTRY_DSN|RSS_FETCHER_(USER|PASS))=' $VARS_FILE > $VF
-    if [ $(wc -l < $VF) != 5 ]; then
-	echo "Need $VARS_FILE file w/ MCWEB_{TOKEN,URL} SENTRY_DSN RSS_FETCHER_{USER,PASS}" 1>&2
-	exit 1
-    fi
-    WORKERS=16
-    ;;
-*)
-    UNAME=$TYPE_OR_UNAME
-    VF=.pw.$UNAME
-    if [ -f $VF ]; then
-	echo using rss-fetcher API user/password in $VF
-    else
-	# XXX _could_ check .env file (used for non-dokku development)
-	# creating from .env.template
-	# and adding vars if needed.
-	echo generating rss-fetcher API user/password, saving in $VF
-	echo RSS_FETCHER_USER=$UNAME$$ > $VF
-	echo RSS_FETCHER_PASS=$(openssl rand -base64 15) >> $VF
-    fi
-    #chown $UNAME $VF
-    ;;
-esac
-add_vars $(cat $VF)
-
-if [ "x$WORKERS" != x ]; then
-    add_vars RSS_FETCH_WORKERS=$WORKERS
-fi
-
-################################################################
-# set config vars
-# make all add_vars calls before this!!!
-
-dokku config:show $APP | tail -n +2 | sed 's/: */=/' > $TMP
-NEED=""
-# loop for var=val pairs
-for VV in $VARS; do
-    # VE var equals
-    VE=$(echo $VV | sed 's/=.*$/=/')
-    # find current value
-    CURR=$(grep "^$VE" $TMP)
-    if [ "x$VV" != "x$CURR" ]; then
-	NEED="$NEED $VV"
-    fi
-done
-
-if [ "x$NEED" != x ]; then
-    echo setting dokku config: $NEED
-    dokku config:set $CONFIG_OPTIONS $APP $NEED
+if [ -z "$CONFIG_VARS" ]; then
+    # nothing to set... exit stage left!
+    # https://en.wikipedia.org/wiki/Snagglepuss
+    exit $CONFIG_STATUS_NOCHANGE
+elif dokku config:set $APP $CONFIG_OPTIONS $CONFIG_VARS; then
+    exit $CONFIG_STATUS_CHANGED
 else
-    echo no dokku config changes
+    exit $CONFIG_STATUS_ERROR
 fi

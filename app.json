@@ -3,7 +3,8 @@
   "description": "Grab RSS feeds, parse out URLs, stick URLs in a daily synthetic RSS",
   "scripts": {
     "dokku": {
-      "predeploy": "./install.sh"
+      "predeploy": "./install.sh",
+      "postdeploy": "./postdeploy.sh"
     }
   }
 }

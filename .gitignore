@@ -126,3 +126,7 @@ push.log
 # emacs backups, autosaves
 *~
 \#*
+
+# dokku-scripts
+dokku-scripts/.configlib
+.pw.*

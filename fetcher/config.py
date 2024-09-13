@@ -368,6 +368,7 @@ class _Config:                  # only instantiated in this file
     SAVE_RSS_FILES = conf_bool('SAVE_RSS_FILES', False)
 
     SENTRY_DSN = conf_optional('SENTRY_DSN')
+    SENTRY_ENV = conf_optional('SENTRY_ENV')
 
     # skip all pages that look like "home pages"
     SKIP_HOME_PAGES = conf_bool('SKIP_HOME_PAGES', False)
@@ -398,9 +399,10 @@ class _Config:                  # only instantiated in this file
 conf = _Config()
 
 
-def fix_database_url(url: str) -> str:  # TEMP (work with psycopg2 config)
+def fix_database_url(url: str) -> str: # convert to psycopg2 config
+    # "postgres:" URLs deprecated in SQLAlchemy 1.4 (wants postgresql)
     scheme, path = url.split(':', 1)
-    if scheme == 'postgresql':
+    if scheme in ('postgresql', 'postgres'):
         url = 'postgresql+psycopg:' + path
     return url
 

@@ -85,9 +85,10 @@ Then, (as yourself) to create an rss-fetcher database:
 To install dokku on a mediacloud server (on Ubuntu 22.04),
 run `.../dokku-scripts/install-dokku.sh` as root.
 
-To test under dokku, first create a development dokku instance by running (as root)
+To test under dokku, first create a development dokku instance by running
+(as a regular user):
 
-   .../dokku-scripts/instance.sh create dev-USERNAME
+   .../dokku-scripts/instance.sh create USERNAME
 
 Creates an application named `USERNAME-rss-fetcher`, and
 dokku-postgres and dokku-redis services with the same name, and
@@ -170,7 +171,7 @@ the version change commit into "staging"
 
 Your development application can be disposed of by running
 
-    dokku-scripts/instance.sh destroy dev-USERNAME
+    dokku-scripts/instance.sh destroy USERNAME
 
 (you will be prompted to enter USERNAME-rss-fetcher at a number of
 points). Or, to stop all application processes (leaving the database
@@ -188,7 +189,7 @@ merged into the github mediacloud account "main" branch, the next step
 is to run the code undisturbed in a staging app instance:
 
 If a staging instance does not exist (or instance.sh has been changed),
-as root, run:
+run, as a regular user:
 
    ./dokku-scripts/instance.sh create staging
 

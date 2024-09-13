@@ -4,16 +4,25 @@
 # (can be used with any dokku app)
 # Phil Budne, October 2022
 
+INSTANCE=$1
+shift
+
+if [ "x$INSTANCE" = x ]; then
+    echo "$0 INSTANCE [ APP_TO_LINK ]" 1>&2
+    exit 1
+fi
+
 # optional:
 LINK_TO_APP=$1
 
 SCRIPT_DIR=$(dirname $0)
-INSTALL_CONF=$SCRIPT_DIR/install-dokku.conf
-if [ ! -f $INSTALL_CONF ]; then
-    echo cannot find $INSTALL_CONF 1>&2
+COMMON_SH=$SCRIPT_DIR/common.sh
+INSTANCE=ignored
+if [ ! -f $COMMON_SH ]; then
+    echo cannot find $COMMON_SH 1>&2
     exit 1
 fi
-. $INSTALL_CONF
+. $COMMON_SH
 
 HOST=$(hostname -s)
 

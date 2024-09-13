@@ -7,16 +7,15 @@ rss-fetcher dokku app instance:
 
 # SCRIPTS:
 
-* install.conf: (not a script) shared config for scripts
-	can be overridden by adding a local-dokku.conf file to this directory.
+* common.sh: (not a script) shared code/config sourced by scripts
+	vars can be overridden by adding a local.sh file to this directory.
 
 * install-dokku.sh: install dokku on system (must be run as root)
 
 * uninstall-dokku.sh: remove dokku from system (must be run as root)
 
 * instance.sh: create a dokku app instance
-	+ takes arguments: create|destroy prod|staging|dev-USER
-	+ MUST be run as root
+	+ takes arguments: create|destroy prod|staging|USER
 	+ Can be re-run at any time to re-configure an app
 	+ Script SHOULD be updated to include new config changes!!!
 	+ Dokku app/service names created:

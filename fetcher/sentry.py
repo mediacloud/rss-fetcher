@@ -22,14 +22,9 @@ def init() -> bool:
     """
 
     sentry_dsn = conf.SENTRY_DSN  # will log if set
+
     if sentry_dsn:
-        # Not wiring in expected production app name here on the
-        # theory that it's better to accidentally alert as production
-        # than to have production errors go ignored.
-        if APP.startswith('staging-'):
-            env = 'staging'
-        else:
-            env = 'production'
+        env = conf.SENTRY_ENV  # will log if set
 
         # NOTE: Looks like environment defaults to "production"
         # unless passed, or SENTRY_ENVIRONMENT env variable set.
