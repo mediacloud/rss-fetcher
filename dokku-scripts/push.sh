@@ -285,43 +285,6 @@ fi
 # ('cause I didn't see it available any other way -phil)
 add_extras MC_APP=$APP
 
-case "$INSTANCE" in
-prod|staging)
-    SAVEDIR=$(pwd)
-    mkdir $TMPDIR
-    chmod 700 $TMPDIR
-    cd $TMPDIR
-    if ! git clone $CONFIG_REPO_PREFIX/$CONFIG_REPO_NAME.git >/dev/null 2>&1; then
-	echo could not clone config repo 1>&2
-	exit 1
-    fi
-    cd "$SAVEDIR"
-    VARS_FILE=$TMPDIR/$CONFIG_REPO_NAME/prod.sh
-    # if staging read staging.sh too!
-
-    add_extras RSS_FETCH_WORKERS=16
-    if [ "x$INSTANCE" = xprod ]; then
-	# production only settings
-	# (have staging.sh file to override??)
-
-	# story retention, RSS file (re)generation:
-	add_extras RSS_OUTPUT_DAYS=90
-    fi
-    ;;
-*)
-    VARS_FILE=.pw.$INSTANCE
-    if [ -f $VARS_FILE ]; then
-	echo using rss-fetcher API user/password in $VARS_FILE
-    else
-	# XXX create from .env.template??
-	echo generating rss-fetcher API user/password, saving in $VARS_FILE
-	echo RSS_FETCHER_USER=$INSTANCE$$ > $VARS_FILE
-	echo RSS_FETCHER_PASS=$(openssl rand -base64 15) >> $VARS_FILE
-    fi
-    chmod 600 $VARS_FILE
-    ;;
-esac
-
 ################
 
 echo checking dokku config...
