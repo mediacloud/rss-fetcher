@@ -12,6 +12,7 @@
 
 # from https://github.com/dokku/dokku-graphite/issues/18#issuecomment-917603293
 # suggestion by Jose Diaz-Gonzalez (Señor Dokku?)
+# see also: https://github.com/dokku/service-proxy
 
 # name of stats service (should be obscure, since it will be visible at port 80):
 SERVICE=$1
