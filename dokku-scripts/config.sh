@@ -71,7 +71,7 @@ add_extras "AIRTABLE_HARDWARE=$HOST" \
 CONFIG_OPTIONS='--encoded'
 
 # NO_CODE_CHANGES exported by push.sh:
-if [ -e "$NO_CODE_CHANGES" ]; then
+if [ -z "$NO_CODE_CHANGES" ]; then
     # if code changes, don't restart before pushing
     CONFIG_OPTIONS="$CONFIG_OPTIONS --no-restart"
 fi
