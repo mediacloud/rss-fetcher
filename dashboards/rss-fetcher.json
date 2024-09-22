@@ -768,15 +768,15 @@
       "targets": [
         {
           "refId": "A",
-          "target": "stats.counters.mc.prod.rss-fetcher.fetcher.adjust.*.count",
-          "textEditor": true
+          "target": "stats.counters.mc.prod.rss-fetcher.fetcher.adjust.*.rate",
+          "textEditor": false
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "auto-adjust",
+      "title": "auto-adjust rate (per second)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -857,14 +857,14 @@
       "targets": [
         {
           "refId": "A",
-          "target": "stats.counters.mc.prod.rss-fetcher.fetcher.hunter.*.count"
+          "target": "stats.counters.mc.prod.rss-fetcher.fetcher.hunter.*.rate"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "hunter counters",
+      "title": "hunter rates (per second)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -930,5 +930,5 @@
   "timezone": "",
   "title": "rss-fetcher",
   "uid": "sWyOqlVVk",
-  "version": 11
+  "version": 13
 }
