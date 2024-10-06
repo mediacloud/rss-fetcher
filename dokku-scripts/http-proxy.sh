@@ -72,8 +72,9 @@ dokku scheduler:set $PROXY_APP selected null
 # set the static-web-listener network property to the ip:port combination for remote
 dokku network:set $PROXY_APP static-web-listener $REMOTE_HOST:$REMOTE_PORT
 
-# set the port map
-dokku proxy:ports-set $PROXY_APP http:80:$REMOTE_PORT
+# not valid in dokku 0.34.9:
+#dokku proxy:ports-set $PROXY_APP http:80:$REMOTE_PORT
+dokku ports:add $PROXY_APP http:80:$REMOTE_PORT
 
 # set the domains desired
 dokku domains:set $PROXY_APP $PROXY_APP.$DOMAIN
