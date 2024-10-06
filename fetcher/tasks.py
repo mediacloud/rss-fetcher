@@ -1234,6 +1234,7 @@ def save_stories_from_feed(session: SessionType,
                         feed_url_scheme = ''
                 if feed_url_scheme:
                     link = f"{feed_url_scheme}:{link}"
+                    logger.info(" * added scheme: %s (feed %s)", link, feed['id'])
 
             if len(link) > MAX_URL:
                 logger.debug(f" * URL too long: {link}")
