@@ -173,7 +173,7 @@ class TestSaveStoriesFromFeed(DBTest):
         assert len(parsed_feed.entries) == 69
         with self._Session() as session:
             feed = dict(id=1, sources_id=1, name='cnn')
-            saved, skipped = tasks.save_stories_from_feed(
+            saved, dups, skipped = tasks.save_stories_from_feed(
                 session, dt.datetime.now(), feed, parsed_feed)
             assert saved == 69
             assert skipped == 0
@@ -183,10 +183,10 @@ class TestSaveStoriesFromFeed(DBTest):
             assert total_fetch_events == 1
             # now try to import the same ones again
         with self._Session() as session:
-            saved, skipped = tasks.save_stories_from_feed(
+            saved, dups, skipped = tasks.save_stories_from_feed(
                 session, dt.datetime.now(), feed, parsed_feed)
             assert saved == 0
-            assert skipped == 69
+            assert dups == 69
             total_stories = session.query(models.Story.id).count()
             assert total_stories == 69
             total_fetch_events = session.query(models.FetchEvent.id).count()

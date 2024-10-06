@@ -1,5 +1,7 @@
 """
 Code for tasks run in worker processes.
+(when celery was used for parallel task execution the
+file name was mandatory)
 
 NOTE!! Great effort has been made to avoid catching all exceptions all
 over the place because queued tasks can be interrupted by a
@@ -19,6 +21,7 @@ import random
 import time
 import warnings
 import http.client
+from urllib.parse import urlsplit
 from xml.parsers.expat import ExpatError
 
 # PyPI
@@ -281,7 +284,7 @@ def _check_auto_adjust_longer(update: Update, feed: Feed,
 
     # NOTE: This may be a positive feedback loop: if polls are late
     # because "high water" is dropping, (and "ready" feeds backing
-    # up), allowing ALL late polls will increase the number of time
+    # up), allowing ALL late polls will increase the number of times
     # poll_minutes is adjusted up, and increase the rate of decrease
     # of the "high water" mark (and increase the number of late polls,
     # which prohibits shortening poll periods.  Since the system is
@@ -1195,6 +1198,8 @@ def save_stories_from_feed(session: SessionType,
         stats.incr('stories', 1, labels=[('stat', status)])
 
     skipped_count = dup_count = saved_count = 0
+    parsed_feed_url = None
+    feed_url_scheme = None
     for entry in parsed_feed.entries:
         try:
             link = entry.url
@@ -1203,11 +1208,32 @@ def save_stories_from_feed(session: SessionType,
                 stories_incr('nourl')
                 skipped_count += 1
                 continue
-            if not util.is_absolute_url(link):  # skip relative URLs
-                logger.debug(f" * skip relative URL: {link}")
+
+            if not util.is_absolute_url(link):
+                # skip relative URLs
+                # raised logging to info to see what we're getting, and if it's
+                # worth generalizing scheme handling below and getting from feed.
+                logger.info(f" * skip relative URL: %s (feed %s)", link, feed['id'])
                 stories_incr('relurl')
                 skipped_count += 1
                 continue
+
+            # Check for if URL has scheme, if not, take from feed URL
+            # (as in an HTML document).  This is rare, so parse the feed
+            # URL on the fly, but save, since it's likely to happen more
+            # than once within a feed document.
+            # NOTE! calling count_stories here will cause double counting!!
+            # normalized_url (unique key in stories table) already has http:
+            if link.startswith("//"):
+                if feed_url_scheme is None:
+                    try:
+                        # subset of urlparse, don't care about tags/queries
+                        parsed_feed_url = urlsplit(link, allow_fragments=False)
+                        feed_url_scheme = parsed_feed_url.scheme
+                    except ValueError:
+                        feed_url_scheme = ''
+                if feed_url_scheme:
+                    link = f"{feed_url_scheme}:{link}"
 
             if len(link) > MAX_URL:
                 logger.debug(f" * URL too long: {link}")
@@ -1247,6 +1273,7 @@ def save_stories_from_feed(session: SessionType,
             if not normalized_url_exists(session, s.normalized_url):
                 if not normalized_title_exists(
                         session, s.normalized_title_hash, s.sources_id):
+
                     # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
                     # those are *expected* errors, so we can ignore them
                     with session.begin():
