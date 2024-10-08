@@ -278,12 +278,6 @@ class _Config:                  # only instantiated in this file
     # if the value isn't too long ago????
     HTTP_CONDITIONAL_FETCH = conf_bool('HTTP_CONDITIONAL_FETCH', False)
 
-    # True to keep Connection header.
-    # requests defaults to "Connection: keep-alive" and
-    # connections for sites served by Aakamai (npr.org) hang!
-    HTTP_KEEP_CONNECTION_HEADER = conf_bool(
-        'HTTP_KEEP_CONNECTION_HEADER', False)
-
     # number of old log files to keep
     LOG_BACKUP_COUNT = conf_int('LOG_BACKUP_COUNT', 7)
 

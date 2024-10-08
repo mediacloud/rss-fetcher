@@ -28,12 +28,20 @@ fi
 
 # from here down "python" symlink available from venv
 
-# XXX check if requirements.txt newer than .turd?
-if [ ! -f $VENV/.requirements ]; then
-    echo installing requirements
-    python -mpip install -r requirements.txt || exit 1
-    touch $VENV/.requirements
-fi
+check_requirements() {
+    REQ=${1}requirements.txt
+    if cmp -s ${REQ} $VENV/.${REQ}; then
+	echo $REQ unchanged
+    else
+	echo "(re)installing $REQ"
+	python -mpip install -r ${REQ} || exit 1
+	cp ${REQ} $VENV/.${REQ}
+    fi
+
+}
+
+check_requirements ''
+check_requirements 'mypy-'
 
 # install mypy etc. in venv
 # XXX check if mypy-requirements.txt newer than .turd?

@@ -29,6 +29,7 @@ import feedparser               # type: ignore[import-untyped]
 import mcmetadata.urls
 import mcmetadata.urls as urls
 import mcmetadata.titles as titles
+from mcmetadata.requests_arcana import insecure_requests_session
 from mcmetadata.webpages import MEDIA_CLOUD_USER_AGENT
 from psycopg.errors import UniqueViolation
 import requests
@@ -172,7 +173,6 @@ AUTO_ADJUST_SMALL_MINS = conf.AUTO_ADJUST_SMALL_MINS
 
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 HTTP_CONDITIONAL_FETCH = conf.HTTP_CONDITIONAL_FETCH
-HTTP_KEEP_CONNECTION_HEADER = conf.HTTP_KEEP_CONNECTION_HEADER
 MAX_FAILURES = conf.MAX_FAILURES
 MAX_URL = conf.MAX_URL
 MAXIMUM_BACKOFF_MINS = conf.MAXIMUM_BACKOFF_MINS
@@ -681,7 +681,7 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
     may add headers that make GET conditional (result in 304 status_code).
     Raises exceptions on errors
     """
-    headers = {'User-Agent': MEDIA_CLOUD_USER_AGENT}
+    headers = {}  # User-Agent set by insecure_requests_session
 
     # 2023-01-31: some feeds give incorrect "no change" responses
     # ie; https://www.bizpacreview.com/feed
@@ -707,13 +707,7 @@ def _fetch_rss_feed(feed: Dict) -> requests.Response:
             if lastmod:
                 headers['If-Modified-Since'] = lastmod
 
-    with requests.Session() as sess:
-        # AkamaiGHost Server (used by npr.org) hangs w/ both
-        # "Connection: keep-alive" (default) AND
-        # "Connection: close", so try removing it altogether.
-        if not HTTP_KEEP_CONNECTION_HEADER:
-            del sess.headers["Connection"]
-
+    with insecure_requests_session(MEDIA_CLOUD_USER_AGENT) as sess:
         response = sess.get(
             feed['url'],
             headers=headers,
