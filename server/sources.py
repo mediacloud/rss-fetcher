@@ -95,7 +95,8 @@ async def fetch_source_stories(sources_id: int) -> List[Dict[str, Any]]:
         return [s._asdict() for s in await session.execute(query)]
 
 
-async def _sources_stories_by_day(sources_id: int, column: InstrumentedAttribute) -> List[Dict[str, Any]]:
+async def _sources_stories_by_day(
+        sources_id: int, column: InstrumentedAttribute) -> List[Dict[str, Any]]:
     """
     helper for fetch_source_stories_{fetched,published}_by_day.
 

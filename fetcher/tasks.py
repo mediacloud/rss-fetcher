@@ -1016,10 +1016,10 @@ def fetch_and_process_feed(
         #     Marx Brothers' "Night at the Opera" (1935)
 
         if (not f.active
-            or not f.system_enabled
-            or not f.queued
-            # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
-                    # or f.next_fetch_attempt and f.next_fetch_attempt > now
+                or not f.system_enabled
+                or not f.queued
+                # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
+                # or f.next_fetch_attempt and f.next_fetch_attempt > now
             ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
@@ -1206,8 +1206,12 @@ def save_stories_from_feed(session: SessionType,
             if not util.is_absolute_url(link):
                 # skip relative URLs
                 # raised logging to info to see what we're getting, and if it's
-                # worth generalizing scheme handling below and getting from feed.
-                logger.info(f" * skip relative URL: %s (feed %s)", link, feed['id'])
+                # worth generalizing scheme handling below and getting from
+                # feed.
+                logger.info(
+                    f" * skip relative URL: %s (feed %s)",
+                    link,
+                    feed['id'])
                 stories_incr('relurl')
                 skipped_count += 1
                 continue
@@ -1228,7 +1232,8 @@ def save_stories_from_feed(session: SessionType,
                         feed_url_scheme = ''
                 if feed_url_scheme:
                     link = f"{feed_url_scheme}:{link}"
-                    logger.info(" * added scheme: %s (feed %s)", link, feed['id'])
+                    logger.info(
+                        " * added scheme: %s (feed %s)", link, feed['id'])
 
             if len(link) > MAX_URL:
                 logger.debug(f" * URL too long: {link}")

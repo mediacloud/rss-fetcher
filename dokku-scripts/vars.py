@@ -23,6 +23,7 @@ import sys
 
 import dotenv
 
+
 def usage(status: int) -> None:
     sys.stderr.write('''
 Usage:
@@ -46,6 +47,7 @@ OPTIONS:
 ''')
     sys.exit(status)
 
+
 def main() -> None:
     # processing arguments ad-hoc: argparse requires
     # declaring an Action (sub)class to perform actions on the fly.
@@ -57,7 +59,8 @@ def main() -> None:
     while args and args[0][0] == '-':
         option = args.pop(0)
         # if you add an option here, add to usage() above!!!
-        # convention: single letter options are upper case if they take an argument
+        # convention: single letter options are upper case if they take an
+        # argument
         match option:
             case "-h" | "--help":
                 usage(0)
@@ -98,6 +101,7 @@ def main() -> None:
         else:
             # not using = to make hard(er) to try to use!
             print(f"{var}: {value}")
+
 
 if __name__ == '__main__':
     main()
