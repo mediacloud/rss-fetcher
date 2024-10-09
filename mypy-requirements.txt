@@ -1,3 +1,8 @@
+# installed by, used by mypy.sh
+#
+# for autopep8.sh:
+autopep8
+#
 # NOTE! types- package versions should match those in requirements.txt!
 mypy
 #
