@@ -29,6 +29,8 @@ For development directly on your local machine:
 
 *BOTH should be run before merging to main (or submitting a pull request).*
 
+All config parameters should be fetched via fetcher/config.py and added to .env.template
+
 Running
 -------
 
