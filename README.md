@@ -24,17 +24,18 @@ For development directly on your local machine:
 7. Run `alembic upgrade head` to initialize database.
 8. `cp .env.template .env` (little or no editing should be needed)
 
-Shell script autopep8.sh will run autopep8 on all .py files, and mypy.sh
-will run type checking.  BOTH should be run before merging to main
-(or submitting a pull request).
+* mypy.sh will install mypy (and necessary types library & autopep8) and run type checking.
+* autopep.sh will normalize code format
+
+*BOTH should be run before merging to main (or submitting a pull request).*
 
 Running
 -------
 
 Various scripts run each separate component:
  * `python -m scripts.import_feeds my-feeds.csv`: Use this to import from a CSV dump of feeds (a one-time operation)
- * `run-fetch-rss-feeds.sh --loop 5`: Runs continuously, adding ready feeds to work queue.
- * `run-rss-workers.sh`: Start a single worker process servicing the work queue.
+ * `run-fetch-rss-feeds.sh`: Start fetcher (leader and worker processes)
+ * `run-server.sh`: Run API server
  * `run-gen-daily-story-rss.sh`: Generate the daily files of URLs found on each day (run nightly)
  * `python -m scripts.db_archive`: archive and trim fetch_events and stories tables (run nightly)
 
