@@ -8,7 +8,7 @@
 
 import os
 
-VERSION = "0.16.8"              # ALSO: update CHANGELOG.md!
+VERSION = "0.16.9"              # ALSO: update CHANGELOG.md!
 
 # paths moved to fetch.path
 
@@ -21,5 +21,5 @@ VERSION = "0.16.8"              # ALSO: update CHANGELOG.md!
 # used for feed_worker process title, sentry environment check
 APP = os.environ.get('MC_APP', 'unknown-rss-fetcher')
 
-# Dokku supplies processname.N (or run.PID?):
+# Dokku supplies processname.N
 DYNO = os.environ.get('DYNO', f"pid.{os.getpid()}")

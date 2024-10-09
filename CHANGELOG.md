@@ -1,6 +1,18 @@
 Change Log
 ==========
 
+## v0.16.9 2024-10-09
+
+* update to mcmetadata v1.1.0 for insecure_requests_session()
+* update to sitemap-tools v2.0.0
+* mypy.sh: detect changes to mypy-requirements.txt
+* update dokku-scripts/http-proxy.sh for new version of dokku on tarbell
+* handle scheme-less link URLs
+* ran autopep8.sh
+* bring back improvements from web-search dokku-scripts
+  + use private config repo
+  + update airtable
+
 ## v0.16.8 2024-09-08
 
 * fetcher/config.py: remove REDIS_URL, add UNDEAD_FEED{S,_MAX_DAYS}
