@@ -21,7 +21,7 @@ else:
         name = 'greatest'
         inherit_cache = True
 
-    @compiles(_greatest)
+    @compiles(_greatest) # type: ignore[no-untyped-call]
     # type: ignore[no-untyped-def]
     def default_greatest(element, compiler, **kw):
         return compiler.visit_function(element)
