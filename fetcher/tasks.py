@@ -1263,7 +1263,7 @@ def save_stories_from_feed(session: SessionType,
             s = make_story(feed['id'], now, entry)
             # skip urls from high-quantity non-news domains
             # we see a lot in feeds
-            if s.domain in mcmetadata.urls.NON_NEWS_DOMAINS:
+            if mcmetadata.urls.is_non_news_domain(s.domain):
                 logger.debug(f" * skip non_news_domain URL: {link}")
                 stories_incr('nonews')
                 skipped_count += 1
