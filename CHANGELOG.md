@@ -2,9 +2,11 @@
 Change Log
 ==========
 
-## v0.16.9 2024-10-09
+## v0.16.9 2024-10-12
 
-* update to mcmetadata v1.1.0 for insecure_requests_session()
+* update to mcmetadata v1.1.0 for:
+  + insecure_requests_session()
+  + is_non_news_domain()
 * update to sitemap-tools v2.0.0
 * mypy.sh: detect changes to mypy-requirements.txt
 * update dokku-scripts/http-proxy.sh for new version of dokku on tarbell
