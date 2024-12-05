@@ -35,7 +35,7 @@ if [ "x$PROXY_APP" = x -o \
 fi
 
 # 2024-05-09: nginx on tarbell startup failing when DNS name used!
-if ! expr "$REMOTE_HOST" : '^[1-9][0-9]*\.[1-9][0-9]*\.[1-9][0-9]*\.[1-9][0-9]*$' >/dev/null; then
+if ! expr "$REMOTE_HOST" : '^[1-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[1-9][0-9]*$' >/dev/null; then
     echo "Use IP address for remote server"
     exit 1
 fi
