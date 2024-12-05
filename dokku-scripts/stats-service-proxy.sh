@@ -60,5 +60,5 @@ dokku graphite:link $SERVICE $PROXY_APP
 dokku git:from-image $PROXY_APP dokku/service-proxy:latest
 dokku domains:set $PROXY_APP $PROXY_APP.$DOMAIN
 # not in global config on tarbell:
-dokku config:set $PROXY_APP --no-restart DOKKU_LETSENCRYPT_EMAIL=$DOKKU_LETSENCRYPT_EMAIL
+#dokku config:set $PROXY_APP --no-restart DOKKU_LETSENCRYPT_EMAIL=$DOKKU_LETSENCRYPT_EMAIL
 dokku letsencrypt:enable $PROXY_APP
