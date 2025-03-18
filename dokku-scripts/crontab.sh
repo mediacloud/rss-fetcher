@@ -140,8 +140,11 @@ if [ "x$INSTANCE" = xprod ]; then
     # copy archived rows in CSV files to private bucket (NOTE! After "run archiver" entry created above)
     $BACKUP_DB_ARCHIVE && echo "45 1 * * * $BACKUP_USER aws s3 --profile $DB_BACKUP_PROFILE sync $STDIR/db-archive/ s3://$DB_BACKUP_BUCKET/ > $LOGDIR/rss-fetcher-aws-sync-dbarch-mc.log 2>&1" >> $CRONTEMP
 
-    # sync feeds from mcweb (web-search server)
-    echo "*/5 * * * * root $DOKKU_RUN_PERIODIC python -m scripts.update_feeds > $LOGDIR/rss-fetcher-update.log 2>&1" >> $CRONTEMP
+    # sync feeds from mcweb (web-search server) every 5 minutes, except for during the 04:00 hour
+    echo "*/5 0-3,5-23 * * * root $DOKKU_RUN_PERIODIC python -m scripts.update_feeds > $LOGDIR/rss-fetcher-update.log 2>&1" >> $CRONTEMP
+
+    # full sync feeds (including deletions) from mcweb (web-search server) at 04:15
+    echo "15 4 * * * root $DOKKU_RUN_PERIODIC python -m scripts.update_feeds --full-sync > $LOGDIR/rss-fetcher-update-full.log 2>&1" >> $CRONTEMP
 fi
 
 if [ -f $CRONTAB ]; then

@@ -6,16 +6,21 @@ import csv
 import datetime as dt
 import json
 import logging
-from mediacloud.api import DirectoryApi  # type: ignore[import-untyped]
-from random import random       # low-fi random ok
 import sys
 import time
-from typing import Any, Callable, Dict
+from collections import Counter
+from random import random       # low-fi random ok
+from typing import Any, Callable, Dict, TypeAlias
 
+# PyPI
+from mediacloud.api import DirectoryApi  # type: ignore[import-untyped]
+from sqlalchemy.sql.expression import delete, select
+
+# local
+import fetcher.database.property as prop
 from fetcher.config import conf
 from fetcher.database import Session
-import fetcher.database.models as models
-import fetcher.database.property as prop
+from fetcher.database.models import Feed, FetchEvent
 from fetcher.stats import Stats
 
 
@@ -26,10 +31,10 @@ def parse_timestamp(s: str) -> dt.datetime:
     return dt.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%fZ')
 
 
-StatsDict = Dict[str, int]
+StatsCount: TypeAlias = Counter[str]
 
 
-def log_stats(stats: StatsDict, title: str, always: bool = True) -> None:
+def log_stats(stats: StatsCount, title: str, always: bool = True) -> None:
     if stats:
         values = ', '.join([f"{key}: {value}" for key, value in stats.items()])
     else:
@@ -47,18 +52,20 @@ def identity(x: Any) -> Any:
 # all arguments must be passed, and by keyword
 def run(*,
         mcweb_token: str,
-        sleep_seconds: float) -> int:
+        sleep_seconds: float,
+        full_sync: bool,
+        dry_run: bool) -> int:
 
     limit = 1000
-    totals: StatsDict = {}
-    batches: StatsDict = {}
+    totals: StatsCount = Counter()
+    batches: StatsCount = Counter()
     stats = Stats.get()         # get singleton
 
     def batch_stat(stat: str) -> None:
         """
         call once per batch
         """
-        batches[stat] = batches.get(stat, 0) + 1
+        batches[stat] += 1
         stats.incr('update.batches', labels=[('status', stat)])
 
     dirapi = DirectoryApi(mcweb_token)
@@ -69,10 +76,14 @@ def run(*,
         batch_stat("vers_err")  # not a batch error
         return 1
 
-    modified_since = float(prop.UpdateFeeds.modified_since.get() or '0')
+    if full_sync:
+        modified_since = 0.0
+    else:
+        modified_since = float(prop.UpdateFeeds.modified_since.get() or '0')
     logger.info(f"Fetching updates after {modified_since} before {server_now}")
 
     offset = 0
+    mcweb_feeds_seen = set()    # for full_sync deletions
     while True:
         try:
             data = dirapi.feed_list(modified_since=modified_since,
@@ -94,8 +105,8 @@ def run(*,
         logger.debug(
             f" OK text: items: {len(items)}, total: {rcount}")
 
-        def inc(stat: str) -> None:
-            totals[stat] = totals.get(stat, 0) + 1
+        def inc(stat: str, n: int = 1) -> None:
+            totals[stat] += n
             stats.incr('update.feeds', labels=[('status', stat)])
 
         need_commit = False
@@ -113,9 +124,10 @@ def run(*,
                     inc('bad_id')
                     continue
 
-                f = session.get(models.Feed, iid)  # XXX lock for update??
+                mcweb_feeds_seen.add(iid)
+                f = session.get(Feed, iid)  # XXX lock for update??
                 if f is None:
-                    f = models.Feed()
+                    f = Feed()
                     f.id = iid
                     logger.info(f"CREATE {iid}")
                     create = True
@@ -182,9 +194,14 @@ def run(*,
                                      parse_timestamp,
                                      allow_change=False)  # only accept on create
 
+                    if dry_run: # before any counters incremented
+                        session.expunge(f)
+                        continue
+
                     if changes == 0:
                         logger.info(" no change")
                         inc('no_change')
+                        session.expunge(f)
                         continue
 
                     if create:
@@ -205,10 +222,36 @@ def run(*,
         logger.info(f"sleeping {sleep_seconds} sec")
         time.sleep(sleep_seconds)
 
-    new = str(server_now)
-    logger.info(f"setting new modified_since: {new}")
-    prop.UpdateFeeds.modified_since.set(new)
-    prop.UpdateFeeds.next_url.unset()  # no longer used
+    if not dry_run:
+        new = str(server_now)
+        logger.info(f"setting new modified_since: {new}")
+        prop.UpdateFeeds.modified_since.set(new)
+        prop.UpdateFeeds.next_url.unset()  # no longer used
+
+    if full_sync:
+        with Session() as session:
+            local_feeds = set(
+                row[0] for row in
+                session.execute(select(Feed.id))
+            )
+
+            nlocal = len(local_feeds)
+            mcweb_feed_count = len(mcweb_feeds_seen)
+            logger.info("mcweb %d feeds, local %d feeds", mcweb_feed_count, nlocal)
+            if nlocal > mcweb_feed_count:
+                not_seen = local_feeds - mcweb_feeds_seen
+                logger.info("feeds to delete: %s", ", ".join(str(f) for f in sorted(not_seen)))
+
+                if not dry_run:
+                    res = session.execute(delete(Feed).where(Feed.id.in_(not_seen)))
+                    inc('deleted', res.rowcount)
+
+                    res = session.execute(delete(FetchEvent).where(FetchEvent.feed_id.in_(not_seen)))
+                    logger.info("deleted %d fetch events", res.rowcount)
+
+                    # leaving Stories in place, in case an active feed fetches dups
+
+                    session.commit()
 
     log_stats(batches, "BATCHES")
     log_stats(totals, "FEEDS")
@@ -226,6 +269,12 @@ if __name__ == '__main__':
 
     p.add_argument('--reset-last-modified', action='store_true',
                    help="reset saved last-modified time first")
+
+    p.add_argument('--full-sync', action='store_true',
+                   help="pull ALL feeds, remove any extras")
+
+    p.add_argument('--dry-run', action='store_true',
+                   help="don't update database")
 
     SLEEP = 0.5
     p.add_argument('--sleep-seconds', default=SLEEP, type=float,
@@ -245,7 +294,9 @@ if __name__ == '__main__':
         with PidFile(SCRIPT):
             sys.exit(
                 run(mcweb_token=mcweb_token,
-                    sleep_seconds=args.sleep_seconds))
+                    sleep_seconds=args.sleep_seconds,
+                    full_sync=args.full_sync,
+                    dry_run=args.dry_run))
     except LockedException:
         logger.error("could not get lock")
         exit(255)
