@@ -139,6 +139,12 @@ else
     APP=${INSTANCE}-${BASE_APP}
 fi
 
+# after APP set:
+# non-volatile storage mount for generated RSS files, db CSV files, logs
+STORAGE=${APP}-storage
+# Location of storage dir from outside container:
+STDIR=$STORAGE_HOME/$STORAGE
+
 # name of deploy branch in DOKKU_GIT_REMOTE repo
 DOKKU_GIT_BRANCH=main
 

@@ -52,15 +52,8 @@ DATABASE_SVC=$APP
 # needed to delete old service:
 REDIS_SVC=$APP
 
-# location of storage dirs (same as rss-fetcher)
-STORAGE_HOME=/var/lib/dokku/data/storage
-
-# non-volatile storage mount for generated RSS files, db CSV files, logs
-STORAGE=${APP}-storage
 # STORAGE mount point inside container
 STORAGE_MOUNT_POINT=/app/storage
-# Location of storage dir from outside container:
-STDIR=$STORAGE_HOME/$STORAGE
 
 destroy_service() {
     PLUGIN=$1
