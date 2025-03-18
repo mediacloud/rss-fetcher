@@ -194,7 +194,7 @@ def run(*,
                                      parse_timestamp,
                                      allow_change=False)  # only accept on create
 
-                    if dry_run: # before any counters incremented
+                    if dry_run:  # before any counters incremented
                         session.expunge(f)
                         continue
 
@@ -237,19 +237,28 @@ def run(*,
 
             nlocal = len(local_feeds)
             mcweb_feed_count = len(mcweb_feeds_seen)
-            logger.info("mcweb %d feeds, local %d feeds", mcweb_feed_count, nlocal)
+            logger.info(
+                "mcweb %d feeds, local %d feeds",
+                mcweb_feed_count,
+                nlocal)
             if nlocal > mcweb_feed_count:
                 not_seen = local_feeds - mcweb_feeds_seen
-                logger.info("feeds to delete: %s", ", ".join(str(f) for f in sorted(not_seen)))
+                logger.info("feeds to delete: %s", ", ".join(str(f)
+                            for f in sorted(not_seen)))
 
                 if not dry_run:
-                    res = session.execute(delete(Feed).where(Feed.id.in_(not_seen)))
+                    res = session.execute(
+                        delete(Feed).where(
+                            Feed.id.in_(not_seen)))
                     inc('deleted', res.rowcount)
 
-                    res = session.execute(delete(FetchEvent).where(FetchEvent.feed_id.in_(not_seen)))
+                    res = session.execute(
+                        delete(FetchEvent).where(
+                            FetchEvent.feed_id.in_(not_seen)))
                     logger.info("deleted %d fetch events", res.rowcount)
 
-                    # leaving Stories in place, in case an active feed fetches dups
+                    # leaving Stories in place, in case an active feed fetches
+                    # dups
 
                     session.commit()
 
