@@ -2,6 +2,12 @@
 Change Log
 ==========
 
+## v0.16.10 2025-03-17
+
+* dokku scripts updates
+* add update_feeds --full-update and --dry-run
+* run --full--update at 04:15
+
 ## v0.16.9 2024-10-12
 
 * update to mcmetadata v1.1.0 for:
