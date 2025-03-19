@@ -8,9 +8,9 @@ import os
 import uvicorn
 import uvicorn.config
 
+import server
 # local
 from fetcher.logargparse import LEVEL_DEST, LogArgumentParser
-import server
 
 SCRIPT = 'server'
 

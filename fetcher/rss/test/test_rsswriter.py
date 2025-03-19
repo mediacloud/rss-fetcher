@@ -1,7 +1,8 @@
-import unittest
 import datetime as dt
-import fetcher.rss.rsswriter as rsswriter
+import unittest
 from email.utils import formatdate
+
+import fetcher.rss.rsswriter as rsswriter
 
 
 class TestEscape(unittest.TestCase):

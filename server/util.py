@@ -1,11 +1,11 @@
 import datetime as dt
-from enum import Enum
-from functools import wraps
 import inspect
-from itertools import chain
 import logging
 import time
-from typing import Any, Callable, Coroutine, Literal, TYPE_CHECKING, TypedDict
+from enum import Enum
+from functools import wraps
+from itertools import chain
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Literal, TypedDict
 
 from fastapi.types import DecoratedCallable
 
@@ -13,7 +13,7 @@ from fetcher import VERSION
 from fetcher.stats import Stats
 
 if TYPE_CHECKING:
-    from mypy_extensions import VarArg, KwArg
+    from mypy_extensions import KwArg, VarArg
 
     # return type for api_method decorator
     APIMethodRet = Callable[[VarArg(Any), KwArg(Any)],

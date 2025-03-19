@@ -4,9 +4,9 @@ FastAPI authentication/authorization for rss-fetcher API
 from https://fastapi.tiangolo.com/advanced/security/http-basic-auth/
 """
 
-from enum import Enum
 import logging
 import secrets
+from enum import Enum
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status

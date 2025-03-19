@@ -1,5 +1,6 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
+exclude: '^fetcher/(test|database/(versions|test)|rss/test)/.*'
 repos:
   - repo: https://github.com/pre-commit/mirrors-autopep8
     rev: v2.0.4

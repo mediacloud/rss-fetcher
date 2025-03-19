@@ -13,14 +13,12 @@ ASSUMPTION: LOCK_DIR visible to all containers (ie; /storage/lock)
 
 # Phil Budne, January 2023
 
-from enum import Enum
 import errno
-from os import (
-    close, getpid, kill, open, path, read, unlink, write,
-    O_CREAT, O_EXCL, O_RDONLY, O_RDWR)
 import time
+from enum import Enum
+from os import (O_CREAT, O_EXCL, O_RDONLY, O_RDWR, close, getpid, kill, open,
+                path, read, unlink, write)
 from typing import Any
-
 
 from fetcher.path import LOCK_DIR, check_dir
 

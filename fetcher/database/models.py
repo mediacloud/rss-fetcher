@@ -1,19 +1,18 @@
 import datetime as dt
-from enum import Enum
 import hashlib
+from enum import Enum
 from time import mktime
 from typing import Any, Dict, List, Optional
 
 # PyPI:
-from sqlalchemy import (
-    Column, BigInteger, DateTime, String, Boolean, Integer, text, Float,
-    or_, select)
+from sqlalchemy import (BigInteger, Boolean, Column, DateTime, Float, Integer,
+                        String, or_, select, text)
 from sqlalchemy.orm import DeclarativeBase, mapped_column
 from sqlalchemy.sql._typing import _ColumnsClauseArgument
 from sqlalchemy.sql.selectable import Select
 
-from fetcher.database.engine import engine
 import fetcher.util as util
+from fetcher.database.engine import engine
 
 
 class Base(DeclarativeBase):

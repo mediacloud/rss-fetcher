@@ -9,43 +9,44 @@ JobTimeoutException.
 """
 
 import datetime as dt
-from dataclasses import dataclass
-from enum import Enum
 import hashlib
+import http.client
 import json
-from typing import Any, Dict, NamedTuple, Optional, Tuple, cast
 import logging
 import logging.handlers
 import os
 import random
 import time
 import warnings
-import http.client
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, NamedTuple, Optional, Tuple, cast
 from urllib.parse import urlsplit
 from xml.parsers.expat import ExpatError
 
 # PyPI
-import feedparser               # type: ignore[import-untyped]
+import feedparser  # type: ignore[import-untyped]
+# from sitemap-tools
+import mc_sitemap_tools.parser as sitemap_parser
+import mcmetadata.titles as titles
 import mcmetadata.urls
 import mcmetadata.urls as urls
-import mcmetadata.titles as titles
+import requests
+import requests.exceptions
+import sqlalchemy.sql.functions as func  # avoid overriding "sum"
 from mcmetadata.requests_arcana import insecure_requests_session
 from mcmetadata.webpages import MEDIA_CLOUD_USER_AGENT
 from psycopg.errors import UniqueViolation
-import requests
-import requests.exceptions
 # NOTE! All references to rq belong in queue.py!
 from setproctitle import setproctitle
 from sqlalchemy import literal, select, update
 from sqlalchemy.engine.result import ScalarResult
-from sqlalchemy.exc import (IntegrityError, PendingRollbackError)
+from sqlalchemy.exc import IntegrityError, PendingRollbackError
 from sqlalchemy.sql.expression import case
-import sqlalchemy.sql.functions as func  # avoid overriding "sum"
 from urllib3.exceptions import InsecureRequestWarning
 
-# from sitemap-tools
-import mc_sitemap_tools.parser as sitemap_parser
-
+import fetcher.path as path
+import fetcher.util as util
 # feed fetcher:
 from fetcher import APP, DYNO
 from fetcher.config import conf
@@ -54,10 +55,7 @@ from fetcher.database.functions import greatest
 from fetcher.database.models import Feed, FetchEvent, Story, utc
 from fetcher.direct import JobTimeoutException, set_job_timeout
 from fetcher.headhunter import Item
-import fetcher.path as path
 from fetcher.stats import Stats
-import fetcher.util as util
-
 
 # Increase Python3 http header limit (default is 100):
 setattr(http.client, '_MAXHEADERS', 1000)

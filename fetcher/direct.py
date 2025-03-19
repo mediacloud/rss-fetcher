@@ -24,8 +24,8 @@ but that's not necessary.
 # Python
 import collections
 import logging
-import pickle
 import os
+import pickle
 import select
 import signal
 import socket

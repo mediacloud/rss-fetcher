@@ -11,7 +11,6 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from fetcher.database.models import Story
 
-
 # list of Story columns to return from /api/{feeds,sources}/ID/stories:
 STORY_COLUMNS = [
     Story.url,

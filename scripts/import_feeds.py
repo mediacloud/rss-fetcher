@@ -1,15 +1,14 @@
 import csv
 import datetime as dt
 import logging
-from random import random       # low-fi random ok
+from random import random  # low-fi random ok
 
 from sqlalchemy import text
 
-from fetcher.config import conf
-from fetcher.database import engine, Session
 import fetcher.database.models as models
+from fetcher.config import conf
+from fetcher.database import Session, engine
 from fetcher.logargparse import LogArgumentParser
-
 
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 SQLALCHEMY_DATABASE_URI = conf.SQLALCHEMY_DATABASE_URI

@@ -5,13 +5,13 @@ import os.path
 
 from sqlalchemy import text
 
+import fetcher.path as path
+import fetcher.util as util
 from fetcher.config import conf
 from fetcher.database.engine import engine
 from fetcher.logargparse import LogArgumentParser
-import fetcher.path as path
 from fetcher.rss.rsswriter import RssWriter
 from fetcher.stats import Stats
-import fetcher.util as util
 
 SCRIPT = 'gen_rss'              # NOTE! used for stats!!!
 

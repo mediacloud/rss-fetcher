@@ -11,7 +11,7 @@ if hasattr(functions, 'greatest'):
     greatest = getattr(functions, 'greatest')
 else:
     from sqlalchemy.ext.compiler import compiles
-    from sqlalchemy.sql import expression, case
+    from sqlalchemy.sql import case, expression
     from sqlalchemy.sql.compiler import SQLCompiler
     from sqlalchemy.types import Numeric
 

@@ -5,9 +5,8 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 
-from fetcher.database.asyncio import AsyncSession
-
 import server.auth as auth
+from fetcher.database.asyncio import AsyncSession
 from server.util import api_method
 
 logger = logging.getLogger(__name__)

@@ -3,14 +3,13 @@ import logging
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select, Date
+from sqlalchemy import Date, func, select
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
+import server.auth as auth
 from fetcher.database.asyncio import AsyncSession
 from fetcher.database.models import Story
-
-import server.auth as auth
-from server.util import api_method, TimeSeriesData
+from server.util import TimeSeriesData, api_method
 
 DEFAULT_DAYS = 30
 

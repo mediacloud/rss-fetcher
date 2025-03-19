@@ -16,13 +16,13 @@ from typing import Optional, Sequence
 # PyPI:
 import yaml
 
+import fetcher.path as path
+import fetcher.sentry
+import fetcher.stats
 # local:
 from fetcher import DYNO
 from fetcher.config import conf
 from fetcher.version import VERSION
-import fetcher.path as path
-import fetcher.sentry
-import fetcher.stats
 
 LEVELS = [level.lower() for level in logging._nameToLevel.keys()]
 

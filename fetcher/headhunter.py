@@ -30,7 +30,7 @@ import time
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 # PyPI
-from sqlalchemy import func, select, over, update
+from sqlalchemy import func, over, select, update
 
 # app:
 from fetcher.config import conf

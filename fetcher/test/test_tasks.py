@@ -8,9 +8,9 @@ import psycopg2.errors
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-import fetcher.path
 import fetcher.database
 import fetcher.database.models as models
+import fetcher.path
 import fetcher.tasks as tasks
 
 fixture_dir = os.path.join(

@@ -15,10 +15,10 @@ import subprocess
 
 from sqlalchemy import text
 
+import fetcher.path as path
 from fetcher.config import conf
 from fetcher.database import engine
 from fetcher.logargparse import LogArgumentParser
-import fetcher.path as path
 
 SCRIPT = 'db_archive'
 

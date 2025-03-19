@@ -4,13 +4,11 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, update
 
+import server.auth as auth
 from fetcher.database.asyncio import AsyncSession
 from fetcher.database.models import Feed, FetchEvent, Story
-
-import server.auth as auth
-from server.util import api_method
 from server.common import STORY_COLUMNS, STORY_LIMIT, STORY_ORDER
-
+from server.util import api_method
 
 logger = logging.getLogger(__name__)
 

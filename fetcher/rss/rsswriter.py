@@ -1,8 +1,8 @@
 import datetime as dt
-from email.utils import formatdate  # RFC 822 date format
 import html
 import logging
 import os
+from email.utils import formatdate  # RFC 822 date format
 from typing import Optional, TextIO
 
 from jinja2 import Template

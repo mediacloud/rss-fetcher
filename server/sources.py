@@ -1,18 +1,17 @@
+import datetime as dt
 import logging
 from typing import Any, Dict, List, Optional
-import datetime as dt
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import cast, func, select, text, update, Date
 import sqlalchemy.sql.functions as f
+from fastapi import APIRouter, Depends
+from sqlalchemy import Date, cast, func, select, text, update
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
+import server.auth as auth
 from fetcher.database.asyncio import AsyncSession
 from fetcher.database.models import Feed, Story
-
-import server.auth as auth
-from server.util import api_method
 from server.common import STORY_COLUMNS, STORY_LIMIT, STORY_ORDER
+from server.util import api_method
 
 logger = logging.getLogger(__name__)
 

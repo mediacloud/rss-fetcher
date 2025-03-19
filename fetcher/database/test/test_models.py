@@ -1,10 +1,11 @@
-import unittest
-
-from fetcher.tasks import _fetch_rss_feed
-import feedparser
-from time import mktime
 import datetime as dt
+import unittest
+from time import mktime
+
+import feedparser
+
 from fetcher.database.models import Story
+from fetcher.tasks import _fetch_rss_feed
 
 
 class TestStory(unittest.TestCase):
