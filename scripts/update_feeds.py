@@ -9,7 +9,7 @@ import logging
 import sys
 import time
 from collections import Counter
-from random import random       # low-fi random ok
+from random import random  # low-fi random ok
 from typing import Any, Callable, Dict, TypeAlias
 
 # PyPI
@@ -132,7 +132,7 @@ def run(*,
                     logger.info(f"CREATE {iid}")
                     create = True
                 else:
-                    logger.info(f"UPDATE {iid}")
+                    logger.debug(f"UPDATE {iid}")
                     create = False
 
                 # MAYBE only log messages when verbosity > 1?
@@ -149,7 +149,8 @@ def run(*,
                             logger.debug(
                                 " check: %s/%s optional and missing", src, dest)
                         else:
-                            logger.warning(" check: %s/%s missing", src, dest)
+                            logger.warning(
+                                " %d check: %s/%s missing", iid, src, dest)
                             return 0
 
                     curr = getattr(f, dest)
@@ -157,8 +158,8 @@ def run(*,
                     try:
                         new = cast(raw)
                     except RuntimeError as e:  # _should_ be a ValueError
-                        logger.error("  check: error for %s/%s value %s: %r",
-                                     src, dest, raw, e)
+                        logger.error("  %d check: error for %s/%s value %s: %r",
+                                     iid, src, dest, raw, e)
                         return 0
 
                     if new == curr:
@@ -169,11 +170,15 @@ def run(*,
                     if curr:
                         if not allow_change:
                             logger.info(
-                                f"  ignoring {dest} from {curr} to {new}")
+                                f"  {iid} ignoring {dest} from {curr} to {new}")
                             return 0  # no change
-                        logger.info(f"  updating {dest} from {curr} to {new}")
+                        logger.info(
+                            f"  {iid} updating {dest} from {curr} to {new}")
                     else:       # no current value
-                        logger.info(f"  setting {dest} to {new}")
+                        if create:
+                            logger.info(f"  setting {dest} to {new}")
+                        else:
+                            logger.debug(f"  setting {dest} to {new}")
                     setattr(f, dest, new)
                     return 1    # changed
 
@@ -199,7 +204,7 @@ def run(*,
                         continue
 
                     if changes == 0:
-                        logger.info(" no change")
+                        logger.debug(" no change")
                         inc('no_change')
                         session.expunge(f)
                         continue
@@ -210,7 +215,7 @@ def run(*,
                     else:
                         inc('update')
                     need_commit = True
-                except Exception:
+                except (KeyError, ValueError):
                     logger.exception('bad')
                     inc('bad')
                     continue
@@ -229,6 +234,7 @@ def run(*,
         prop.UpdateFeeds.next_url.unset()  # no longer used
 
     if full_sync:
+        # delete feeds not found, and their fetch_events too!
         with Session() as session:
             local_feeds = set(
                 row[0] for row in
@@ -246,6 +252,7 @@ def run(*,
                 logger.info("feeds to delete: %s", ", ".join(str(f)
                             for f in sorted(not_seen)))
 
+                # XXX check for massive shrinkage and abort?
                 if not dry_run:
                     res = session.execute(
                         delete(Feed).where(
