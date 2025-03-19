@@ -43,14 +43,14 @@ if __name__ == '__main__':
     logger.info(f"Importing from {filename}")
     if filename.endswith(".gz"):
         import gzip
-        f = gzip.open(filename, mode='rt')  # read in text mode
+        input_file = gzip.open(filename, mode='rt')  # read in text mode
     else:
-        f = open(filename)
-    input_file = csv.DictReader(f)
+        input_file = open(filename)
+    input_csv = csv.DictReader(input_file)
 
     added = 0
     with Session.begin() as session:
-        for row in input_file:
+        for row in input_csv:
             now = dt.datetime.utcnow()
             # Pick random time within default fetch interval:
             # spreads out load, keeping queue short, and (hopefully)

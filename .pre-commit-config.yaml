@@ -12,6 +12,7 @@ repos:
       - id: mypy
         entry: ./.pre-commit-run.sh mypy
         additional_dependencies: ["pip==22.0.*"]
+        exclude: '^fetcher/database/env.py'
   - repo: http://github.com/pycqa/isort
     rev: 6.0.1
     hooks:

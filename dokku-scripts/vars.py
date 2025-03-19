@@ -54,7 +54,7 @@ def main() -> None:
 
     b64_output = True
     args = list(sys.argv[1:])   # copy argv so not damaged
-    vars = {}
+    vars: dict[str, str | None] = {}
     current = {}
     while args and args[0][0] == '-':
         option = args.pop(0)
@@ -74,7 +74,9 @@ def main() -> None:
             case "-F" | "--file":
                 if len(args) == 0:
                     usage(1)
-                vars.update(dotenv.dotenv_values(args.pop(0)))
+                vars.update(
+                    dotenv.dotenv_values(args.pop(0))
+                )
             case "-r" | "--raw":
                 b64_output = False
             case "-S" | "--set":
@@ -96,7 +98,10 @@ def main() -> None:
             continue
         if b64_output:          # for dokku config:set --encoded ...
             # b64encode takes and returns bytes
-            value = base64.b64encode(value.encode()).decode()
+            if value:
+                value = base64.b64encode(value.encode()).decode()
+            else:
+                value = ""
             print(f"{var}={value}")
         else:
             # not using = to make hard(er) to try to use!

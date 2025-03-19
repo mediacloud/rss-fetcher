@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine, Literal, TypedDict
 
 from fastapi.types import DecoratedCallable
 
-from fetcher import VERSION
 from fetcher.stats import Stats
+from fetcher.version import VERSION
 
 if TYPE_CHECKING:
     from mypy_extensions import KwArg, VarArg

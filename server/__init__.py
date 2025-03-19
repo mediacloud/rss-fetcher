@@ -8,13 +8,13 @@ from fastapi.routing import Mount
 from fastapi.staticfiles import StaticFiles
 from sentry_sdk.integrations.asgi import SentryAsgiMiddleware
 
-import fetcher
 import fetcher.sentry
 import server.feeds as feeds
 import server.rss_entries as rss_entries
 import server.sources as sources
 import server.stories as stories
 from fetcher.path import OUTPUT_RSS_DIR
+from fetcher.version import VERSION
 from server.util import api_method
 
 # from sentry_sdk.integrations.logging import ignore_logger
@@ -30,7 +30,7 @@ if not os.path.isdir(OUTPUT_RSS_DIR):
 app = FastAPI(
     title="RSS Fetcher",
     description="Regularly fetch RSS files",
-    version=fetcher.VERSION,
+    version=VERSION,
     license_info={
         "name": "The MIT License"
     },

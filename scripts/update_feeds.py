@@ -13,7 +13,7 @@ from random import random  # low-fi random ok
 from typing import Any, Callable, Dict, TypeAlias
 
 # PyPI
-from mediacloud.api import DirectoryApi  # type: ignore[import-untyped]
+from mediacloud.api import DirectoryApi
 from sqlalchemy.sql.expression import delete, select
 
 # local

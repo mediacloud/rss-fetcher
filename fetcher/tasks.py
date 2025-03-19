@@ -25,7 +25,7 @@ from urllib.parse import urlsplit
 from xml.parsers.expat import ExpatError
 
 # PyPI
-import feedparser  # type: ignore[import-untyped]
+import feedparser
 # from sitemap-tools
 import mc_sitemap_tools.parser as sitemap_parser
 import mcmetadata.titles as titles

@@ -7,8 +7,8 @@ from typing import Optional, TextIO
 
 from jinja2 import Template
 
-from fetcher import VERSION
 from fetcher.path import BASE_DIR
+from fetcher.version import VERSION
 
 logger = logging.getLogger(__file__)
 
