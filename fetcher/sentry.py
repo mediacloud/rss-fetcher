@@ -8,8 +8,9 @@ import sys
 # PyPI:
 import sentry_sdk
 
-from fetcher import APP, VERSION
+from fetcher import APP
 from fetcher.config import conf
+from fetcher.version import VERSION
 
 logger = logging.getLogger(__name__)
 

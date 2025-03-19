@@ -17,8 +17,9 @@ from typing import Optional, Sequence
 import yaml
 
 # local:
-from fetcher import DYNO, VERSION
+from fetcher import DYNO
 from fetcher.config import conf
+from fetcher.version import VERSION
 import fetcher.path as path
 import fetcher.sentry
 import fetcher.stats

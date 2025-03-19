@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
 # local
-from fetcher import VERSION
+from fetcher.version import VERSION
 
 load_dotenv()  # load config from .env file (local) or env vars (production)
 

@@ -8,7 +8,7 @@
 
 import os
 
-VERSION = "0.16.10"             # ALSO: update CHANGELOG.md!
+# import VERSION from fetcher.version; set in pyproject.toml!
 
 # paths moved to fetch.path
 
