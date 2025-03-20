@@ -33,6 +33,11 @@ $(VENVDIR):
 update:	$(VENVDONE)
 	$(VENVBIN)/pre-commit autoupdate
 
+## build requirements.txt (requied by Heroku buildpack?)
+requirements:
+	$(VENVBIN)/pip-compile -o requirements.txt.tmp --strip-extras pyproject.toml
+	mv requirements.txt.tmp requirements.txt
+
 ## clean up development environment
 clean:
 	-$(VENVBIN)/pre-commit clean
