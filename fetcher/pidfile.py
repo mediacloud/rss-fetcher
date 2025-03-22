@@ -15,7 +15,6 @@ ASSUMPTION: LOCK_DIR visible to all containers (ie; /storage/lock)
 
 import errno
 import time
-from enum import Enum
 from os import (O_CREAT, O_EXCL, O_RDONLY, O_RDWR, close, getpid, kill, open,
                 path, read, unlink, write)
 from typing import Any

@@ -5,10 +5,7 @@ Revises: 324d49ce6374
 Create Date: 2022-06-02 15:22:35.542978
 
 """
-from alembic import op
-import csv
 import logging
-from typing import List
 
 logger = logging.getLogger(__name__)
 

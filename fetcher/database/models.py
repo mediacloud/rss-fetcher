@@ -1,7 +1,5 @@
 import datetime as dt
-import hashlib
 from enum import Enum
-from time import mktime
 from typing import Any, Dict, List, Optional
 
 # PyPI:
@@ -11,7 +9,6 @@ from sqlalchemy.orm import DeclarativeBase, mapped_column
 from sqlalchemy.sql._typing import _ColumnsClauseArgument
 from sqlalchemy.sql.selectable import Select
 
-import fetcher.util as util
 from fetcher.database.engine import engine
 
 

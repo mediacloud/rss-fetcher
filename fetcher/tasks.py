@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, NamedTuple, Optional, Tuple, cast
 from urllib.parse import urlsplit
-from xml.parsers.expat import ExpatError
 
 # PyPI
 import feedparser
@@ -38,20 +37,15 @@ from mcmetadata.requests_arcana import insecure_requests_session
 from mcmetadata.webpages import MEDIA_CLOUD_USER_AGENT
 from psycopg.errors import UniqueViolation
 # NOTE! All references to rq belong in queue.py!
-from setproctitle import setproctitle
-from sqlalchemy import literal, select, update
-from sqlalchemy.engine.result import ScalarResult
+from sqlalchemy import literal, select
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
-from sqlalchemy.sql.expression import case
 from urllib3.exceptions import InsecureRequestWarning
 
 import fetcher.path as path
 import fetcher.util as util
 # feed fetcher:
-from fetcher import APP, DYNO
 from fetcher.config import conf
 from fetcher.database import Session, SessionType
-from fetcher.database.functions import greatest
 from fetcher.database.models import Feed, FetchEvent, Story, utc
 from fetcher.direct import JobTimeoutException, set_job_timeout
 from fetcher.headhunter import Item

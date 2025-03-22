@@ -5,9 +5,6 @@ Since this file is imported by multiple "router" files,
 it shouldn't import from any of them (should be strictly a leaf).
 """
 
-from typing import List
-
-from sqlalchemy.sql.elements import ColumnElement
 
 from fetcher.database.models import Story
 

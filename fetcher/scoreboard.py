@@ -22,7 +22,6 @@ check before passing Feed Item to Worker??
 """
 
 # Python
-import logging
 import time
 from typing import Any, Dict
 

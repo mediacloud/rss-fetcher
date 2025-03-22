@@ -20,9 +20,8 @@ Phil Budne
 """
 
 import logging
-from typing import Dict, List, NoReturn, Optional, Type
+from typing import Dict, NoReturn, Optional
 
-from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 
 from fetcher.database import Session

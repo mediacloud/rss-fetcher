@@ -6,7 +6,6 @@ Create Date: 2022-02-17 12:05:34.020034
 
 """
 from alembic import op
-import csv
 
 # revision identifiers, used by Alembic.
 revision = 'a91f46836029'

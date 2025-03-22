@@ -10,9 +10,6 @@ the mc_feeds_id and mc_media_id values. It can take a few minutes to run, becaus
 table.
 """
 import logging
-from alembic import op
-from sqlalchemy.sql import text
-import csv
 
 # revision identifiers, used by Alembic.
 revision = '324d49ce6374'

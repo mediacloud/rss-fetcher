@@ -3,12 +3,10 @@ used by fetcher/logargparse,py and server/__init__.py
 """
 
 import logging
-import sys
 
 # PyPI:
 import sentry_sdk
 
-from fetcher import APP
 from fetcher.config import conf
 from fetcher.version import VERSION
 

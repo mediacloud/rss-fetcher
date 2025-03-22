@@ -11,7 +11,7 @@ import logging
 import logging.config
 import os
 import sys
-from typing import Optional, Sequence
+from typing import Optional
 
 # PyPI:
 import yaml

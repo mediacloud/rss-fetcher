@@ -1,10 +1,9 @@
-import datetime as dt
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import sqlalchemy.sql.functions as f
 from fastapi import APIRouter, Depends
-from sqlalchemy import Date, cast, func, select, text, update
+from sqlalchemy import Date, cast, select, text, update
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 import server.auth as auth

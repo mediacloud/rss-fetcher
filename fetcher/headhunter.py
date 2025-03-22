@@ -27,10 +27,10 @@ See scoreboard.py for more!
 
 import logging
 import time
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Dict, List, NamedTuple, Optional
 
 # PyPI
-from sqlalchemy import func, over, select, update
+from sqlalchemy import func, select
 
 # app:
 from fetcher.config import conf
