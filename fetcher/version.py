@@ -1,8 +1,8 @@
-# from mc-providers, from api-client/.../api.py
 
-import importlib.metadata  # to get version for SOFTWARE_ID
+import tomli  # brought in by pip
 
 try:
-    VERSION = "v" + importlib.metadata.version("rss-fetcher")
-except importlib.metadata.PackageNotFoundError:
-    VERSION = "dev"
+    with open("pyproject.toml", "rb") as fp:
+        VERSION = tomli.load(fp)["project"]["version"]
+except:
+    VERSION = "unknown"
