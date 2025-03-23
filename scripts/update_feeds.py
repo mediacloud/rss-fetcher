@@ -2,15 +2,13 @@
 Update Feeds table using mcweb API
 """
 
-import csv
 import datetime as dt
-import json
 import logging
 import sys
 import time
 from collections import Counter
 from random import random  # low-fi random ok
-from typing import Any, Callable, Dict, TypeAlias
+from typing import Any, Callable, TypeAlias
 
 # PyPI
 from mediacloud.api import DirectoryApi
@@ -89,7 +87,7 @@ def run(*,
             data = dirapi.feed_list(modified_since=modified_since,
                                     modified_before=server_now,
                                     limit=limit, offset=offset)
-        except Exception as e:
+        except Exception:
             batch_stat("get_failed")
             logger.exception("dirapi.feed_list")
             return 2
@@ -97,7 +95,7 @@ def run(*,
         try:
             items = data['results']
             rcount = data['count']
-        except Exception as e:
+        except Exception:
             logger.exception("bad response")
             batch_stat("format")
             return 4
@@ -110,7 +108,6 @@ def run(*,
             stats.incr('update.feeds', labels=[('status', stat)])
 
         need_commit = False
-        dtnow = dt.datetime.utcnow()
 
         if not items:
             break
@@ -120,7 +117,7 @@ def run(*,
                 offset += 1
                 try:
                     iid = int(item['id'])
-                except (ValueError, KeyError) as e:
+                except (ValueError, KeyError):
                     inc('bad_id')
                     continue
 

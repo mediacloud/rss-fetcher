@@ -11,7 +11,6 @@ import datetime as dt
 import gzip
 import logging
 import os.path
-import subprocess
 
 from sqlalchemy import text
 

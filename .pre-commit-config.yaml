@@ -2,6 +2,11 @@
 # See https://pre-commit.com/hooks.html for more hooks
 exclude: '^fetcher/(test|database/(versions|test)|rss/test)/.*'
 repos:
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.3.1
+    hooks:
+      - id: autoflake
+        args: ["--in-place", "--remove-unused-variables", "--remove-all-unused-imports"]
   - repo: https://github.com/pre-commit/mirrors-autopep8
     rev: v2.0.4
     hooks:

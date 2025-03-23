@@ -963,7 +963,7 @@ def make_story(feed_id: int,
         s.normalized_title = titles.normalize_title(entry.title or "")
         s.normalized_title_hash = hashlib.md5(
             s.normalized_title.encode()).hexdigest()
-    except AttributeError as _:
+    except AttributeError:
         s.title = None
         s.normalized_title = None
         s.normalized_title_hash = None
@@ -1298,7 +1298,7 @@ def save_stories_from_feed(session: SessionType,
 
             stories_incr('bad2')
             skipped_count += 1
-        except (IntegrityError, PendingRollbackError, UniqueViolation) as _:
+        except (IntegrityError, PendingRollbackError, UniqueViolation):
             # expected exception - log and ignore
             logger.debug(
                 f" * duplicate normalized URL: {s.normalized_url}")

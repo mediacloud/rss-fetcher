@@ -13,7 +13,7 @@ supply.
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Dict
 
 # PyPI:
 from sqlalchemy import update
@@ -21,9 +21,9 @@ from sqlalchemy import update
 # app
 from fetcher.config import conf
 from fetcher.database import Session
-from fetcher.database.models import Feed, utc
+from fetcher.database.models import Feed
 from fetcher.direct import Manager, Worker
-from fetcher.headhunter import HeadHunter, Item, ready_feeds
+from fetcher.headhunter import HeadHunter, Item
 from fetcher.logargparse import LogArgumentParser, log_file_wrapper
 from fetcher.stats import Stats
 from fetcher.tasks import feed_worker
@@ -171,6 +171,6 @@ def main() -> None:
 if __name__ == '__main__':
     try:
         main()
-    except Exception as e:
+    except Exception:
         logger.exception("main")  # for log file
         raise                   # for Sentry
