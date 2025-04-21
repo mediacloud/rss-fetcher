@@ -8,7 +8,7 @@ a pileup of processes if the lock holder runs slowly or hangs.
 Uses UNIX system calls to atomically create a "pid file"
 (file contain process pid).
 
-ASSUMPTION: LOCK_DIR visible to all containers (ie; /storage/lock)
+ASSUMPTION: all scripts run in same container (pid space)
 """
 
 # Phil Budne, January 2023
