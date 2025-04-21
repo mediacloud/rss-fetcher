@@ -48,13 +48,17 @@ else
     # use unencrypted service on non-public server
     # (cannot get letsencrypt cert on server that isn't Internet visible)
 
-    # dokku app name to create on BASTION host: ie; stats.OURHOST
-    BASTION_SERVICE=$GRAPHITE_STATS_SVC.$HOST
+    if true; then
+	# only available in private domain (ie; .angwin)
+	FULLNAME=$GRAPHITE_STATS_SVC.$(hostname -f)
+    else
+	# dokku app name to create on BASTION host: ie; stats.OURHOST
+	BASTION_SERVICE=$GRAPHITE_STATS_SVC.$HOST
 
-    # expose dokku-graphite http service on port 80
-    # and recognize a domain name like stats.OURHOST.tarbell.mediacloud.org
-    FULLNAME=$BASTION_SERVICE.$BASTION.$PUBLIC_DOMAIN
-
+	# expose dokku-graphite http service on port 80
+	# and recognize a domain name like stats.OURHOST.tarbell.mediacloud.org
+	FULLNAME=$BASTION_SERVICE.$BASTION.$PUBLIC_DOMAIN
+   fi
     NGCONF=/etc/nginx/conf.d/grafana-${GRAPHITE_STATS_SVC}.conf
     if grep -F "$FULLNAME" $NGCONF >/dev/null 2>&1; then
 	echo found $FULLNAME in $NGCONF
@@ -62,8 +66,10 @@ else
 	echo exposing $GRAPHITE_STATS_SVC as $FULLNAME
 	dokku graphite:nginx-expose $GRAPHITE_STATS_SVC $FULLNAME
 
-	# give instructions on how set up encrypted proxy on BASTION host:
-	echo "run '$SCRIPT_DIR/http-proxy.sh $BASTION_SERVICE $HOST 80' on $BASTION to make stats server public"
+	if [ "x$BASTION_SERVICE" != x ]; then
+	    # give instructions on how set up encrypted proxy on BASTION host:
+	    echo "run '$SCRIPT_DIR/http-proxy.sh $BASTION_SERVICE $HOST 80' on $BASTION to make stats server public"
+	fi
     fi
 fi
 if [ "x$LINK_TO_APP" != x ]; then
