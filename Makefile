@@ -11,6 +11,7 @@ help:
 	@echo Usage:
 	@echo "make install -- installs pre-commit hooks, dev environment"
 	@echo "make lint -- runs pre-commit checks"
+	@echo "make requirements -- create requirements.txt from pyproject.toml"
 	@echo "make update -- update .pre-commit-config.yaml"
 	@echo "make clean -- remove development environment"
 
@@ -33,7 +34,7 @@ $(VENVDIR):
 update:	$(VENVDONE)
 	$(VENVBIN)/pre-commit autoupdate
 
-## build requirements.txt (requied by Heroku buildpack?)
+## build requirements.txt (required by Heroku buildpack?)
 requirements:
 	$(VENVBIN)/pip-compile -o requirements.txt.tmp --strip-extras pyproject.toml
 	mv requirements.txt.tmp requirements.txt
