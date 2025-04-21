@@ -3,7 +3,7 @@
 # cloned from web-search
 if [ "x$AIRTABLE_API_KEY" != x ]; then
     # extract version from fetcher
-    VERSION=$(python -c 'from fetcher import VERSION; print(VERSION)')
+    VERSION=$(python -c 'from fetcher.version import VERSION; print(VERSION)')
 
     echo TEMP-- should all be supplied via Dokku config:
     echo "AIRTABLE_API_KEY=$AIRTABLE_API_KEY"
