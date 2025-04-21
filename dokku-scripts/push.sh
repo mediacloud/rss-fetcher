@@ -358,7 +358,7 @@ fi
 
 # start fetcher/worker processes (only needed first time)
 echo scaling up
-PROCS="fetcher=1 web=1"
+PROCS="fetcher=1 web=1 stats=1"
 dokku ps:scale --skip-deploy $APP $PROCS
 # never needed?
 dokku ps:start $APP
