@@ -2,6 +2,19 @@
 Change Log
 ==========
 
+## v0.16.11 2025-04-21
+
+* Add scripts/rss-fetcher-stats.py run-stats.sh, run from Procfile
+* Add .pre-commit-{config.yaml,run.sh}
+  + runs isort, autoflake, autopep8, mypy
+  + removed unused imports
+* Add pyproject.toml
+* Add Makefile
+  + "make requirements" generates requirements.txt
+  + "make lint" runs pre-commits
+* Removed autopep8.sh, mypy-requirements.txt
+* Add fetcher.version: get VERSION from pyproject.toml
+
 ## v0.16.10 2025-03-17
 
 * dokku scripts updates
