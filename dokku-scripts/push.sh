@@ -160,8 +160,18 @@ if [ "x$BRANCH" = xprod ]; then
     # XXX check if pushed to github/mediacloud/PROJECT prod branch??
     # (for staging too?)
 
-    TAG=v$(grep '^VERSION' fetcher/__init__.py | sed -e 's/^.*= *//' -e 's/"//g' -e "s/'//g" -e 's/#.*//' -e 's/ *$//')
-    echo "Found version number: $TAG"
+    if [ ! -x venv/bin/python ]; then
+	echo could not find venv/bin/python 1>&2
+	exit 1
+    fi
+    VERSION=$(venv/bin/python -c 'from fetcher.version import VERSION; print(VERSION)')
+    if [ "x$VERSION" != x ]; then
+	echo "Found version number: $VERSION"
+    else
+	echo could not find VERSION 1>&2
+	exit 1
+    fi
+    TAG=v$VERSION
 
     CONFIG_TAG=${TAG}
     if [ "x$NO_CODE_CHANGES" = x ]; then
