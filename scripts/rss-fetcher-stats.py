@@ -41,24 +41,37 @@ def get_sys_status_names() -> None:
 
 def report_feeds_active(stats: Stats, hours: int = 24) -> None:
     start = dt.datetime.utcnow() - dt.timedelta(hours=hours)
-    query = (select(Feed.system_status, func.count(Feed.id))
-             .where(Feed.last_fetch_success >= start)
-             .group_by("system_status"))
+    query = (
+        select(Feed.system_status,
+               func.count(Feed.id),
+               func.count(Feed.sources_id.distinct()))
+        .where(Feed.last_fetch_success >= start)
+        .group_by("system_status")
+    )
 
     # sum in case status name truncation creates dups
-    counts: Counter[str] = Counter()
+    feed_counts: Counter[str] = Counter()
+    source_counts: Counter[str] = Counter()
     with Session() as session:
         results = session.execute(query)
         for row in results:
             name = status_to_name(row[0])
-            counts[name] += row[1]
+            feed_counts[name] += row[1]
+            source_counts[name] += row[2]
             sys_status_names.add(name)
 
-    # must output all names (counters stick at last value)
+    # loop for ALL known status strings
+    # (counters stick at last value unless explicitly zeroed)
     for name in sys_status_names:
-        count = counts[name]
+        count = feed_counts[name]
         labels = [('hours', hours), ('status', name)]
         gauge = 'feeds.recent'
+        logger.debug('%s %r %d', gauge, labels, count)
+        stats.gauge(gauge, count, labels=labels)
+
+        count = source_counts[name]
+        labels = [('hours', hours), ('status', name)]
+        gauge = 'sources.recent'
         logger.debug('%s %r %d', gauge, labels, count)
         stats.gauge(gauge, count, labels=labels)
 
