@@ -2,6 +2,10 @@
 Change Log
 ==========
 
+## v0.16.12 2025-05-19
+
+* Add sources.recent gauges
+
 ## v0.16.11 2025-04-21
 
 * Add scripts/rss-fetcher-stats.py run-stats.sh, run from Procfile
