@@ -35,18 +35,13 @@ if ! dokku config:export --format=json $APP > $CURR; then
     exit $CONFIG_STATUS_ERROR
 fi
 
-# shell variable ("dotenv") files are hard to read, So use
-# python-dotenv.  Don't want to alter user or system installed
-# packages, and venv's are large, so make a private install of the
-# package.
-LIBDIR=$SCRIPT_DIR/.configlib
-if [ ! -d $LIBDIR ]; then
-    echo Installing private python library files in ${LIBDIR}...
-    mkdir $LIBDIR
-    echo "created by $0" > $LIBDIR/README
-    if ! python -m pip install --target $LIBDIR python-dotenv; then
-	exit $CONFIG_STATUS_ERROR
-    fi
+if [ -f dokku-scripts/.configlib/bin/dotenv ]; then
+    echo removing old private dotenv install 1>&2
+    rm -rf dokku-scripts/.configlib
+fi
+if [ ! -f venv/bin/dotenv ]; then
+    echo 'need to re-run "make install" to update venv' 1>&2
+    exit $CONFIG_STATUS_ERROR
 fi
 
 # takes any number of VAR=VALUE pairs
@@ -67,7 +62,7 @@ add_extras "AIRTABLE_HARDWARE=$HOST" \
 	   "SENTRY_ENV=$INSTANCE"
 
 # NOTE! vars.py output is shell-safe; it contains only VAR=BASE64ENCODEDVALUE ...
-# Want config:import! Whcih would avoid need for b64 (--encoded) values
+# Want config:import! which would avoid need for base64 (--encoded) values
 CONFIG_OPTIONS='--encoded'
 
 # NO_CODE_CHANGES exported by push.sh:
@@ -76,7 +71,8 @@ if [ -z "$NO_CODE_CHANGES" ]; then
     CONFIG_OPTIONS="$CONFIG_OPTIONS --no-restart"
 fi
 
-CONFIG_VARS=$(PYTHONPATH=$LIBDIR python $SCRIPT_DIR/vars.py --file $CONFIG_FILE --current $CURR $EXTRAS "$@")
+# get dotenv package from venv; generates base64 encoded values
+CONFIG_VARS=$(venv/bin/python $SCRIPT_DIR/vars.py --file $CONFIG_FILE --current $CURR $EXTRAS "$@")
 
 if [ -z "$CONFIG_VARS" ]; then
     # nothing to set... exit stage left!

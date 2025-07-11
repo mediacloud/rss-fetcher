@@ -39,11 +39,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# for pre-commit hook (and "make lint")
+# for pre-commit, and dokku-scripts/config.sh
 # additional packages for mypy belong in pre-commit section below
+# ("make lint" runs mypy from private venv)
 dev = [
     "pip-tools ~= 7.4.0",
-    "pre-commit ~= 4.2.0"
+    "pre-commit ~= 4.2.0",
+    "python-dotenv ~= 1.0.1"
 ]
 
 # dependencies for mypy (not in user venv):
