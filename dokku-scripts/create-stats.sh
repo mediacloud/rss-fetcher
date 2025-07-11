@@ -4,6 +4,9 @@
 # (can be used with any dokku app)
 # Phil Budne, October 2022
 
+# NOTE: 2025-07-11: no longer invoked by rss-fetcher scripts
+# (move this, or simplified version to system-dev-ops/monitoring ??)
+
 INSTANCE=$1
 shift
 
