@@ -173,13 +173,6 @@ else
     dokku storage:mount $APP $STDIR:$STORAGE_MOUNT_POINT
 fi
 
-################
-# check for, or create stats service, and link to our app
-
-echo checking for stats service...
-$SCRIPT_DIR/create-stats.sh $INSTANCE $APP
-echo ''
-
 ################ remove old process types
 
 # compare names in Procfile w/ those in $SCALE_FILE??
