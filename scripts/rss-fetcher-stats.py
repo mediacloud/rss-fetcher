@@ -11,7 +11,7 @@ from collections import Counter
 from sqlalchemy import func, select
 
 from fetcher.database import Session
-from fetcher.database.models import Feed
+from fetcher.database.models import Feed, Story
 from fetcher.logargparse import LogArgumentParser
 from fetcher.stats import Stats
 
@@ -76,6 +76,46 @@ def report_feeds_active(stats: Stats, hours: int = 24) -> None:
         stats.gauge(gauge, count, labels=labels)
 
 
+def report_top_domain_stories(stats: Stats, days: int = 3) -> None:
+    start = dt.datetime.utcnow() - dt.timedelta(days=days)
+    domain = Story.domain
+    count = func.count(domain)
+    query = (
+        select(domain, count)
+        .where(Story.fetched_at >= start)
+        .group_by(domain)
+        .order_by(count.desc())
+        .limit(1)
+    )
+
+    with Session() as session:
+        results = session.execute(query)
+        for row in results:
+            top_domain = row.domain
+            top_count = row.count
+            assert isinstance(top_count, int)
+
+            logger.info("top domain for last %d days %s (%d stories)",
+                        days, top_domain, top_count)
+
+            if top_count == 0 or not top_domain:
+                return
+
+            # NOT reporting domain name: would end up keeping a time
+            # series file per domain seen (high cardinality).  Could
+            # report ALL counts as a timer, but that would mean
+            # sending many thousands of stats packets each time.
+            def g(name: str, value: int) -> None:
+                labels = [('days', days)]
+                gauge = f'stories.{name}'
+                logger.debug('%s %r %s', gauge, labels, value)
+                stats.gauge(gauge, value, labels=labels)
+
+            g("top-domain.sum", top_count)
+            g("top-domain.avg", top_count // days)
+            return
+
+
 if __name__ == '__main__':
     # prep file
     p = LogArgumentParser(SCRIPT, 'report rss-fetcher stats')
@@ -86,4 +126,5 @@ if __name__ == '__main__':
     get_sys_status_names()
     while True:
         report_feeds_active(stats, 24)       # feeds active in last 24 hours
+        report_top_domain_stories(stats)     # top domain story count
         time.sleep(args.interval - time.time() % args.interval)
