@@ -101,19 +101,20 @@ def report_top_domain_stories(stats: Stats, days: int = 3) -> None:
             if top_count == 0 or not top_domain:
                 return
 
+            labels = [('days', days)]
+
             # NOT reporting domain name: would end up keeping a time
             # series file per domain seen (high cardinality).  Could
             # report ALL counts as a timer, but that would mean
             # sending many thousands of stats packets each time.
             def g(name: str, value: int) -> None:
-                labels = [('days', days)]
                 gauge = f'stories.{name}'
                 logger.debug('%s %r %s', gauge, labels, value)
                 stats.gauge(gauge, value, labels=labels)
 
             g("top-domain.sum", top_count)
             g("top-domain.avg", top_count // days)
-            return
+            break               # at most one row
 
 
 if __name__ == '__main__':
