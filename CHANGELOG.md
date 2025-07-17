@@ -2,6 +2,10 @@
 Change Log
 ==========
 
+## v0.16.12 2025-07-17
+
+* Add top domain stories gauge
+
 ## v0.16.12 2025-05-19
 
 * Add sources.recent gauges

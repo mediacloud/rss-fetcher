@@ -1,6 +1,6 @@
 [project]
 name = "rss-fetcher"
-version = "0.16.12"             # ALSO: update CHANGELOG.md!
+version = "0.16.13"             # ALSO: update CHANGELOG.md!
 description='Media Cloud News Feed Fetcher'
 readme = "README.md"
 requires-python = ">=3.10"
