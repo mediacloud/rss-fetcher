@@ -2,7 +2,11 @@
 Change Log
 ==========
 
-## v0.16.12 2025-07-17
+## v0.16.14 2025-07-29
+
+* Handle AttributeError in fetcher.tasks._feed_update_period_mins
+
+## v0.16.13 2025-07-17
 
 * Add top domain stories gauge
 

@@ -661,8 +661,8 @@ def _feed_update_period_mins(parsed_feed: ParsedFeed) -> Optional[int]:
             ret = DEFAULT_INTERVAL_MINS  # XXX maybe return None?
         # logger.debug(f" _feed_update_period_mins pd {update_period} fq {update_frequency} => {ret}")
         return ret
-    except (KeyError, ValueError, TypeError, ZeroDivisionError) as exc:
-        logger.info(f"    _feed_update_period_mins exception: {exc}")
+    except (AttributeError, KeyError, ValueError, TypeError, ZeroDivisionError) as exc:
+        logger.info("    _feed_update_period_mins exception: %r", exc)
         # logger.exception("_feed_update_period_mins") # DEBUG
         return None
 

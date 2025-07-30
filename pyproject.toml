@@ -1,6 +1,6 @@
 [project]
 name = "rss-fetcher"
-version = "0.16.13"             # ALSO: update CHANGELOG.md!
+version = "0.16.14"             # ALSO: update CHANGELOG.md!
 description='Media Cloud News Feed Fetcher'
 readme = "README.md"
 requires-python = ">=3.10"
@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     # If you add/update here, run "make requirements" to build requirements.txt
     # (dokku/heroku buildpac doesn't consume this file directly?)
-    "python-dotenv ~= 0.20.0",
+    "python-dotenv ~= 1.0.1",
     "requests ~= 2.32.0",	# update types-requests in pre-commit below
     "sentry-sdk[fastapi] ~= 1.10.0",
     "alembic ~= 1.8.0",
@@ -45,7 +45,6 @@ dependencies = [
 dev = [
     "pip-tools ~= 7.4.0",
     "pre-commit ~= 4.2.0",
-    "python-dotenv ~= 1.0.1"
 ]
 
 # dependencies for mypy (not in user venv):

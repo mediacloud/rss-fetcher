@@ -67,4 +67,7 @@ VALUES
 ,(1634251, 416886, 'hebei finance', 'http://finance.hebei.com.cn/rss.xml')
 ,(1634258, 416886, 'hebei news', 'http://news.hebei.com.cn/rss.xml')
 
+-- problematic sy:update{Period,Frequency}
+,(1787477, 83660, 'Cocobongo.com.br', 'https://www.cocobongo.com.br/feed')
+
 ;
