@@ -1246,13 +1246,16 @@ def save_stories_from_feed(session: SessionType,
                             stories_incr('home')
                         skipped_count += 1
                         continue
+
+                # pulled up into try to handle normalize_url and
+                # canonical_domain errors:
+                s = make_story(feed['id'], now, entry)
             except (ValueError, TypeError):
                 logger.debug(f" * bad URL: {link}")
                 stories_incr('bad')
                 skipped_count += 1
                 continue
 
-            s = make_story(feed['id'], now, entry)
             # skip urls from high-quantity non-news domains
             # we see a lot in feeds
             if mcmetadata.urls.is_non_news_domain(s.domain):
