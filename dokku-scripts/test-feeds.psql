@@ -69,5 +69,7 @@ VALUES
 
 -- problematic sy:update{Period,Frequency}
 ,(1787477, 83660, 'Cocobongo.com.br', 'https://www.cocobongo.com.br/feed')
+-- became urlset w/o gnews tags:
+,(2472203, 1743883, '', 'https://hbctv.net/rss.xml')
 
 ;

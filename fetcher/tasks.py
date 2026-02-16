@@ -924,6 +924,8 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
         raise Exception(s_type)  # html, sitemapindex here
 
     urlset = cast(sitemap_parser.Urlset, sitemap)
+    if not urlset["google_news_tags"]:
+        raise Exception("urlset without google news tags")
 
     # no overall header in urlset; if any article has a publication
     # name, grab that as the feed title.  NOTE! Tends to be VERY
