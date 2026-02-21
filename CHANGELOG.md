@@ -2,6 +2,10 @@
 Change Log
 ==========
 
+## v0.16.15 2026-02-20
+
+* Reject sitemap urlset if no google new tags
+
 ## v0.16.14 2025-07-29
 
 * Handle AttributeError in fetcher.tasks._feed_update_period_mins
