@@ -71,5 +71,6 @@ VALUES
 ,(1787477, 83660, 'Cocobongo.com.br', 'https://www.cocobongo.com.br/feed')
 -- became urlset w/o gnews tags:
 ,(2472203, 1743883, '', 'https://hbctv.net/rss.xml')
-
+-- huge: job timeout
+,(2494864, 106249, '', 'https://www.msn.com/sitemaps/consumption/content-2.xml'),
 ;

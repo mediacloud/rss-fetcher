@@ -361,6 +361,13 @@ class _Config:                  # only instantiated in this file
     # save input rss files (one per source) plus metadata for debug
     SAVE_RSS_FILES = conf_bool('SAVE_RSS_FILES', False)
 
+    # timeout for saving stories from parsed feed
+    # very large (50K) msn sitemaps taking approx 530 sec.
+    # max overall time allowed:
+    SAVE_STORY_MAX_SEC = conf_int('SAVE_STORY_MAX_SEC', 10 * 60)
+    # ms per story (no conf_float function):
+    SAVE_STORY_MS = conf_int('SAVE_STORY_MS', 12)
+
     SENTRY_DSN = conf_optional('SENTRY_DSN')
     SENTRY_ENV = conf_optional('SENTRY_ENV')
 

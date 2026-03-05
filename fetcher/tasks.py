@@ -174,6 +174,8 @@ NORMALIZED_TITLE_DAYS = conf.NORMALIZED_TITLE_DAYS
 RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 SAVE_PARSE_ERRORS = conf.SAVE_PARSE_ERRORS
+SAVE_STORY_MAX_SEC = conf.SAVE_STORY_MAX_SEC
+SAVE_STORY_SEC = conf.SAVE_STORY_MS / 1000
 SKIP_HOME_PAGES = conf.SKIP_HOME_PAGES
 UNDEAD_FEEDS = conf.UNDEAD_FEEDS
 UNDEAD_FEED_MAX_DAYS = conf.UNDEAD_FEED_MAX_DAYS
@@ -1146,8 +1148,13 @@ def fetch_and_process_feed(
                       feed_col_updates=feed_col_updates)
     feed_col_updates['last_fetch_hash'] = new_hash
 
+    save_timeout = len(parsed_feed.entries) * SAVE_STORY_SEC
+    if save_timeout > SAVE_STORY_MAX_SEC:
+        save_timeout = SAVE_STORY_MAX_SEC
+    set_job_timeout(save_timeout)
     saved, dup, skipped = save_stories_from_feed(
         session, now, feed, parsed_feed)
+    set_job_timeout()           # clear timeout alarm
 
     # may update feed_col_updates dict (add new "name")
     check_feed_title(feed, parsed_feed, feed_col_updates)
@@ -1188,7 +1195,9 @@ def save_stories_from_feed(session: SessionType,
     skipped_count = dup_count = saved_count = 0
     parsed_feed_url = None
     feed_url_scheme = None
+
     for entry in parsed_feed.entries:
+        t0 = time.monotonic()
         try:
             link = entry.url
             if link is None:
@@ -1278,6 +1287,7 @@ def save_stories_from_feed(session: SessionType,
                         session.commit()
                     stories_incr('ok')
                     saved_count += 1
+                    stats.timing('story.save', time.monotonic() - t0)
                 else:
                     # raised to info 2022-10-27
                     logger.info(
