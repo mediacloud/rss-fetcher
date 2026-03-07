@@ -175,6 +175,7 @@ RSS_FETCH_TIMEOUT_SECS = conf.RSS_FETCH_TIMEOUT_SECS
 SAVE_RSS_FILES = conf.SAVE_RSS_FILES
 SAVE_PARSE_ERRORS = conf.SAVE_PARSE_ERRORS
 SAVE_STORY_MAX_SEC = conf.SAVE_STORY_MAX_SEC
+SAVE_STORY_MIN_SEC = conf.SAVE_STORY_MIN_SEC
 SAVE_STORY_SEC = conf.SAVE_STORY_MS / 1000
 SKIP_HOME_PAGES = conf.SKIP_HOME_PAGES
 UNDEAD_FEEDS = conf.UNDEAD_FEEDS
@@ -1151,6 +1152,8 @@ def fetch_and_process_feed(
     save_timeout = len(parsed_feed.entries) * SAVE_STORY_SEC
     if save_timeout > SAVE_STORY_MAX_SEC:
         save_timeout = SAVE_STORY_MAX_SEC
+    if save_timeout < SAVE_STORY_MIN_SEC:
+        save_timeout = SAVE_STORY_MIN_SEC
     set_job_timeout(save_timeout)
     saved, dup, skipped = save_stories_from_feed(
         session, now, feed, parsed_feed)

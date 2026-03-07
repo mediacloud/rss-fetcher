@@ -365,6 +365,8 @@ class _Config:                  # only instantiated in this file
     # very large (50K) msn sitemaps taking approx 530 sec.
     # max overall time allowed:
     SAVE_STORY_MAX_SEC = conf_int('SAVE_STORY_MAX_SEC', 10 * 60)
+    # minimum time to save stories:
+    SAVE_STORY_MIN_SEC = conf_int('SAVE_STORY_MIN_SEC', 3 * 60)
     # ms per story (no conf_float function):
     SAVE_STORY_MS = conf_int('SAVE_STORY_MS', 12)
 
