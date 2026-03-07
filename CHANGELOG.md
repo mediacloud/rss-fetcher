@@ -2,6 +2,12 @@
 Change Log
 ==========
 
+NOTE: app version is in pyproject.toml!
+
+## v0.16.16 2026-03-06
+
+* Add separate job timeout for adding stories
+
 ## v0.16.15 2026-02-20
 
 * Reject sitemap urlset if no google new tags
