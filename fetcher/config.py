@@ -390,6 +390,11 @@ class _Config:                  # only instantiated in this file
     # rq default is 180 sec (3m)
     TASK_TIMEOUT_SECONDS = conf_int('TASK_TIMEOUT_SECONDS', 3 * 60)
 
+    # number of days for rss-fetcher-stats:report_top_domain_stories
+    # which generates stories.top-domain.{sum,avg} stats gauges (used
+    # for alerts) AND default for /api/stories/count endpoint.
+    TOP_SOURCE_DAYS = conf_int('TOP_SOURCE_DAYS', 3)
+
     # if True, never disable bad feeds:
     UNDEAD_FEEDS = conf_bool('UNDEAD_FEEDS', True)
 

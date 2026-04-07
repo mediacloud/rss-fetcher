@@ -10,12 +10,15 @@ from collections import Counter
 
 from sqlalchemy import func, select
 
+from fetcher.config import conf
 from fetcher.database import Session
 from fetcher.database.models import Feed, Story
 from fetcher.logargparse import LogArgumentParser
 from fetcher.stats import Stats
 
 SCRIPT = 'rss-fetcher-stats'
+
+TOP_SOURCE_DAYS = conf.TOP_SOURCE_DAYS
 
 logger = logging.getLogger(SCRIPT)  # instead of __main__
 
@@ -76,7 +79,8 @@ def report_feeds_active(stats: Stats, hours: int = 24) -> None:
         stats.gauge(gauge, count, labels=labels)
 
 
-def report_top_domain_stories(stats: Stats, days: int = 3) -> None:
+def report_top_domain_stories(stats: Stats, days: int = TOP_SOURCE_DAYS) -> None:
+    # NOTE!!! analagous to query used in server/stories.py:count_by_domain!!!
     start = dt.datetime.utcnow() - dt.timedelta(days=days)
     domain = Story.domain
     count = func.count(domain)

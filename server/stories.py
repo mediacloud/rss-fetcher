@@ -1,17 +1,19 @@
 import datetime as dt
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import Date, func, select
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 import server.auth as auth
+from fetcher.config import conf
 from fetcher.database.asyncio import AsyncSession
 from fetcher.database.models import Story
 from server.util import TimeSeriesData, api_method
 
 DEFAULT_DAYS = 30
+TOP_SOURCE_DAYS = conf.TOP_SOURCE_DAYS
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ async def _recent_volume(date_var: InstrumentedAttribute[dt.date],
     earliest_date = today - dt.timedelta(days=limit)
 
     async with AsyncSession() as session:
+        # for MySQL use func.date(date_var)??
         date = date_var.cast(Date)
         results = await session.execute(
             select(date.label('date'),
@@ -79,3 +82,47 @@ async def stories_by_source() -> Dict[str, Any]:
             'days': (max - min) / SECONDS_PER_DAY,
             'sources': [count._asdict() for count in counts]
         }
+
+
+# new 2026-04-07
+@router.get("/count", dependencies=[Depends(auth.read_access)])
+@api_method
+async def count(
+        column: Literal["domain", "feed_id", "sources_id"] = Query(
+            default="domain", description="name of column to aggregate by"),
+        days: int = Query(default=TOP_SOURCE_DAYS,
+                          description="number of days to total",
+                          ge=1),
+        _limit: int = Query(default=10,
+                            description="max rows to return",
+                            ge=1)
+) -> list[dict[str, Any]]:
+    """
+    Query to get top total stories by "source" for recent days to help
+    find flood sources.
+
+    With "column=domain" (the default) helps find source of
+    "top-domain" alerts generated from stories.top-domain.{sum,avg}
+    system gauges.
+    """
+
+    # copied from rss-fetcher-stats.py:report_top_domain_stories:
+    start = dt.datetime.utcnow() - dt.timedelta(days=days)
+
+    # NOTE! _COULD_ return/group-by multiple columns
+    # as story-indexer pipeview API does!
+    col_obj = getattr(Story, column).label('column')
+    count = func.count(col_obj)
+    query = (
+        select(col_obj, count)
+        .where(Story.fetched_at >= start)
+        .group_by(col_obj)
+        .order_by(count.desc())
+        .limit(_limit)
+    )
+    async with AsyncSession() as session:
+        results = await session.execute(query)
+    return [
+        {column: row.column, 'count': row.count}
+        for row in results
+    ]

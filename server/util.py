@@ -1,10 +1,18 @@
 import datetime as dt
 import inspect
 import logging
+import sys
 import time
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Literal
 
+if sys.version_info >= (3, 12):
+    from typing import TypedDict
+else:
+    # for pydantic 2.12
+    from typing_extensions import TypedDict
+
+from fastapi.responses import JSONResponse
 from fastapi.types import DecoratedCallable
 
 from fetcher.stats import Stats
@@ -15,7 +23,7 @@ if TYPE_CHECKING:
 
     # return type for api_method decorator
     APIMethodRet = Callable[[VarArg(Any), KwArg(Any)],
-                            Coroutine[Any, Any, "ApiResults"]]
+                            Coroutine[Any, Any, JSONResponse]]
 else:
     APIMethodRet = Any
 
@@ -80,23 +88,30 @@ def _duration(start_time: float, status: Status, name: str) -> int:
 def api_method(func: DecoratedCallable) -> APIMethodRet:
     """
     Decorator for API methods: wrap responses and add metadata (version, duration, etc)
-    Use this in server.py and it will add stuff like the
-
     Plus it handles errors in one place, and supresses ones we don't care to log to Sentry.
+
+    Returns a JSONResponse for Pydantic v2, which wants to validate responses
+    based on the typing of the (unwrapped) endpoint function; the (JSON)Response
+    return subverts that!
+
+    The precommit checks run mypy, so the endpoints should be
+    statically check to be returning what they claim, however the
+    redoc output may not reflect the wrapper!
     """
     @wraps(func)
-    async def wrapper(*args: Any, **kwargs: Any) -> ApiResults:
+    async def wrapper(*args: Any, **kwargs: Any) -> JSONResponse:
         start_time = time.time()
         # could use __qualname__ if needed:
         name = f"{func.__module__}.{func.__name__}"
         status: Status
+        ret: dict[str, Any]     # ApiResults
         try:
             if inspect.iscoroutinefunction(func):
                 results = await func(*args, **kwargs)
             else:
                 results = func(*args, **kwargs)
             status = STATUS_OK
-            return {            # ApiResultOK
+            ret = {             # ApiResultOK
                 'duration': _duration(start_time, status, name),
                 'version': VERSION,
                 'status': status,
@@ -110,12 +125,13 @@ def api_method(func: DecoratedCallable) -> APIMethodRet:
             message = str(e)
 
             status = STATUS_ERROR
-            return {            # ApiResultError
+            ret = {             # ApiResultError
                 'duration': _duration(start_time, status, name),
                 'version': VERSION,
                 'status': status,
                 'statusCode': 400,
                 'message': message,
             }
+        return JSONResponse(ret)
 
     return wrapper
