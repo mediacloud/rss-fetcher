@@ -12,6 +12,7 @@ else:
     # for pydantic 2.12
     from typing_extensions import TypedDict
 
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.types import DecoratedCallable
 
@@ -111,12 +112,12 @@ def api_method(func: DecoratedCallable) -> APIMethodRet:
             else:
                 results = func(*args, **kwargs)
             status = STATUS_OK
-            ret = {             # ApiResultOK
+            ret = jsonable_encoder({  # ApiResultOK
                 'duration': _duration(start_time, status, name),
                 'version': VERSION,
                 'status': status,
                 'results': results,
-            }
+            })
         except Exception as e:
             # log other, unexpected, exceptions to Sentry
             logger.exception(e)
