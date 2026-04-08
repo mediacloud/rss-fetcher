@@ -121,6 +121,16 @@ def report_top_domain_stories(stats: Stats, days: int = TOP_SOURCE_DAYS) -> None
             break               # at most one row
 
 
+def report_stories_max_id(stats: Stats) -> None:
+    """
+    report maximum Story.id to be able to show
+    if/how-far story-indexer is behind
+    """
+    with Session() as session:
+        max_story = session.execute(select(func.max(Story.id))).scalar_one()
+    stats.gauge('stories.max-id', max_story)
+
+
 if __name__ == '__main__':
     # prep file
     p = LogArgumentParser(SCRIPT, 'report rss-fetcher stats')
@@ -132,4 +142,5 @@ if __name__ == '__main__':
     while True:
         report_feeds_active(stats, 24)       # feeds active in last 24 hours
         report_top_domain_stories(stats)     # top domain story count
+        report_stories_max_id(stats)
         time.sleep(args.interval - time.time() % args.interval)
