@@ -4,6 +4,12 @@ Change Log
 
 NOTE: app version is in pyproject.toml!
 
+## v0.17.0 2026-04-08
+
+* Add /api/stories/count
+* Updated fastapi to fix redoc
+* Updated api_method to handle pydantic v2 checks
+
 ## v0.16.16 2026-03-06
 
 * Add separate job timeout for adding stories
