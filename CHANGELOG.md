@@ -4,6 +4,10 @@ Change Log
 
 NOTE: app version is in pyproject.toml!
 
+## v0.18.0 2026-05-26
+
+* Add/use MAX_STORIES_PER_FEED (default 5K)
+
 ## v0.17.0 2026-04-08
 
 * Add /api/stories/count
