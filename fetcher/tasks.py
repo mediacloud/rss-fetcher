@@ -166,6 +166,7 @@ AUTO_ADJUST_SMALL_MINS = conf.AUTO_ADJUST_SMALL_MINS
 DEFAULT_INTERVAL_MINS = conf.DEFAULT_INTERVAL_MINS
 HTTP_CONDITIONAL_FETCH = conf.HTTP_CONDITIONAL_FETCH
 MAX_FAILURES = conf.MAX_FAILURES
+MAX_STORIES_PER_FEED = conf.MAX_STORIES_PER_FEED
 MAX_URL = conf.MAX_URL
 MAXIMUM_BACKOFF_MINS = conf.MAXIMUM_BACKOFF_MINS
 MAXIMUM_INTERVAL_MINS = conf.MAXIMUM_INTERVAL_MINS
@@ -1199,7 +1200,15 @@ def save_stories_from_feed(session: SessionType,
     parsed_feed_url = None
     feed_url_scheme = None
 
-    for entry in parsed_feed.entries:
+    # truncating here rather than in feed-type dependant paths, so
+    # there is only one place (at the cost of extra conversions)
+    entries = parsed_feed.entries
+    if len(entries) > MAX_STORIES_PER_FEED:
+        logger.warning("Feed %d returned %d stories; truncating to %d",
+                       feed["id"], len(entries), MAX_STORIES_PER_FEED)
+        entries = entries[:MAX_STORIES_PER_FEED]
+
+    for entry in entries:
         t0 = time.monotonic()
         try:
             link = entry.url
