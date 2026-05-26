@@ -1201,9 +1201,10 @@ def save_stories_from_feed(session: SessionType,
     feed_url_scheme = None
 
     # truncating here rather than in feed-type dependant paths, so
-    # there is only one place (at the cost of extra conversions)
+    # there is only one place (at the cost of extra conversions).
+    # Setting to zero means unlimited.
     entries = parsed_feed.entries
-    if len(entries) > MAX_STORIES_PER_FEED:
+    if MAX_STORIES_PER_FEED > 0 and len(entries) > MAX_STORIES_PER_FEED:
         logger.warning("Feed %d returned %d stories; truncating to %d",
                        feed["id"], len(entries), MAX_STORIES_PER_FEED)
         entries = entries[:MAX_STORIES_PER_FEED]

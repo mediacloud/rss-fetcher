@@ -289,7 +289,8 @@ class _Config:                  # only instantiated in this file
     MAX_FAILURES = conf_int('MAX_FAILURES', 30)
 
     # max number of URLs to accept from a feed of any type.
-    MAX_STORIES_PER_FEED = 5000
+    # Set to zero for no limit.
+    MAX_STORIES_PER_FEED = conf_int('MAX_STORIES_PER_FEED', 5000)
 
     # maximum length URL to accept from feeds
     MAX_URL = conf_int('MAX_URL', 2048)
