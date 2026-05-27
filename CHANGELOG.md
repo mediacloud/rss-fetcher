@@ -4,6 +4,10 @@ Change Log
 
 NOTE: app version is in pyproject.toml!
 
+## v0.18.1 2026-05-26
+
+* Add stories tossed counter
+
 ## v0.18.0 2026-05-26
 
 * Add/use MAX_STORIES_PER_FEED (default 5K)
