@@ -1206,10 +1206,10 @@ def save_stories_from_feed(session: SessionType,
     entries = parsed_feed.entries
     nentries = len(entries)
     if MAX_STORIES_PER_FEED > 0 and nentries > MAX_STORIES_PER_FEED:
-        logger.warning("Feed %d (%s) returned %d stories; truncating to %d",
-                       feed["id"], feed["url"], nentries, MAX_STORIES_PER_FEED)
-        entries = entries[:MAX_STORIES_PER_FEED]
         tossed = nentries - MAX_STORIES_PER_FEED
+        logger.warning("Feed %d (%s) returned %d stories; tossing %d",
+                       feed["id"], feed["url"], nentries, tossed)
+        entries = entries[:MAX_STORIES_PER_FEED]
         stories_incr("tossed", tossed)
         skipped_count += tossed
 
