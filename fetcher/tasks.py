@@ -1192,9 +1192,9 @@ def save_stories_from_feed(session: SessionType,
     """
     stats = Stats.get()         # get singleton
 
-    def stories_incr(status: str) -> None:
+    def stories_incr(status: str, inc: int = 1) -> None:
         """call exactly ONCE for each story processed"""
-        stats.incr('stories', 1, labels=[('stat', status)])
+        stats.incr('stories', inc, labels=[('stat', status)])
 
     skipped_count = dup_count = saved_count = 0
     parsed_feed_url = None
@@ -1202,12 +1202,16 @@ def save_stories_from_feed(session: SessionType,
 
     # truncating here rather than in feed-type dependant paths, so
     # there is only one place (at the cost of extra conversions).
-    # Setting to zero means unlimited.
+    # Setting MAX_STORIES_PER_FEED to zero means unlimited.
     entries = parsed_feed.entries
-    if MAX_STORIES_PER_FEED > 0 and len(entries) > MAX_STORIES_PER_FEED:
-        logger.warning("Feed %d returned %d stories; truncating to %d",
-                       feed["id"], len(entries), MAX_STORIES_PER_FEED)
+    nentries = len(entries)
+    if MAX_STORIES_PER_FEED > 0 and nentries > MAX_STORIES_PER_FEED:
+        logger.warning("Feed %d (%s) returned %d stories; truncating to %d",
+                       feed["id"], feed["url"], nentries, MAX_STORIES_PER_FEED)
         entries = entries[:MAX_STORIES_PER_FEED]
+        tossed = nentries - MAX_STORIES_PER_FEED
+        stories_incr("tossed", tossed)
+        skipped_count += tossed
 
     for entry in entries:
         t0 = time.monotonic()
