@@ -1001,7 +1001,7 @@ def make_story(feed_id: int,
         s.title = None
         s.normalized_title = None
         s.normalized_title_hash = None
-    s.fetched_at = fetched_at
+    s.fetched_at = s.seen_at = fetched_at
     return s
 
 
