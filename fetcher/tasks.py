@@ -264,6 +264,7 @@ def normalized_url_exists(session: SessionType,
         return False
     with session.begin():
         # Find matching row and update seen_at to keep it from expiring.
+        # NOTE! does not care about which feed created it!
         ret = session.execute(update(Story)
                               .where(Story.normalized_url == normalized_url)
                               .values(seen_at=start_time))
