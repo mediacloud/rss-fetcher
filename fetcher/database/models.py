@@ -3,8 +3,8 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 # PyPI:
-from sqlalchemy import (BigInteger, Boolean, Column, DateTime, Float, Integer,
-                        String, or_, select, text)
+from sqlalchemy import (BigInteger, Boolean, Column, DateTime, Float, Index,
+                        Integer, String, or_, select, text)
 from sqlalchemy.orm import DeclarativeBase, mapped_column
 from sqlalchemy.sql._typing import _ColumnsClauseArgument
 from sqlalchemy.sql.selectable import Select
@@ -76,6 +76,14 @@ class Feed(Base):
     poll_minutes = mapped_column(Integer)  # poll period override
     # ^^^ _COULD_ be auto-adaptive (add bool adaptive(_poll)?)
 
+    # Added 2026-05-27 for "alembic revision --autogenerate"
+    __table_args__ = (
+        Index('feeds_system_enabled', 'system_enabled'),
+        Index('feeds_sources_id', 'sources_id'),
+        Index('feeds_next_fetch_attempt', 'last_fetch_attempt'),
+        Index('feeds_active', 'active'),
+    )
+
     def __repr__(self) -> str:
         return f"<Feed id={self.id} name={self.name} sources_id={self.sources_id}>"
 
@@ -119,6 +127,19 @@ class Story(Base):
     title = mapped_column(String)
     normalized_title = mapped_column(String)
     normalized_title_hash = mapped_column(String)
+    seen_at = mapped_column(DateTime)
+
+    # Added 2026-05-27 for "alembic revision --autogenerate"
+    __table_args__ = (
+        Index('unique_story_url', 'normalized_url', unique=True),
+        Index('unique_story_title', 'normalized_title_hash', 'sources_id'),
+        Index('stories_sources_id', 'sources_id'),
+        Index('stories_published_at', 'published_at'),
+        Index('stories_fetched_at', 'fetched_at'),
+        Index('stories_feed_id', 'feed_id'),
+        Index('stories_domain', 'domain'),
+        Index('stories_seen_at', 'seen_at'),
+    )
 
     def __repr__(self) -> str:
         return f"<Story id={self.id}>"
@@ -150,6 +171,12 @@ class FetchEvent(Base):
         # disabled due to excessive failures:
         FETCH_FAILED_DISABLED = 'fetch_disabled'
 
+    # Added 2026-05-27 for "alembic revision --autogenerate"
+    __table_args__ = (
+        Index('fetch_events_feeds_id', 'feed_id'),
+        Index('fetch_events_created_at', 'created_at'),
+    )
+
     def __repr__(self) -> str:
         return f"<FetchEvent id={self.id}>"
 
@@ -172,3 +199,7 @@ class Property(Base):
     section = Column(String, primary_key=True, nullable=False)
     key = Column(String, primary_key=True, nullable=False)
     value = Column(String)
+
+    # NOTE: no additional indices: primary key is section + key
+    # __table_args__ = (
+    # )

@@ -4,6 +4,18 @@ Change Log
 
 NOTE: app version is in pyproject.toml!
 
+## v0.?.? 2026-??-??
+
+* Enable use of alembic "autogenerate"
+  + required adding Index declarations to models
+  + update docs
+* Add stories.seen_at field:
+  + Update when story seen in feed
+  + Use to expire stories
+* scripts.db_archive:
+  + Add --dump option to reenable csv creation (default off)
+  + Add --use-created-at (default is use seen_at) for story expiration
+
 ## v0.18.1 2026-05-26
 
 * Add stories tossed counter

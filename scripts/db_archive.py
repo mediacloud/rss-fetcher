@@ -32,7 +32,7 @@ def logsize(fname: str) -> None:
         logger.error(f"stat {fname}: {e}")
 
 
-def dump_fetch_events(now: str, events: int, delete: bool) -> bool:
+def dump_fetch_events(now: str, events: int, delete: bool, dump: bool) -> bool:
     """
     Write CSV file of fetch_events table
     keeping `events` table rows for each feed_id.
@@ -54,73 +54,88 @@ def dump_fetch_events(now: str, events: int, delete: bool) -> bool:
 
         logger.info("counting")
         count = conn.scalar(text(f"SELECT COUNT(1) {from_temp_table}"))
-        logger.info(f"found {count} fetch_events to archive")
+        logger.info(f"found {count} fetch_events to archive/delete")
         if count == 0:
             return True
 
         # used for extract & deletion:
         from_where = f"FROM fetch_events WHERE id IN (SELECT id {from_temp_table})"
 
-        cursor = conn.execute(text(f"SELECT * {from_where} ORDER BY id"))
-        fname = os.path.join(path.DB_ARCHIVE_DIR, f"fetch_events-{now}.csv.gz")
-        logger.info(f"writing {fname}")
-        with gzip.open(fname, 'wt') as f:
-            writer = csv.writer(f)
-            first = next(cursor)._asdict()
-            writer.writerow(first.keys())
-            writer.writerow(first)
-            writer.writerows(cursor)
+        if dump:
+            cursor = conn.execute(text(f"SELECT * {from_where} ORDER BY id"))
+            fname = os.path.join(path.DB_ARCHIVE_DIR,
+                                 f"fetch_events-{now}.csv.gz")
+            logger.info(f"writing {fname}")
+            with gzip.open(fname, 'wt') as f:
+                writer = csv.writer(f)
+                first = next(cursor)._asdict()
+                writer.writerow(first.keys())
+                writer.writerow(first)
+                writer.writerows(cursor)
 
         if delete:
             logger.info("deleting...")
             conn.execute(text(f"DELETE {from_where}"))
 
-    logsize(fname)
+    if dump:
+        logsize(fname)
     return True
 
 
-def dump_stories(now: str, limit: str, delete: bool) -> bool:
+def dump_stories(now: str, limit: str, delete: bool, dump: bool,
+                 use_created_at: bool) -> bool:
     """
     Write compressed csv file of stories table with fetched_at
     before `limit`
     """
-    from_where = f"FROM stories WHERE fetched_at < '{limit}'"
+    if use_created_at:
+        date_column = 'created_at'
+    else:
+        date_column = 'seen_at'
+
+    from_where = f"FROM stories WHERE {date_column} < '{limit}'"
     with engine.begin() as conn:
         logger.info("counting stories")
         count = conn.execute(text(f"SELECT COUNT(1) {from_where}")).one()[0]
-        logger.info(f"found {count} stories to archive")
+        logger.info(f"found {count} stories to archive/delete")
         if count == 0:
             return True
 
-        cursor = conn.execute(
-            text(f"SELECT * {from_where} ORDER BY fetched_at"))
-        fname = os.path.join(path.DB_ARCHIVE_DIR, f"stories-{now}.csv.gz")
-        logger.info(f"writing {fname}")
-        with gzip.open(fname, 'wt') as f:
-            writer = csv.writer(f)
-            first = next(cursor)._asdict()
-            writer.writerow(first.keys())
-            writer.writerow(first)
-            writer.writerows(cursor)
+        if dump:
+            cursor = conn.execute(
+                text(f"SELECT * {from_where} ORDER BY {date_column}"))
+            fname = os.path.join(path.DB_ARCHIVE_DIR, f"stories-{now}.csv.gz")
+            logger.info(f"writing {fname}")
+            with gzip.open(fname, 'wt') as f:
+                writer = csv.writer(f)
+                first = next(cursor)._asdict()
+                writer.writerow(first.keys())
+                writer.writerow(first)
+                writer.writerows(cursor)
 
         if delete:
             logger.info("deleting...")
             conn.execute(text(f"DELETE {from_where}"))
 
-    logsize(fname)
+    if dump:
+        logsize(fname)
     return True
 
 
 if __name__ == '__main__':
-    p = LogArgumentParser(SCRIPT, 'archive stories and fetch_events tables')
+    p = LogArgumentParser(SCRIPT, 'prune stories and fetch_events tables')
     def_sd = max(conf.RSS_OUTPUT_DAYS, conf.NORMALIZED_TITLE_DAYS)
     p.add_argument('--story-days', type=int, default=def_sd,
                    help=f"number of days of story rows to keep ({def_sd})")
+    p.add_argument('--use-created-at', action='store_true',
+                   help="Look at stories.created_at instead of seen_at")
     def_fe = conf.FETCH_EVENT_ROWS
     p.add_argument('--fetch-events', type=int, default=def_fe,
                    help=f"number of fetch_events to keep per feed ({def_fe})")
     p.add_argument('--delete', action='store_true', default=False,
                    help="delete rows after writing files")
+    p.add_argument('--dump', action='store_true', default=False,
+                   help="create dump files (no longer archived)")
     # info logging before this call unlikely to be seen:
     args = p.my_parse_args()       # parse logging args, output start message
 
@@ -128,9 +143,9 @@ if __name__ == '__main__':
     date = now.strftime('%Y-%m-%d-%H-%M-%S')
 
     logger.info(f"Keeping {args.fetch_events} fetch_events for each feed")
-    dump_fetch_events(date, args.fetch_events, args.delete)
+    dump_fetch_events(date, args.fetch_events, args.delete, args.dump)
 
     logger.info(f"Keeping {args.story_days} days of stories")
     limit = now.date() - dt.timedelta(days=args.story_days)
     limit_str = limit.isoformat()
-    dump_stories(date, limit_str, args.delete)
+    dump_stories(date, limit_str, args.delete, args.dump, args.use_created_at)
