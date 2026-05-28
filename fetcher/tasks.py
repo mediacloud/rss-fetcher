@@ -646,7 +646,7 @@ def update_feed(session: SessionType,
                                          Story.seen_at == prev_success_time)
                                   .values(seen_at=start_time))
             updated_rows = update_rowcount(ret)
-            logger.info("  Feed %d: updated seen_at for %d stories",
+            logger.info("  Feed %d updated seen_at for %d stories",
                         feed_id, updated_rows)
         session.commit()
         session.close()
