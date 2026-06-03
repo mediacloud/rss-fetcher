@@ -151,6 +151,10 @@ if __name__ == '__main__':
     now = dt.datetime.utcnow()
     date = now.strftime('%Y-%m-%d-%H-%M-%S')
 
+    if args.dump and not os.path.isdir(path.DB_ARCHIVE_DIR):
+        logger.info("Creating %s directory", path.DB_ARCHIVE_DIR)
+        os.makedirs(path.DB_ARCHIVE_DIR)
+
     logger.info(f"Keeping {args.fetch_events} fetch_events for each feed")
     dump_fetch_events(date, args.fetch_events, args.delete, args.dump)
 
