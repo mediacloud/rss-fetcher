@@ -978,11 +978,12 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
         updateperiod=None)
 
 
-def make_story(feed_id: int,
+def make_story(feed: Dict,
                fetched_at: dt.datetime,
                entry: ParsedEntry) -> Story:
     s = Story()
-    s.feed_id = feed_id
+    s.feed_id = feed["id"]
+    s.sources_id = feed["sources_id"]
     s.url = url = entry.url
     s.normalized_url = urls.normalize_url(url)
     s.domain = urls.canonical_domain(url)
@@ -1306,7 +1307,7 @@ def save_stories_from_feed(session: SessionType,
 
                 # pulled up into try to handle normalize_url and
                 # canonical_domain errors:
-                s = make_story(feed['id'], start, entry)
+                s = make_story(feed, start, entry)
             except (ValueError, TypeError):
                 logger.debug(f" * bad URL: {link}")
                 stories_incr('bad')
@@ -1320,14 +1321,13 @@ def save_stories_from_feed(session: SessionType,
                 stories_incr('nonews')
                 skipped_count += 1
                 continue
-            s.sources_id = feed['sources_id']
             # only save if url is unique, and title is unique recently
             if not normalized_url_exists(session, s.normalized_url, start):
                 if not normalized_title_exists(
                         session, s.normalized_title_hash, s.sources_id):
 
                     # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
-                    # those are *expected* errors, so we can ignore them
+                    # those are *expected* errors, so we can ignore (but count) them
                     with session.begin():
                         session.add(s)
                         session.commit()
