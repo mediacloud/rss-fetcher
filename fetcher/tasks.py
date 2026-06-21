@@ -1326,6 +1326,7 @@ def save_stories_from_feed(session: SessionType,
                                   feed_id=feed["id"], seen_at=start)
                     # ref may exist (previously seen from this feed), or not:
                     session.merge(sr)
+                    session.commit()
                     logger.debug(
                         f" * skip duplicate normalized URL: %s | %s", link, s.normalized_url)
                     stories_incr('dup_url')
@@ -1345,7 +1346,7 @@ def save_stories_from_feed(session: SessionType,
                 # those are (somewhat) *expected* errors, so we can ignore (but count) them
                 try:
                     session.add(s)
-                    session.flush()  # to get id; Story row now locked
+                    session.flush()  # to get id; Story row now locked (can give exception!)
 
                     sr = StoryRef(
                         story_id=s.id, feed_id=feed["id"], seen_at=start)
