@@ -32,12 +32,11 @@ import mcmetadata.urls
 import mcmetadata.urls as urls
 import requests
 import requests.exceptions
-import sqlalchemy.sql.functions as func  # avoid overriding "sum"
 from mcmetadata.requests_arcana import insecure_requests_session
 from mcmetadata.webpages import MEDIA_CLOUD_USER_AGENT
 from psycopg.errors import UniqueViolation
 # NOTE! All references to rq belong in queue.py!
-from sqlalchemy import literal, select
+from sqlalchemy import literal, select, update
 from sqlalchemy.exc import IntegrityError, PendingRollbackError
 from urllib3.exceptions import InsecureRequestWarning
 
@@ -45,8 +44,8 @@ import fetcher.path as path
 import fetcher.util as util
 # feed fetcher:
 from fetcher.config import conf
-from fetcher.database import Session, SessionType
-from fetcher.database.models import Feed, FetchEvent, Story, utc
+from fetcher.database import Session, SessionType, result_rowcount
+from fetcher.database.models import Feed, FetchEvent, Story, StoryRef, utc
 from fetcher.direct import JobTimeoutException, set_job_timeout
 from fetcher.headhunter import Item
 from fetcher.stats import Stats
@@ -93,6 +92,9 @@ class Status(Enum):
 # system_status for working feed
 SYS_WORKING = 'Working'
 
+# counter name for feed doc hash same as last time
+CTR_SAME_HASH = 'same_hash'
+
 
 class Update(NamedTuple):
     """data for update_feed (returned by fetch_and_process_feed)"""
@@ -101,7 +103,8 @@ class Update(NamedTuple):
     sys_status: str
     note: Optional[str] = None
     feed_col_updates: Dict[str, Any] = {}
-    # on success:
+    # on success
+    # (saved, dup, skipped all None if no change)
     saved: Optional[int] = None
     dup: Optional[int] = None
     skipped: Optional[int] = None
@@ -191,6 +194,7 @@ if not VERIFY_CERTIFICATES:
 # https://web.resource.org/rss/1.0/modules/syndication/
 _DAY_MINS = 24 * 60
 UPDATE_PERIODS_MINS = {
+    # 'minutely': 1,      # rss.punchng.com w/ frequency 5 (5x/minute?!)
     'hourly': 60,
     'always': 60,       # treat as hourly (seen at www.baokontum.com.vn)
     'daily': _DAY_MINS,
@@ -232,33 +236,24 @@ def _save_rss_files(dir: str, fname: Any, feed: Dict,
 def normalized_title_exists(session: SessionType,
                             normalized_title_hash: Optional[str],
                             sources_id: Optional[int]) -> bool:
+    """
+    Check if a story with the same normalized/hash title
+    has been seen recently in the same source.
+
+    Called inside a transaction.
+    """
     if normalized_title_hash is None or sources_id is None:
         # err on the side of keeping URLs
         return False
     earliest_date = dt.date.today() - dt.timedelta(days=NORMALIZED_TITLE_DAYS)
     # only care if matching rows exist, so doing nested EXISTS query
-    with session.begin():
-        return session.query(literal(True))\
-                      .filter(session.query(Story)
-                              .filter(Story.published_at >= earliest_date,
-                                      Story.normalized_title_hash == normalized_title_hash,
-                                      Story.sources_id == sources_id)
-                              .exists())\
-                      .scalar() is True
-
-
-def normalized_url_exists(session: SessionType,
-                          normalized_url: Optional[str]) -> bool:
-    if normalized_url is None:
-        return False
-    # only care if matching rows exist, so doing nested EXISTS query
-    with session.begin():
-        return session.query(literal(True))\
-                      .filter(session.query(Story)
-                              .filter(Story.normalized_url ==
-                                      normalized_url)
-                              .exists())\
-                      .scalar() is True
+    return session.query(literal(True))\
+                  .filter(session.query(Story)
+                          .filter(Story.published_at >= earliest_date,
+                                  Story.normalized_title_hash == normalized_title_hash,
+                                  Story.sources_id == sources_id)
+                          .exists())\
+                  .scalar() is True
 
 
 def _auto_adjust_stat(counter: str) -> None:
@@ -440,26 +435,27 @@ def _check_auto_adjust(update: Update, feed: Feed,
 def update_feed(session: SessionType,
                 feed_id: int,
                 start_time: dt.datetime,
-                update: Update) -> None:
+                u: Update
+                ) -> None:
     """
-    Update Feed row, inserts FeedEvent row, increments feeds counter
+    Update Feed row, inserts FeedEvent row, increments feeds counter,
+    updates StoryRef.seen_at if feed hash was the same.
 
     * updates the Feed row
       + clearing "Feed.queued"
       + increment or clear Feed.last_fetch_failures
       + update Feed.next_fetch_attempt to reschedule
     * increment feeds stats counter
-
     so all policy can be centralized here.
 
-    start_time used for fetch/processing time, last_fetch_attempt,
-    Stories.created_at, FetchEvent.created_at, last_fetch_success
+    start_time used for (expect to match):
+    * fetch/processing time
     """
 
-    status = update.status               # for log, FetchEvent.Event
-    system_status = update.sys_status    # for log, Feed.system_status
-    note = update.note                   # for log, FetchEvent.note
-    feed_col_updates = update.feed_col_updates
+    status = u.status               # for log, FetchEvent.Event
+    system_status = u.sys_status    # for log, Feed.system_status
+    note = u.note                   # for log, FetchEvent.note
+    feed_col_updates = u.feed_col_updates
 
     # construct status_note for fetch_event entry "note"
     if note:
@@ -484,7 +480,7 @@ def update_feed(session: SessionType,
         # complexity).
 
         stmt = select(Feed).where(Feed.id == feed_id).with_for_update()
-        f = session.scalars(stmt).one()
+        f = session.scalars(stmt).one_or_none()
         if f is None:
             logger.info(f"  Feed {feed_id} not found in update_feed")
             return
@@ -556,7 +552,7 @@ def update_feed(session: SessionType,
             # check if auto-adjust needed, before backoff, or
             # retry-after, and update poll_minutes.
             next_minutes = _check_auto_adjust(
-                update, f, next_minutes, prev_success_time)
+                u, f, next_minutes, prev_success_time)
 
             if f.poll_minutes != next_minutes:
                 f.poll_minutes = next_minutes
@@ -588,7 +584,7 @@ def update_feed(session: SessionType,
 
             # Always honor HTTP Retry-After: header if longer (but log)
             # Only passed w/ non-success
-            ram = update.retry_after_min
+            ram = u.retry_after_min
             if ram and ram > next_minutes:
                 # 24 hours not uncommon; saw 317100 sec (88h!) once
                 if ram > _DAY_MINS:
@@ -597,7 +593,7 @@ def update_feed(session: SessionType,
                     f"  Feed {feed_id} - using retry_after {ram} ({next_minutes})")
                 next_minutes = ram
 
-            if update.randomize:
+            if u.randomize:
                 # Add random minute offset to break up clumps of 429
                 # (Too Many Requests) errors.  In practice, quantized
                 # into queuer loop period sized buckets.
@@ -611,14 +607,33 @@ def update_feed(session: SessionType,
             # system_enabled set False above.
             logger.error("  Feed {feed_id} enabled but not rescheduled!!!")
 
-        # NOTE! created_at will match last_fetch_attempt
-        # (and last_fetch_success if a success), Stories.created_at
+        # See above for expect synchronicity regarding "start_time"
         session.add(
             FetchEvent.from_info(
                 feed_id,
                 event,
                 start_time,
                 status_note))
+
+        if (prev_success_time is not None and u.counter == CTR_SAME_HASH):
+            # Here when feed document didn't change; update StoryRef.seen_at for
+            # any stories seen on the last successful fetch of this feed to the
+            # current start time to keep them from expiring, and so they can be
+            # found next time if the hash hasn't changed again.
+
+            # It's tempting to update seen_at less often to avoid frequent
+            # writes to so many rows (and attendant SSD aging), but doing this
+            # efficiently would require another layer of indirection, AND only
+            # 30% of fetch_events entries report "same hash"; All other seen_at
+            # updates (due to dup detection) would still require updating the
+            # StoryRef.
+            ret = session.execute(update(StoryRef)
+                                  .where(StoryRef.feed_id == feed_id,
+                                         StoryRef.seen_at == prev_success_time)
+                                  .values(seen_at=start_time))
+            updated_rows = result_rowcount(ret)
+            logger.info("  Feed %d updated seen_at for %d stories",
+                        feed_id, updated_rows)
         session.commit()
         session.close()
     # end "with session.begin()"
@@ -949,11 +964,12 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
         updateperiod=None)
 
 
-def make_story(feed_id: int,
+def make_story(feed: Dict,
                fetched_at: dt.datetime,
                entry: ParsedEntry) -> Story:
     s = Story()
-    s.feed_id = feed_id
+    s.feed_id = feed["id"]
+    s.sources_id = feed["sources_id"]
     s.url = url = entry.url
     s.normalized_url = urls.normalize_url(url)
     s.domain = urls.canonical_domain(url)
@@ -978,7 +994,7 @@ def make_story(feed_id: int,
 
 
 def fetch_and_process_feed(
-        session: SessionType, feed_id: int, now: dt.datetime) -> Update:
+        session: SessionType, feed_id: int, start: dt.datetime) -> Update:
     """
     Was fetch_feed_content: this is THE routine called in a worker.
     Made a single routine for clarity/communication.
@@ -988,7 +1004,7 @@ def fetch_and_process_feed(
         # lock row for duration of (sanity-check) transaction:
         # atomically checks if timestamp from queue matches
         # f.last_fetch_attempt, and if so, updates last_fetch_attempt
-        # to "now".  While this isn't an IRONCLAD guarantee of
+        # to "start".  While this isn't an IRONCLAD guarantee of
         # exclusive access, it's a bit of added paranoia
         # (search for "tri-state" below for an alternatve).
 
@@ -1017,8 +1033,8 @@ def fetch_and_process_feed(
                 or not f.system_enabled
                 or not f.queued
                 # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
-                # or f.next_fetch_attempt and f.next_fetch_attempt > now
-            ):
+                # or f.next_fetch_attempt and f.next_fetch_attempt > start
+                ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
             # tempting to clear f.queued here if set, but that
@@ -1032,7 +1048,7 @@ def fetch_and_process_feed(
     start_delay = None
     if feed['next_fetch_attempt']:
         # delay from when ready to queue to start of processing
-        start_delay = now - feed['next_fetch_attempt']
+        start_delay = start - feed['next_fetch_attempt']
         stats.timing_td('start_delay', start_delay)
 
     # display sources_id for rate control monitoring
@@ -1145,7 +1161,7 @@ def fetch_and_process_feed(
     new_hash = hashlib.md5(response.content).hexdigest()
     if new_hash == feed['last_fetch_hash']:
         # BAIL: no changes since last time
-        return Update('same_hash', Status.SUCC, SYS_WORKING,
+        return Update(CTR_SAME_HASH, Status.SUCC, SYS_WORKING,
                       note="same hash",
                       feed_col_updates=feed_col_updates)
     feed_col_updates['last_fetch_hash'] = new_hash
@@ -1157,7 +1173,7 @@ def fetch_and_process_feed(
         save_timeout = SAVE_STORY_MIN_SEC
     set_job_timeout(save_timeout)
     saved, dup, skipped = save_stories_from_feed(
-        session, now, feed, parsed_feed)
+        session, start, feed, parsed_feed)
     set_job_timeout()           # clear timeout alarm
 
     # may update feed_col_updates dict (add new "name")
@@ -1173,7 +1189,7 @@ def fetch_and_process_feed(
         feed_col_updates['update_minutes'] = update_minutes
 
     if saved > 0:
-        feed_col_updates['last_new_stories'] = now
+        feed_col_updates['last_new_stories'] = start
 
     return Update('ok', Status.SUCC, SYS_WORKING,
                   note=f"{skipped} skipped / {dup} dup / {saved} added",
@@ -1183,7 +1199,7 @@ def fetch_and_process_feed(
 
 
 def save_stories_from_feed(session: SessionType,
-                           now: dt.datetime,
+                           start: dt.datetime,
                            feed: Dict,  # db entry
                            parsed_feed: ParsedFeed) -> Tuple[int, int, int]:
     """
@@ -1214,8 +1230,8 @@ def save_stories_from_feed(session: SessionType,
         skipped_count += tossed
 
     for entry in entries:
-        t0 = time.monotonic()
         try:
+            t0 = time.monotonic()
             link = entry.url
             if link is None:
                 logger.debug(" * skip missing URL")
@@ -1277,9 +1293,9 @@ def save_stories_from_feed(session: SessionType,
 
                 # pulled up into try to handle normalize_url and
                 # canonical_domain errors:
-                s = make_story(feed['id'], now, entry)
-            except (ValueError, TypeError):
-                logger.debug(f" * bad URL: {link}")
+                s = make_story(feed, start, entry)
+            except (ValueError, TypeError) as e:
+                logger.debug(" * bad URL: %s: %r", link, e)
                 stories_incr('bad')
                 skipped_count += 1
                 continue
@@ -1291,31 +1307,60 @@ def save_stories_from_feed(session: SessionType,
                 stories_incr('nonews')
                 skipped_count += 1
                 continue
-            s.sources_id = feed['sources_id']
-            # only save if url is unique, and title is unique recently
-            if not normalized_url_exists(session, s.normalized_url):
-                if not normalized_title_exists(
-                        session, s.normalized_title_hash, s.sources_id):
 
-                    # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
-                    # those are *expected* errors, so we can ignore them
-                    with session.begin():
-                        session.add(s)
-                        session.commit()
-                    stories_incr('ok')
-                    saved_count += 1
-                    stats.timing('story.save', time.monotonic() - t0)
-                else:
+            # only save if url is unique, and title is unique recently
+            if s.normalized_url is None:
+                logger.debug(f" * no normalized_url")
+                stories_incr('nonurl')
+                skipped_count += 1
+                continue
+
+            with session.begin():
+                # excess paranoia: lock Story row so Ref creation conflict free
+                os = session.scalars(select(Story)
+                                     .where(Story.normalized_url == s.normalized_url)
+                                     .with_for_update())\
+                            .one_or_none()
+                if os is not None:
+                    sr = StoryRef(story_id=os.id,
+                                  feed_id=feed["id"], seen_at=start)
+                    # ref may exist (previously seen from this feed), or not:
+                    session.merge(sr)
+                    logger.debug(
+                        f" * skip duplicate normalized URL: %s | %s", link, s.normalized_url)
+                    stories_incr('dup_url')
+                    dup_count += 1
+                    continue
+
+                if normalized_title_exists(session, s.normalized_title_hash, s.sources_id):
                     # raised to info 2022-10-27
                     logger.info(
                         f" * skip duplicate title URL: {link} | {s.normalized_title} | {s.sources_id}")
                     stories_incr('dup_title')
                     dup_count += 1
-            else:
-                logger.debug(
-                    f" * skip duplicate normalized URL: {link} | {s.normalized_url}")
-                stories_incr('dup_url')
-                dup_count += 1
+                    continue
+
+            with session.begin():
+                # need to commit one by one so duplicate URL keys don't stop a larger insert from happening
+                # those are (somewhat) *expected* errors, so we can ignore (but count) them
+                try:
+                    session.add(s)
+                    session.flush()  # to get id; Story row now locked
+
+                    sr = StoryRef(
+                        story_id=s.id, feed_id=feed["id"], seen_at=start)
+                    session.merge(sr)  # paranoia
+                    session.commit()
+                    stories_incr('ok')
+                    saved_count += 1
+                    stats.timing('story.save', time.monotonic() - t0)
+                except (IntegrityError, PendingRollbackError, UniqueViolation):
+                    # semi-expected exception - log and ignore
+                    logger.debug(
+                        f" * duplicate normalized URL: {s.normalized_url}")
+                    stories_incr('dupurl2')
+                    dup_count += 1
+                    continue
         except (AttributeError, KeyError, ValueError, UnicodeError) as exc:
             # NOTE!! **REALLY** easy for coding errors to end up here!!!
             # couldn't parse the entry - skip it
@@ -1330,12 +1375,6 @@ def save_stories_from_feed(session: SessionType,
 
             stories_incr('bad2')
             skipped_count += 1
-        except (IntegrityError, PendingRollbackError, UniqueViolation):
-            # expected exception - log and ignore
-            logger.debug(
-                f" * duplicate normalized URL: {s.normalized_url}")
-            stories_incr('dupurl2')
-            dup_count += 1
 
     # assert len(parsed_feed.entries) == (saved_count+dup_count+skipped_count)
     # ???
@@ -1368,11 +1407,15 @@ def feed_worker(item: Item) -> None:
     """
 
     feed_id = item.id
+
+    # This date/time is used thruout:
+    # * Feed.last_fetch_{attempt,success}
+    # * FetchEvents.created_at
+    # * Story.{fetched,seen}_at
     start = dt.datetime.utcnow()
     try:
         # here is where the actual work is done:
         with Session() as session:
-            # XXX pass prev_success
             u = fetch_and_process_feed(session, feed_id, start)
     except requests.exceptions.RequestException as exc:
         status, system_status = request_exception_to_status(feed_id, exc)

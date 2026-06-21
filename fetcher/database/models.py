@@ -1,15 +1,13 @@
 import datetime as dt
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 # PyPI:
-from sqlalchemy import (BigInteger, Boolean, Column, DateTime, Float, Integer,
-                        String, or_, select, text)
+from sqlalchemy import (BigInteger, Boolean, Column, DateTime, Float, Index,
+                        Integer, String, or_, select, text)
 from sqlalchemy.orm import DeclarativeBase, mapped_column
 from sqlalchemy.sql._typing import _ColumnsClauseArgument
 from sqlalchemy.sql.selectable import Select
-
-from fetcher.database.engine import engine
 
 
 class Base(DeclarativeBase):
@@ -37,6 +35,12 @@ def utc(seconds: float = 0.0) -> dt.datetime:
     return d
 
 
+# The datetime of the start of each fetch  runis used in the following places:
+# * Feed.last_fetch_{attempt,success}, .last_new_stories
+# * FetchEvent.created_at for fetch run
+# * Story.created_at for all new stories in feed
+# * StoryRef.seen_at for all stories in feed
+
 class Feed(Base):
     __tablename__ = 'feeds'
 
@@ -59,6 +63,9 @@ class Feed(Base):
     http_etag = mapped_column(String)  # "Entity Tag"
     http_last_modified = mapped_column(String)
     next_fetch_attempt = mapped_column(DateTime)
+
+    # "queued" now means "currently being fetched"
+    # and is set in the main() function of scripts/fetcher.py
     queued = mapped_column(
         Boolean,
         nullable=False,
@@ -75,6 +82,13 @@ class Feed(Base):
     rss_title = mapped_column(String)  # ONLY set from RSS feed title
     poll_minutes = mapped_column(Integer)  # poll period override
     # ^^^ _COULD_ be auto-adaptive (add bool adaptive(_poll)?)
+
+    __table_args__ = (
+        Index('feeds_system_enabled', 'system_enabled'),
+        Index('feeds_sources_id', 'sources_id'),
+        Index('feeds_next_fetch_attempt', 'last_fetch_attempt'),
+        Index('feeds_active', 'active'),
+    )
 
     def __repr__(self) -> str:
         return f"<Feed id={self.id} name={self.name} sources_id={self.sources_id}>"
@@ -120,18 +134,46 @@ class Story(Base):
     normalized_title = mapped_column(String)
     normalized_title_hash = mapped_column(String)
 
+    __table_args__ = (
+        Index('unique_story_url', 'normalized_url', unique=True),
+        Index('unique_story_title', 'normalized_title_hash', 'sources_id'),
+        Index('stories_sources_id', 'sources_id'),
+        Index('stories_published_at', 'published_at'),
+        Index('stories_fetched_at', 'fetched_at'),
+        Index('stories_feed_id', 'feed_id'),
+        Index('stories_domain', 'domain'),
+    )
+
     def __repr__(self) -> str:
         return f"<Story id={self.id}>"
 
 
-def _run_query(query: str) -> List[Any]:
-    data = []
-    with engine.begin() as connection:
-        result = connection.execute(text(query))
-        # PLB would "return list(result)" work?
-        for row in result:
-            data.append(row)
-    return data
+class StoryRef(Base):
+    """
+    Record the last time a story was seen from a feed.
+    With the goal of only expiring stories that are no longer present in any feeds.
+
+    Multiple entries may exist for the same story.
+
+    Updated (replaced due to MVCC) each time story still in feed (or returned same hash)
+      so entry kept small.
+    """
+    __tablename__ = 'story_refs'
+
+    # story_id first so can be used for db_archive (see below)
+    story_id = mapped_column(BigInteger, primary_key=True, nullable=False)
+    feed_id = mapped_column(BigInteger, primary_key=True, nullable=False)
+
+    # MUST match the Story.last_fetch_success time at which the story was last seen
+    # in order to update the row if the feed document hash hasn't changed.
+    seen_at = mapped_column(DateTime)
+
+    __table_args__ = (
+        # primary key can be used for finding Stories by story_id
+        # (used in db_archive.py to expire refs)
+        Index('story_refs_seen_at', 'seen_at'),  # for expiration
+        Index('story_refs_feed_id', 'feed_id'),  # for static feed doc
+    )
 
 
 class FetchEvent(Base):
@@ -149,6 +191,11 @@ class FetchEvent(Base):
         FETCH_SUCCEEDED = 'fetch_succeeded'
         # disabled due to excessive failures:
         FETCH_FAILED_DISABLED = 'fetch_disabled'
+
+    __table_args__ = (
+        Index('fetch_events_feeds_id', 'feed_id'),
+        Index('fetch_events_created_at', 'created_at'),
+    )
 
     def __repr__(self) -> str:
         return f"<FetchEvent id={self.id}>"
@@ -172,3 +219,7 @@ class Property(Base):
     section = Column(String, primary_key=True, nullable=False)
     key = Column(String, primary_key=True, nullable=False)
     value = Column(String)
+
+    # NOTE: no additional indices: primary key is section + key
+    # __table_args__ = (
+    # )

@@ -8,6 +8,7 @@ VALUES
 -- Sends HTML w/ browser User-Agent string:
 ,(103, 4, 'GANNETT Syndication Service','http://rssfeeds.usatoday.com/usatoday-NewsTopStories')
 
+,(130,  5, 'L.A. Times - Anaheim Ducks', 'http://feeds.latimes.com/latimes/sports/hockey/nhl/ducks/') -- statoc
 ,(1000, 1, 'NYT > Bogus', 'http://www.nytimes.com/services/xml/rss/nyt/bogus.xml') -- 404
 ,(1001, 1, 'NYT > NXDOM', 'http://www.nytimes.abc/services/xml/rss/nyt/bogus.xml') -- bad hostname
 ,(9765, 19347, 'Latest Articles', 'http://www.freerepublic.com/tag/*/feed.rss') -- 25 RSS items, update quickly
@@ -39,13 +40,13 @@ VALUES
 ,(2073421, 1644622, 'South Ohio News', 'https://southohionews.com/stories.rss') -- 1440 min
 
 -- Retry-After: 14400 seen:
-,(17329,5851,'Smart Mobs','http://www.smartmobs.com/feed/')
+,(17329,5851,'Smart Mobs','http://www.smartmobs.com/feed/') -- same as 2374157
 ,(514374,271186,'IPPMEDIA','http://www.ippmedia.com/rss.xml')
 ,(1111809,514394,'Der III. Weg','https://der-dritte-weg.info/feed/rdf')
 ,(1455511,652022,'Radio Éxito La Cruz Corrientes','http://www.radioexito.com.ar/rss.xml')
 ,(1976902,623769,'الاسبوع العربي احداث لبنانية عربية سياسية اقتصادية اجتماعية','https://arabweek.com.lb/feed/')
 ,(2322471,356479,'Dainik Savera Times RSS','http://dainiksaveratimes.com/feeds/uttar_pardesh.php')
-,(2374157,5851,'Smart Mobs','https://smartmobs.com/feed/')
+,(2374157,5851,'Smart Mobs','https://smartmobs.com/feed/') -- same as 17329
 
 -- one-time parse errors
 ,(857733,59086,'مينافن أخبار الشرق الأوسط','http://menafn.com/rss/menafn_menatopstoriesar.xml') -- utf-16!!
@@ -72,5 +73,8 @@ VALUES
 -- became urlset w/o gnews tags:
 ,(2472203, 1743883, '', 'https://hbctv.net/rss.xml')
 -- huge: job timeout
-,(2494864, 106249, '', 'https://www.msn.com/sitemaps/consumption/content-2.xml'),
+,(2494864, 106249, '', 'https://www.msn.com/sitemaps/consumption/content-2.xml')
+
+-- huge, static??
+,(2495609, 270362, '', 'https://www.ourtownny.com/megasitemap/1.xml')
 ;
