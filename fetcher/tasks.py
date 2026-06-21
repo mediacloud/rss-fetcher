@@ -58,8 +58,8 @@ setattr(http.client, '_MAXHEADERS', 1000)
 LOG_AT_INFO = {'update_minutes', 'rss_title'}
 
 
-# take twice as many soft failures to disable feed
-# to lessen spurrious disabling due to transient/human errors.
+# make soft errors back off more slowly
+# (not disabling if UNDEAD_FEEDS set)
 SOFT_FAILURE_INCREMENT = 0.5
 
 
@@ -627,6 +627,10 @@ def update_feed(session: SessionType,
             # 30% of fetch_events entries report "same hash"; All other seen_at
             # updates (due to dup detection) would still require updating the
             # StoryRef.
+
+            # Maybe move this to where the Update is created (would avoid the
+            # crock of checking the counter name!)  one advantage of here is
+            # that it's in the same commit as the Feed update.
             ret = session.execute(update(StoryRef)
                                   .where(StoryRef.feed_id == feed_id,
                                          StoryRef.seen_at == prev_success_time)
@@ -634,9 +638,9 @@ def update_feed(session: SessionType,
             updated_rows = result_rowcount(ret)
             logger.info("  Feed %d updated seen_at for %d stories",
                         feed_id, updated_rows)
-        session.commit()
-        session.close()
-    # end "with session.begin()"
+        session.commit()        # should happen at "with" exit
+        session.close()         # ditto
+    # end "with session.begin()" [feed unlocked]
 
 
 def _feed_update_period_mins(parsed_feed: ParsedFeed) -> Optional[int]:
@@ -1008,6 +1012,7 @@ def fetch_and_process_feed(
         # exclusive access, it's a bit of added paranoia
         # (search for "tri-state" below for an alternatve).
 
+        # XXX why locking (with with_for_update) here??
         stmt = select(Feed).where(Feed.id == feed_id).with_for_update()
         f = session.scalars(stmt).one()
         if f is None:
@@ -1043,7 +1048,7 @@ def fetch_and_process_feed(
             return NoUpdate('insane')
 
         feed = f.as_dict()      # code below expects dict
-        # end with session.begin() & with_for_update
+    # end with session.begin() & with_for_update (feed row locked)
 
     start_delay = None
     if feed['next_fetch_attempt']:
@@ -1155,12 +1160,13 @@ def fetch_and_process_feed(
         return Update('parse_err', Status.SOFT, 'parse error',
                       note=repr(exc))
 
-    # Moved after parse (at the cost of CPU time),
-    # but means feed URLs that are replaced with HTML
-    # will back off, and eventually be disabled.
+    # Moved after parse (at the cost of CPU time), but means feed URLs that are
+    # replaced with HTML will back off (and be eventually disabled if
+    # UNDEAD_FEEDS not set)
     new_hash = hashlib.md5(response.content).hexdigest()
     if new_hash == feed['last_fetch_hash']:
         # BAIL: no changes since last time
+        # XXX Maybe update StoryRefs here????
         return Update(CTR_SAME_HASH, Status.SUCC, SYS_WORKING,
                       note="same hash",
                       feed_col_updates=feed_col_updates)
