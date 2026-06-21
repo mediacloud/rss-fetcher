@@ -4,6 +4,18 @@ Change Log
 
 NOTE: app version is in pyproject.toml!
 
+## v0.?.? 2026-??-??
+
+* Enable use of alembic "autogenerate"
+  + required adding Index declarations to models
+  + update docs
+* Add story_refs table (StoryRef class)
+  + Tracks stories per-feed
+  + Updated when story seen or feed static
+  + Prevents expiration of stories from static feeds
+* scripts.db_archive:
+  + Add --dump option to reenable csv creation (default off)
+
 ## v0.18.2 2026-07-22
 
 * Add stor{y-ref,ie}s.count gauges
