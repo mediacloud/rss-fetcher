@@ -1340,8 +1340,8 @@ def save_stories_from_feed(session: SessionType,
                     continue
 
                 if normalized_title_exists(session, s.normalized_title_hash, s.sources_id):
-                    # raised to info 2022-10-27
-                    logger.info(
+                    # raised to info 2022-10-27, lowered back to debug 2026-06-21!
+                    logger.debug(
                         f" * skip duplicate title URL: {link} | {s.normalized_title} | {s.sources_id}")
                     stories_incr('dup_title')
                     dup_count += 1
