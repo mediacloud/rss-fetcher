@@ -630,7 +630,8 @@ def update_feed(session: SessionType,
 
             # Maybe move this to where the Update is created (would avoid the
             # crock of checking the counter name!)  one advantage of here is
-            # that it's in the same commit as the Feed update.
+            # that it's in the same commit as the Feed update and FeedEvent
+            # creation.
             ret = session.execute(update(StoryRef)
                                   .where(StoryRef.feed_id == feed_id,
                                          StoryRef.seen_at == prev_success_time)
@@ -1012,7 +1013,7 @@ def fetch_and_process_feed(
         # exclusive access, it's a bit of added paranoia
         # (search for "tri-state" below for an alternatve).
 
-        # XXX why locking (with with_for_update) here??
+        # (lock for duration of sanity check -- see above)
         stmt = select(Feed).where(Feed.id == feed_id).with_for_update()
         f = session.scalars(stmt).one()
         if f is None:
