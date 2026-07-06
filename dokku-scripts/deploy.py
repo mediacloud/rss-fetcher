@@ -34,16 +34,15 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):  # type: igno
         # from push.sh, config.sh:
         if self.is_prod_staging():
             # currently only prod.sh, no staging overrides
-            files = ["files.sh"]
+            files = ["prod.sh"]
             self.settings_load_private_files(f"{self.PROJECT_REPO}-config",
                                              files)
         else:
-            tmpl = ".env.template"
-            self.settings_load_file(tmpl)
+            self.settings_load_file(".env.template")
             self.settings.pop("DATABASE_URL", None)
 
-            pwfile = f".pw.{self.inst_id}"
-            self.settings_load_file(pwfile)
+            # push.sh used to this with random user/password:
+            self.settings_load_file(f".pw.{self.inst_id}")
 
 
 d = RssFetcherDeploy()
