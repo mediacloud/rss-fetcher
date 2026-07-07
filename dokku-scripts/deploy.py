@@ -11,8 +11,11 @@ from mc_deploy.pyproject import PyProjectMixin
 
 class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):  # type: ignore
     DOKKU_SCALE = ["fetcher=1", "web=1", "stats=1"]
-    DOKKU_SERVICES = [("postgres", "")]  # list of service, suffix tuples:
+    # list of service, suffix tuples:
+    DOKKU_SERVICES = [("postgres", ""), ("storage", "-storage")]
+
     # DOKKU_STOP = True                  # stop while deploying
+    DOKKU_STORAGE_MOUNT_POINT = "/app/storage"  # rss-fetcher is odd
 
     INST_BASE = "rss-fetcher"   # app base name
     PROJECT_REPO = "rss-fetcher"
