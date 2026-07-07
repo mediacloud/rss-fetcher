@@ -44,7 +44,7 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):  # type: igno
             self.settings_load_file(".env.template")
             self.settings.pop("DATABASE_URL", None)
 
-            # push.sh used to this with random user/password:
+            # push.sh used to create this with random API user/password:
             self.settings_load_file(f".pw.{self.inst_id}")
 
 
