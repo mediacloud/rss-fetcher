@@ -9,11 +9,11 @@ clone-db.sh plus vars.py
 
 import sys
 
-from mc_deploy.dokku import DokkuDBMixin, DokkuDeploy
+from mc_deploy.dokku import DokkuDBDeploy
 from mc_deploy.pyproject import PyProjectMixin
 
 
-class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):  # type: ignore
+class RssFetcherDeploy(PyProjectMixin, DokkuDBDeploy):  # type: ignore
     # Much better to increase WEB_CONCURRENCY setting (gunicorn workers)
     # than number of web containers (parallel containers don't cooperate,
     # or report stats properly)!
