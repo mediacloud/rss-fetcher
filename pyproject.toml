@@ -39,13 +39,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# for pre-commit, and dokku-scripts/config.sh
+# development environment:
 # additional packages for mypy belong in pre-commit section below
-# ("make lint" runs mypy from private venv)
+# ("make lint" runs mypy from private pre-commit venv)
 dev = [
     "pip-tools ~= 7.4.0",
     "pre-commit ~= 4.2.0",
-    "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.0.4#subdirectory=deploy/mc-deploy"
+    "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.2.0#subdirectory=deploy/mc-deploy"
 ]
 
 # dependencies for mypy (not in user venv):
