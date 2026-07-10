@@ -12,6 +12,9 @@ import sys
 from mc_deploy.dokku import DokkuDBDeploy
 from mc_deploy.pyproject import PyProjectMixin
 
+# Have (so far) been unable to get mc-deploy installed so that mypy
+# can see the type information, so disabled checking:
+
 
 class RssFetcherDeploy(PyProjectMixin, DokkuDBDeploy):  # type: ignore
     # Much better to increase WEB_CONCURRENCY setting (gunicorn workers)
