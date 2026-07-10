@@ -3,8 +3,8 @@ rss-fetcher deploy script using mc-deploy (in system-dev-ops repo,
 installed in development venv thru "dev" optional-dependencies in
 pyproject.toml)
 
-shell scripts: push.sh, instance.sh, config.sh, common.sh, dburl.sh,
-clone-db.sh plus vars.py
+replaces shell scripts: push.sh, instance.sh, config.sh, common.sh,
+dburl.sh, clone-db.sh plus vars.py
 """
 
 import sys
@@ -16,7 +16,7 @@ from mc_deploy.pyproject import PyProjectMixin
 # can see the type information, so disabled checking:
 
 
-class RssFetcherDeploy(PyProjectMixin, DokkuDBDeploy):  # type: ignore
+class RssFetcherDeploy(PyProjectMixin, DokkuDBDeploy):
     # Much better to increase WEB_CONCURRENCY setting (gunicorn workers)
     # than number of web containers (parallel containers don't cooperate,
     # or report stats properly)!
