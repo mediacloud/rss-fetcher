@@ -7,6 +7,7 @@ from sqlalchemy import Date, cast, select, text, update
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 import server.auth as auth
+from fetcher.database import result_rowcount
 from fetcher.database.asyncio import AsyncSession
 from fetcher.database.models import Feed, Story
 from server.common import STORY_COLUMNS, STORY_LIMIT, STORY_ORDER
@@ -70,7 +71,7 @@ async def fetch_source_feeds_soon(sources_id: int) -> int:
                    Feed.queued.isnot(True))
             .values(next_fetch_attempt=soon)
         )
-        count = result.rowcount
+        count = result_rowcount(result)
         await session.commit()
     return int(count)
 

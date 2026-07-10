@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, update
 
 import server.auth as auth
+from fetcher.database import result_rowcount
 from fetcher.database.asyncio import AsyncSession
 from fetcher.database.models import Feed, FetchEvent, Story
 from server.common import STORY_COLUMNS, STORY_LIMIT, STORY_ORDER
@@ -43,7 +44,7 @@ async def fetch_feed_soon(feed_id: int) -> int:
                     last_fetch_failures=0,
                     system_enabled=True)
         result = await session.execute(upd)
-        count = result.rowcount
+        count = result_rowcount(result)
         await session.commit()
     return int(count)
 

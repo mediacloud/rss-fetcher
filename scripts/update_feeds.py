@@ -17,7 +17,7 @@ from sqlalchemy.sql.expression import delete, select
 # local
 import fetcher.database.property as prop
 from fetcher.config import conf
-from fetcher.database import Session
+from fetcher.database import Session, result_rowcount
 from fetcher.database.models import Feed, FetchEvent
 from fetcher.stats import Stats
 
@@ -254,12 +254,13 @@ def run(*,
                     res = session.execute(
                         delete(Feed).where(
                             Feed.id.in_(not_seen)))
-                    inc('deleted', res.rowcount)
+                    inc('deleted', result_rowcount(res))
 
                     res = session.execute(
                         delete(FetchEvent).where(
                             FetchEvent.feed_id.in_(not_seen)))
-                    logger.info("deleted %d fetch events", res.rowcount)
+                    logger.info("deleted %d fetch events",
+                                result_rowcount(res))
 
                     # leaving Stories in place, in case an active feed fetches
                     # dups
