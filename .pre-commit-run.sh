@@ -24,31 +24,40 @@ LOG=$0.log
 # Want to stash copy of pyproject.toml in the top level of the
 # pre-commit created virtual environment to detect changes.
 # Fortunately, a useful variable points there!
-if [ -n "$VIRTUAL_ENV" ]; then
-    TMP=$VIRTUAL_ENV/pyproject.toml
-else
+if [ -z "$VIRTUAL_ENV" ]; then
     echo "$0: VIRTUAL_ENV not set; see $LOG" 1>&2
     exit 1
 fi
-echo TMP $TMP >> $LOG
 
-# check saved copy of pyproject.toml to see if it has changed (or does
-# not yet exist) and if (re)install pre-commit optional dependencies if
-# needed.
-if cmp -s pyproject.toml $TMP; then
-    echo no change to pyproject.toml >> $LOG
-else
-    echo installing pre-commit optional dependencies >> $LOG
-    # --editable skips installing project package
-    if python3 -m pip install --editable '.[pre-commit]'; then
-	cp -p pyproject.toml $TMP
-	echo done >> $LOG
+# check if package lists have changed, and re-install if needed:
+check_install() {
+    FN=$1
+    shift
+
+    TMP=$VIRTUAL_ENV/.$FN
+    echo TMP $TMP >> $LOG
+    if cmp -s $FN $TMP; then
+	echo no change to $FN >> $LOG
     else
-	STATUS=$?
-	echo pip failed $STATUS >> $LOG
-	exit $STATUS
+	echo installing deploy optional dependencies >> $LOG
+	if python3 -m pip install $*; then
+	    cp -p $FN2 $TMP2
+	else
+	    STATUS=$?
+	    echo pip failed $STATUS for $FN2 >> $LOG
+	    exit $STATUS
+	fi
     fi
-fi
+}
+
+# NOTE! using pip-tools generated requirements.txt
+# (and installs this package), its requiremnets
+# and packages needed for pre-commit (mypy):
+check_install pyproject.toml --editable '.[pre-commit]'
+
+# for linting deploy.py
+check_install req-deploy.txt -r req-deploy.txt
+
 #pip list >> $LOG
 # NOTE! first arg must be command to invoke!
 "$@"

@@ -24,6 +24,7 @@ lint:	$(VENVDONE)
 # pre-commit is in dev optional-requirements
 install $(VENVDONE): $(VENVDIR) Makefile pyproject.toml
 	$(VENVBIN)/python3 -m pip install --editable '.[dev]'
+	$(VENVBIN)/python3 -m pip install -r req-deploy.txt
 	$(VENVBIN)/pre-commit install
 	touch $(VENVDONE)
 
