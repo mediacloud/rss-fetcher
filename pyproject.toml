@@ -45,13 +45,7 @@ dependencies = [
 dev = [
     "pip-tools ~= 7.4.0",
     "pre-commit ~= 4.2.0",
-    "rss-fetcher[deploy]",
-]
-
-# exp: referenced from dev above (for deployment)
-# and pre-commit below (for linting)
-deploy = [
-    "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.4.0#subdirectory=deploy/mc-deploy"
+    "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.4.1#subdirectory=deploy/mc-deploy",
 ]
 
 # dependencies for mypy (not in user venv):
@@ -61,7 +55,6 @@ deploy = [
 pre-commit = [
   "types-PyYAML ~= 6.0.0",
   "types-requests ~= 2.32.0.20241016",
-  "rss-fetcher[deploy]"
 ]
 
 # not tested!
