@@ -50,11 +50,14 @@ check_install() {
     fi
 }
 
-# NOTE! using pip-tools generated requirements.txt
-# (and installs this package), its requiremnets
-# and packages needed for pre-commit (mypy).
+# currently "install" package:
+# SHOULD:
+# * move mc-deploy to deploy= in [project.optional-dependencies]
+# * use pip-compile generated req-pre-commit.txt??
+#   (generated w/ --extra pre-commit --extra deply)
+#
 # WISH: use "uv" --extra pre-commit --extra deploy --no-install-package???
-#  move req-deploy to deploy= in [project.optional-dependencies]
+#  (seems hard to believe it could be ANY slower than pip-compile!!)
 check_install pyproject.toml --editable '.[pre-commit]'
 
 # for linting deploy.py (see above)
