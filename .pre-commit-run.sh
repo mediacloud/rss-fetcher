@@ -39,12 +39,12 @@ check_install() {
     if cmp -s $FN $TMP; then
 	echo no change to $FN >> $LOG
     else
-	echo installing deploy optional dependencies >> $LOG
+	echo $FN changed: pip install $* >> $LOG
 	if python3 -m pip install $*; then
-	    cp -p $FN2 $TMP2
+	    cp -p $FN $TMP
 	else
 	    STATUS=$?
-	    echo pip failed $STATUS for $FN2 >> $LOG
+	    echo pip install $* failed $STATUS >> $LOG
 	    exit $STATUS
 	fi
     fi
@@ -52,10 +52,12 @@ check_install() {
 
 # NOTE! using pip-tools generated requirements.txt
 # (and installs this package), its requiremnets
-# and packages needed for pre-commit (mypy):
+# and packages needed for pre-commit (mypy).
+# WISH: use "uv" --extra pre-commit --extra deploy --no-install-package???
+#  move req-deploy to deploy= in [project.optional-dependencies]
 check_install pyproject.toml --editable '.[pre-commit]'
 
-# for linting deploy.py
+# for linting deploy.py (see above)
 check_install req-deploy.txt -r req-deploy.txt
 
 #pip list >> $LOG
