@@ -30,6 +30,7 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBDeploy):
 
     INST_BASE = "rss-fetcher"   # app base name
     PROJECT_REPO = "rss-fetcher"
+    SQLALCHEMY2 = True
 
     def settings_get_new(self) -> None:
         """
