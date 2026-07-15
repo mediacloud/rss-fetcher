@@ -9,6 +9,7 @@ dburl.sh, clone-db.sh plus vars.py
 
 import sys
 
+from mc_deploy.base import ParserArgs
 from mc_deploy.dokku import DokkuDBDeploy
 from mc_deploy.pyproject import PyProjectMixin
 
@@ -32,11 +33,11 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBDeploy):
     PROJECT_REPO = "rss-fetcher"
     SQLALCHEMY2 = True
 
-    def settings_get_new(self) -> None:
+    def settings_get_new(self, args: ParserArgs) -> None:
         """
         load project settings
         """
-        super().settings_get_new()
+        super().settings_get_new(args)
 
         # used in fetcher/__init__.py to set APP
         # used to set process title so visible in ps!
@@ -60,7 +61,7 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBDeploy):
 
             # but remove static, external database URL
             # (dokku supplies it for linked database):
-            self.settings.pop("DATABASE_URL", None)
+            self.settings_del("DATABASE_URL")
 
             # push.sh used to create this with random API user/password
             # (could add that back here if file doesn't exist)
