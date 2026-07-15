@@ -9,7 +9,7 @@ dburl.sh, clone-db.sh plus vars.py
 
 import sys
 
-from mc_deploy.base import ParserArgs
+from mc_deploy.base import CmdArgs, ParserArgs
 from mc_deploy.dokku import DokkuDBDeploy
 from mc_deploy.pyproject import PyProjectMixin
 
@@ -42,7 +42,6 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBDeploy):
         # used in fetcher/__init__.py to set APP
         # used to set process title so visible in ps!
         # ('cause I didn't see it available any other way -phil)
-        self.settings_add("MC_APP", self.inst_name)
 
         # mcweb wants STATSD_HOST, so here:
         self.settings_add("STATSD_URL", self.statsd_url)
@@ -66,6 +65,10 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBDeploy):
             # push.sh used to create this with random API user/password
             # (could add that back here if file doesn't exist)
             self.settings_load_file(f".pw.{self.inst_id}")
+
+    def deploy_cmd_helper(self, args: CmdArgs) -> None:
+        super().deploy_cmd_helper(args)  # load config
+        self.settings_add("MC_APP", self.inst_name)
 
 
 d = RssFetcherDeploy()
