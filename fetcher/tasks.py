@@ -626,10 +626,9 @@ def update_feed(session: SessionType,
             # updates (due to dup detection) would still require updating the
             # StoryRef.
 
-            # Maybe move this to where the Update is created (would avoid the
-            # crock of checking the counter name!)  one advantage of here is
-            # that it's in the same commit as the Feed update and FeedEvent
-            # creation.
+            # Maybe move this to where the Update is created;
+            # One advantage of here is that it's in the same commit as
+            # the Feed update and FeedEvent creation.
             ret = session.execute(update(StoryRef)
                                   .where(StoryRef.feed_id == feed_id,
                                          StoryRef.seen_at == prev_success_time)
