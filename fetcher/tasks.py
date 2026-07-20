@@ -92,9 +92,6 @@ class Status(Enum):
 # system_status for working feed
 SYS_WORKING = 'Working'
 
-# counter name for feed doc hash same as last time
-CTR_SAME_HASH = 'same_hash'
-
 
 class Update(NamedTuple):
     """data for update_feed (returned by fetch_and_process_feed)"""
@@ -112,6 +109,7 @@ class Update(NamedTuple):
     # on non-success:
     retry_after_min: Optional[float] = None
     randomize: bool = False     # (could now add to retry_after)
+    no_change: bool = False     # feed document did not change
 
 
 def NoUpdate(counter: str) -> Update:
@@ -407,7 +405,7 @@ def _check_auto_adjust(update: Update, feed: Feed,
     # variable has persisted.
 
     if update.saved is None or update.dup is None:
-        if update.counter not in ('not_mod', 'same_hash'):
+        if not update.no_change:
             logger.info(
                 f"  Feed {feed.id} unexpected counter {update.counter}")
         dup_pct = DupPct.NO_CHANGE
@@ -615,7 +613,7 @@ def update_feed(session: SessionType,
                 start_time,
                 status_note))
 
-        if (prev_success_time is not None and u.counter == CTR_SAME_HASH):
+        if prev_success_time is not None and u.no_change:
             # Here when feed document didn't change; update StoryRef.seen_at for
             # any stories seen on the last successful fetch of this feed to the
             # current start time to keep them from expiring, and so they can be
@@ -1040,7 +1038,7 @@ def fetch_and_process_feed(
                 or not f.queued
                 # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
                 # or f.next_fetch_attempt and f.next_fetch_attempt > start
-                ):
+            ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
             # tempting to clear f.queued here if set, but that
@@ -1136,7 +1134,8 @@ def fetch_and_process_feed(
         feed_col_updates['http_304'] = True
         return Update('not_mod', Status.SUCC, SYS_WORKING,
                       note="not modified",
-                      feed_col_updates=feed_col_updates)
+                      feed_col_updates=feed_col_updates,
+                      no_change=True)
 
     # code below this point expects full body w/ RSS
     if response.status_code != 200:
@@ -1168,9 +1167,10 @@ def fetch_and_process_feed(
     if new_hash == feed['last_fetch_hash']:
         # BAIL: no changes since last time
         # XXX Maybe update StoryRefs here????
-        return Update(CTR_SAME_HASH, Status.SUCC, SYS_WORKING,
+        return Update('same_hash', Status.SUCC, SYS_WORKING,
                       note="same hash",
-                      feed_col_updates=feed_col_updates)
+                      feed_col_updates=feed_col_updates,
+                      no_change=True)
     feed_col_updates['last_fetch_hash'] = new_hash
 
     save_timeout = len(parsed_feed.entries) * SAVE_STORY_SEC
