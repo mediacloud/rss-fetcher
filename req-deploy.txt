@@ -3,4 +3,4 @@
 #
 # COULD generate this via pip-compile --extras=deploy -o req-deploy.txt
 # BUT while mc-deploy being developed/debugged that's a slow extra step.
-mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.7.2#subdirectory=deploy/mc-deploy
+mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.7.3#subdirectory=deploy/mc-deploy
