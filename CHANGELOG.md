@@ -35,6 +35,7 @@ NOTE: update app version in pyproject.toml!
   + create ARCHIVE_DIR if dumping and does not exist
   + prunes story_refs table based on seen_at
     then removes story table entries with no story_refs
+* Add stor{y-ref,ie}s.count gauges
 * initial mc-deploy based dokku-scripts/deploy.py
   + add req-deploy.txt with deployment requirements
 	(needed for both dev venv and pre-commit venv)
