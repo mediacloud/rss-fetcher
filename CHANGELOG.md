@@ -2,20 +2,43 @@
 Change Log
 ==========
 
-NOTE: app version is in pyproject.toml!
+NOTE: update app version in pyproject.toml!
 
-## v0.?.? 2026-??-??
+## v1.0.0 2026-07-21
 
+* Version 1.0(!!) Not a "breaking" release, but a major change in
+  Story tracking (and has been production for 2.5 years!!)
 * Enable use of alembic "autogenerate"
-  + required adding Index declarations to models
-  + update docs
+  + Required adding Index declarations to model __table_args__
+  + Updated doc/database-changes.md
 * Add story_refs table (StoryRef class)
+  + Removed unused models._run_query function
   + Tracks stories per-feed
-  + Updated when story seen or feed static
+  + Updated when story seen or feed unchanged
   + Prevents expiration of stories from static feeds
+  + Small rows (feed_id, story_id, seen_at) for frequent update
+  + Migration pre-populates story_refs table from stories table
+  + Added Update.no_change field
+  + Check for missing normalized_url field on new story
+  + Do normalized_url query in line and update story_ref if seen before
+    Do normalized title check after
+  + Merge (create or update) story_ref when adding story
+* dokku-scripts/test-feeds.psql:
+  + Added a static feed for testing
+  + Added note on duplicate feed
+  + Added a large (static?) "megasitemap" feed
+  + Add comment on places fetch start time used!!
 * scripts.db_archive:
   + Add --dump option to reenable csv creation (default off)
-
+  + No longer dumps story table; updated top docstring
+    (renamed dump_stories to prune_stories)
+  + create ARCHIVE_DIR if dumping and does not exist
+  + prunes story_refs table based on seen_at
+    then removes story table entries with no story_refs
+* initial mc-deploy based dokku-scripts/deploy.py
+  + add req-deploy.txt with deployment requirements
+	(needed for both dev venv and pre-commit venv)
+  + add .pre-commit-run.sh support for multiple requirement files
 
 ## v0.18.1 2026-05-26
 
