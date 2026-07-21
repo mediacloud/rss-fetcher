@@ -12,7 +12,7 @@ from sqlalchemy import Function, func, select
 
 from fetcher.config import conf
 from fetcher.database import Session
-from fetcher.database.models import Feed, Story
+from fetcher.database.models import Feed, Story, StoryRef
 from fetcher.logargparse import LogArgumentParser
 from fetcher.stats import Stats
 
@@ -135,6 +135,7 @@ def report_stories(stats: Stats) -> None:
 
         g('stories.max-id', func.max(Story.id))
         g('stories.count', func.count(Story.id))
+        g('story-refs.count', func.count(StoryRef.story_id))
 
 
 if __name__ == '__main__':
