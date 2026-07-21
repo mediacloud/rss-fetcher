@@ -4,6 +4,10 @@ Change Log
 
 NOTE: app version is in pyproject.toml!
 
+## v0.18.2 2026-07-22
+
+* Add stor{y-ref,ie}s.count gauges
+
 ## v0.18.1 2026-05-26
 
 * Add stories tossed counter
