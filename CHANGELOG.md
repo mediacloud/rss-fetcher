@@ -41,9 +41,9 @@ NOTE: update app version in pyproject.toml!
 	(needed for both dev venv and pre-commit venv)
   + add .pre-commit-run.sh support for multiple requirement files
 
-## v0.18.2 2026-07-22
+## v0.18.2 2026-07-22  [HOTFIX to prod]
 
-* Add stor{y-ref,ie}s.count gauges
+* Add stories.count gauge
 
 ## v0.18.1 2026-05-26
 
