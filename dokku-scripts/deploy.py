@@ -22,8 +22,7 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):
 
     # map of plugin name to service name suffix:
     DOKKU_SERVICES = {"postgres": "", "storage": "-storage"}
-
-    # DOKKU_STOP = True                  # stop while deploying
+    DOKKU_STOP = True                          # stop while deploying
     DOKKU_STORAGE_MOUNT_POINT = "/app/storage"  # rss-fetcher is odd
 
     INST_BASE = "rss-fetcher"   # app base name
