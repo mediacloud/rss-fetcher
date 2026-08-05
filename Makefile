@@ -14,6 +14,7 @@ help:
 	@echo "make requirements -- create requirements.txt from pyproject.toml"
 	@echo "make update -- update .pre-commit-config.yaml"
 	@echo "make clean -- remove development environment"
+	@echo "make deploy -- run deployment script"
 
 ## run pre-commit checks on all files
 lint:	$(VENVDONE)
@@ -22,14 +23,17 @@ lint:	$(VENVDONE)
 # create venv with project dependencies
 # --editable skips installing project sources in venv
 # pre-commit is in dev optional-requirements
-install $(VENVDONE): $(VENVDIR) Makefile pyproject.toml
+install: $(VENVDONE)
+
+deploy:	lint
+	$(VENVBIN)/python dokku-scripts/deploy.py deploy
+
+$(VENVDONE): Makefile pyproject.toml
+	test -d $(VENVDIR) || python3 -m venv $(VENVDIR)
 	$(VENVBIN)/python3 -m pip install --editable '.[dev]'
 	$(VENVBIN)/python3 -m pip install -r req-deploy.txt
 	$(VENVBIN)/pre-commit install
 	touch $(VENVDONE)
-
-$(VENVDIR):
-	python3 -m venv $(VENVDIR)
 
 ## update .pre-commit-config.yaml
 update:	$(VENVDONE)
