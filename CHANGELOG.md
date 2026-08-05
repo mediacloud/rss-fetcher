@@ -8,6 +8,7 @@ NOTE: update app version in pyproject.toml!
 
 * Lower MAX_STORIES_PER_FEED to 2000
 * Update to sitemap-tools v5.0.latest
+* dokku-scripts/deploy.py: honor private staging.conf
 
 ## v1.0.0 2026-07-21
 

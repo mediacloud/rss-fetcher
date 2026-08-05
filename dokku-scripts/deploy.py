@@ -45,8 +45,9 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):
 
         # from push.sh, config.sh:
         if self.is_prod_staging():
-            # currently only prod.sh, no staging overrides
             files = ["prod.sh"]
+            if self.is_staging():
+                files.append("staging.sh")  # overrides
             self.settings_load_private_files(self.PROJECT_REPO, files)
         else:
             # load template config file for external development
