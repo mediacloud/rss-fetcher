@@ -4,6 +4,11 @@ Change Log
 
 NOTE: update app version in pyproject.toml!
 
+## v1.0.1 2026-08-05
+
+* Lower MAX_STORIES_PER_FEED to 2000
+* Update to sitemap-tools v5.0.latest
+
 ## v1.0.0 2026-07-21
 
 * Version 1.0(!!) Not a "breaking" release, but a major change in
