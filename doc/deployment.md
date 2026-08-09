@@ -1,11 +1,8 @@
 This is built to deploy via a PaaS host, like Heroku.
 We deploy via [dokku](https://dokku.com).
 
-NOTE!! The top level autopep8.sh and mypy.sh scripts should be run
-before merging code to mediacloud/main branch!  It's probably best to
-run autopep8.sh before every commit; mypy.sh creates a local venv (in
-directory "venv" with all the necessaries to run mypy, and to run the
-code).  autopep8.sh expects autopep8 be installed.
+To build a development environment run `make install`, this
+installs pre-commit which runs autoflake, autopep8, mypy and isort.
 
 There are a number of shell scripts to help deploy the app (for both
 testing and production); See
@@ -52,13 +49,8 @@ DO YOUR DEVELOPMENT ON A GIT BRANCH!
 If you are debugging locally, copy `.env.template` to `.env`
 (you may not need to edit it).
 
-Running ./mypy.sh will construct a virtual environment with all necessary
-components.
-
 NOTE!  Installing the psycopg2 DBI may require postgres client
 libraries (ubuntu package name here) to be installed.
-
-After running `mypy.sh`, type `. ./venv/bin/activate`
 
 You will also need a postgres server, and a redis server.
 
@@ -88,7 +80,7 @@ run `.../dokku-scripts/install-dokku.sh` as root.
 To test under dokku, first create a development dokku instance by running
 (as a regular user):
 
-   .../dokku-scripts/instance.sh create USERNAME
+   venv/bin/python dokku-scripts/deploy.py create USERNAME
 
 Creates an application named `USERNAME-rss-fetcher`, and
 dokku-postgres and dokku-redis services with the same name, and
@@ -100,11 +92,8 @@ It also checks if USERNAME's ssh public key is installed for the dokku
 user, so they can add `alias dokku=ssh dokku@$(hostname)` to their
 `.bashrc` file.
 
-instance.sh also adds a git remote named dokku_USERNAME (pointing to
-the local dokku account) to the repository, for use by push.sh.
-
 You can duplicate the production database into your Dokku development
-environment by running `./dokku-scripts/clone-db.sh USERNAME-rss-fetcher`
+environment by running `venv/bin/dokku-scripts/deploy.py clone USERNAME`
 
 To fetch a small subset of feeds, disable most of them:
 
@@ -119,12 +108,12 @@ Check your code into a git branch (named something other than
 of the project under your account, or a branch in the mediacloud
 account) then run:
 
-    ./dokku-scripts/push.sh
+    venv/bin/python.py deploy.py deploy
 
-to deploy the code. `push.sh` will apply and push a tag
+to deploy the code. `deploy` will apply and push a tag
 like `YYYY-MM-DD-HH-MM-SS-HOSTNAME-USERNAME-rss-fetcher`.
 
-NOTE: push.sh is run as a regular user (no sudo required).
+NOTE: `deploy` is run as a regular user (no sudo required).
 
 The application container `/app/storage` directory
 appears on the host system in `/var/lib/dokku/data/storage/APPNAME`,
@@ -133,32 +122,23 @@ and includes `logs`, `rss-output-files` and `db-archive` subdirectories.
 Under dokku, All top level scripts append to a log file
 `storage/logs/SCRIPTNAME.DYNO.log` (where DYNO is PROGRAM.N).
 
-If your devlopment instance is on a private network (ie; an internal
-system in the angwin cluster), you can make the Grafana server created
-by `instance.sh` on Internet visible server `BASTIONSERVER.DO.MA.IN`
-using `dokku-scripts/http-proxy.sh` which can create a proxy
-application named `stats.YOURSERVER` which should be Internet visible
-service at `https://stats.YOURSERVER.BASTIONSERVER.DO.MA.IN` (assuming
-there is a wildcard DNS address record for `*.BASTIONSERVER.DO.MA.IN`.
+If you need to make a development instance on a private network (ie;
+an internal system in the angwin cluster), you can make it visible on
+`BASTIONSERVER.DO.MA.IN` using `dokku-scripts/http-proxy.sh` which can
+create a proxy application named `stats.YOURSERVER` which should be
+Internet visible service at
+`https://stats.YOURSERVER.BASTIONSERVER.DO.MA.IN` (assuming there is a
+wildcard DNS address record for `*.BASTIONSERVER.DO.MA.IN`.
 
 JSON files for Grafana dashboards are in the `dashboard' directory.
 *need to script installation!!! via HTTP POST?!*
-
-*TEXT HERE ABOUT ACCEPTANCE CRITERIA!!*
-(including mypy.sh running cleanly, and running autopep8.sh)
-Talk about pytest tests???
-
-NOTE! If you've changed the crontab or changed or added any config
-parameters, be sure they're reflected in `dokku-scripts/instance.sh`
-(and note in CHANGELOG.md that instance.sh needs to be re-run before
-installation).
 
 If you've changed a script that's run from the crontab, it's good to wait
 (either here, or in staging) to see that it runs correctly from a crontab.
 
 When the acceptance criteria have been met, the code can be advanced to staging.
 
-At this point edit `fetcher/__init__.py` and update `VERSION` and
+At this point edit pyproject.toml and update the version and
 make sure `CHANGELOG.md` is up to date, and commit to the "main" branch.
 
      Digression: Updating CHANGELOG.md on every commit is common
@@ -171,11 +151,9 @@ the version change commit into "staging"
 
 Your development application can be disposed of by running
 
-    dokku-scripts/instance.sh destroy USERNAME
+    venv/bin/python dokku-scripts/deploy.py destroy USERNAME
 
-(you will be prompted to enter USERNAME-rss-fetcher at a number of
-points). Or, to stop all application processes (leaving the database
-running):
+Or, to stop all application processes (leaving the database running):
 
     dokku ps:stop USERNAME-rss-fetcher
 
@@ -191,14 +169,14 @@ is to run the code undisturbed in a staging app instance:
 If a staging instance does not exist (or instance.sh has been changed),
 run, as a regular user:
 
-   ./dokku-scripts/instance.sh create staging
+    venv/bin/python dokku-scripts/deploy.py create staging
 
 Which will create a Dokku application named `staging-rss-fetcher` (or
 modify an existing one to current spec).  A staging environment can be
 run on ANY server.
 
 You can duplicate the production database into your staging
-environment by running `./dokku-scripts/clone-db.sh staging-rss-fetcher`
+environment by running `venv/bin/python dokku-scripts/deploy.py clone staging`
 
 To reduce the number of feeds fetched by staging, disable most of the feeds,
 for example:
@@ -231,15 +209,14 @@ environment=staging).
 Then, with the staging branch checked out (and pushed to the
 mediacloud account staging branch), run:
 
-    ./dokku-scripts/push.sh
+    venv/bin/python dokku-scripts/deploy.py deploy
 
-Again, `push.sh` will apply and push a tag: `YYYY-MM-DD-HH-MM-SS-HOSTNAME-staging-rss-fetcher`
+Again, `deploy` will apply and push a tag: `YYYY-MM-DD-HH-MM-SS-HOSTNAME-staging-rss-fetcher`
 
-*TEXT HERE ABOUT ACCEPTANCE CRITERIA!!*
-
-When the acceptance criteria have been met, the code can be moved to
-production.  If ANY problems are discovered in staging, fixes MUST be
-committed to "main", pulled or picked to staging and tested first.
+When you've verified everything is operating properly (check the
+grafana dashboard!!), the code can be moved to production.  If ANY
+problems are discovered in staging, fixes MUST be committed to "main",
+pulled or picked to staging and tested first.
 
 # Production
 
@@ -247,10 +224,10 @@ Once the code has been running stably without modification in staging,
 it can be deployed to production (ANY changes must be made first in
 main, then tested in staging before moving to production).
 
-Once again, `instance.sh` can be used to create a production application instance
+Once again, `create` can be used to create a production application instance
 (or modifiy an existing one to current specifications, and install a stats server):
 
-   ./dokku-scripts/instance.sh create prod
+    dokku-scripts/instance.sh create prod
 
 (and re-test in staging if ANY other changes were made).
 
@@ -259,17 +236,20 @@ Once again, `instance.sh` can be used to create a production application instanc
 *(Thou shalt not commit changes directly to the prod or staging branches).*
 
 Merge the mediacloud account staging branch into the prod branch, and
-with the prod branch checked out, run `push.sh`
+with the prod branch checked out, run `deploy.py deploy`
 
 `push.sh` checks whether a `vVERSION` tag already exists (and exits if it
 does), otherwise it applies and pushes the tag.
 
 ### Setup database backups
 
-When the `./dokku-scripts/instance.sh create prod` command above is
-run it will schedule backups of postgres (via `dokku
-postgres:backup-schedule` which writes `/etc/cron.d/dokku-postgres-rss-fetcher`),
-and other directories to AWS S3 (via `/etc/cron.d/rss-fetcher`).
+XXX
+
+When the `venv/bin/python dokku-scripts/deploy.py create prod` command
+above is run it will schedule backups of postgres
+(via `dokku postgres:backup-schedule` which writes
+`/etc/cron.d/dokku-postgres-rss-fetcher`), and other directories to
+AWS S3 (via `/etc/cron.d/rss-fetcher`).
 
 Backup user's `~/.aws/credentials` file (which will be pre-populated
 the necessary sections if not already present: the keys must be added
