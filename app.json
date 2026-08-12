@@ -3,8 +3,34 @@
   "description": "Grab RSS feeds, parse out URLs, stick URLs in a daily synthetic RSS",
   "scripts": {
     "dokku": {
-      "predeploy": "./install.sh",
-      "postdeploy": "./postdeploy.sh"
+      "predeploy": "./install.sh"
     }
-  }
+  },
+  "cron": [
+    {
+      "command": "./run-gen-daily-story-rss.sh",
+      "schedule": "15 * * * *",
+      "concurrency_policy": "replace"
+    },
+    {
+      "command": "./run-db-prune.sh",
+      "schedule": "30 1 * * *",
+      "concurrency_policy": "replace"
+    },
+    {
+      "command": "./run-cloud-sync-rss.sh",
+      "schedule": "45 * * * *",
+      "concurrency_policy": "replace"
+    },
+    {
+      "command": "./run-update-feeds.sh",
+      "schedule": "*/5 0-3,5-23 * * *",
+      "concurrency_policy": "replace"
+    },
+    {
+      "command": "./run-update-feeds.sh --full-sync",
+      "schedule": "15 4 * * *",
+      "concurrency_policy": "replace"
+    }
+  ]
 }

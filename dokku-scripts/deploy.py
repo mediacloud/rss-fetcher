@@ -7,6 +7,7 @@ replaces shell scripts: push.sh, instance.sh, config.sh, common.sh,
 dburl.sh, clone-db.sh plus vars.py
 """
 
+import os
 import sys
 
 from mc_deploy.base import CmdArgs, ParserArgs
@@ -43,8 +44,25 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):
         self.settings_add("STATSD_URL", self.statsd_url)
         # STATSD_PREFIX provided by base!
 
+        # Have avoided conditionalizing on inst_type/id
+        # (checking for "prod") in favor of fine grained
+        # enables.  See RSS_SYNC_ENABLE for an example!!
+
+        if self.is_prod():
+            # ESPECIALLY don't want this enabled in anything other
+            # than production (could overwrite cloud archive)!!!
+            # Putting the var in settings prod.sh file (and opening
+            # the possibility that a line in staging.sh clearing it
+            # disappearing) would be a recipe for disaster!
+            self.settings_add("RSS_CLOUD_SYNC_ENABLE", "1")
+
         # from push.sh, config.sh:
         if self.is_prod_staging():
+            # keep feeds in sync with production via mcweb API.
+            # THIS could be safely done via a prod.sh setting,
+            # BUT wanted to be consistent with CLOUD_SYNC above!
+            self.settings_add("RSS_FEED_UPDATE_ENABLE", "1")
+
             files = ["prod.sh"]
             if self.is_staging():
                 files.append("staging.sh")  # overrides
@@ -65,6 +83,10 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):
     def deploy_cmd_helper(self, args: CmdArgs) -> None:
         super().deploy_cmd_helper(args)  # load config
         self.settings_add("MC_APP", self.inst_name)
+
+        crontab = os.path.join("/etc/cron.d", self.inst_name)
+        if os.path.exists(crontab):
+            self.fatal(f"remove {crontab}!!")
 
 
 d = RssFetcherDeploy()
