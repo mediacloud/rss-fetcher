@@ -34,8 +34,7 @@ dependencies = [
     "tomli ~= 2.2.0",
     "PyYAML ~= 6.0.0",    # update types-PyYAML in pre-commit below:
     "mediacloud ~= 4.3.0",
-    "sitemap-tools @ git+https://github.com/mediacloud/sitemap-tools@v5.0.latest",
-    "mc-manage @ git+https://github.com/mediacloud/mc-manage@v1.1.4",
+    "sitemap-tools @ git+https://github.com/mediacloud/sitemap-tools@v5.0.latest"
 ]
 
 [project.optional-dependencies]

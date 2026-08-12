@@ -27,9 +27,9 @@ certifi==2026.7.22
     #   requests
     #   sentry-sdk
     #   trafilatura
-chardet==7.4.3
+chardet==7.5.1
     # via readability-lxml
-charset-normalizer==3.4.9
+charset-normalizer==3.5.0
     # via
     #   htmldate
     #   requests
@@ -73,7 +73,7 @@ furl==2.1.4
     # via mediacloud-metadata
 goose3==3.1.22
     # via mediacloud-metadata
-greenlet==3.5.4
+greenlet==3.5.5
     # via sqlalchemy
 h11==0.16.0
     # via uvicorn
@@ -86,8 +86,6 @@ idna==3.18
     #   anyio
     #   requests
     #   tldextract
-inflection==0.5.1
-    # via pyairtable
 jieba3k==0.35.1
     # via newspaper3k
 jinja2==3.1.6
@@ -115,8 +113,6 @@ markupsafe==3.0.3
     # via
     #   jinja2
     #   mako
-mc-manage @ git+https://github.com/mediacloud/mc-manage@v1.1.4
-    # via rss-fetcher (pyproject.toml)
 mediacloud==4.3.0
     # via rss-fetcher (pyproject.toml)
 mediacloud-metadata==1.4.3
@@ -141,12 +137,8 @@ py3langid==0.2.2
     # via mediacloud-metadata
 pyahocorasick==2.3.1
     # via goose3
-pyairtable==2.3.7
-    # via mc-manage
 pydantic==2.13.4
-    # via
-    #   fastapi
-    #   pyairtable
+    # via fastapi
 pydantic-core==2.46.4
     # via pydantic
 python-dateutil==2.8.2
@@ -177,7 +169,6 @@ requests==2.32.5
     #   mediacloud
     #   mediacloud-metadata
     #   newspaper3k
-    #   pyairtable
     #   requests-file
     #   rss-fetcher (pyproject.toml)
     #   sitemap-tools
@@ -199,13 +190,13 @@ six==1.17.0
     #   python-dateutil
     #   surt
     #   url-normalize
-soupsieve==2.9.1
+soupsieve==2.9.2
     # via beautifulsoup4
-sqlalchemy==2.0.51
+sqlalchemy==2.0.52
     # via
     #   alembic
     #   rss-fetcher (pyproject.toml)
-starlette==1.4.1
+starlette==1.6.0
     # via fastapi
 statsd-client==1.0.7
     # via rss-fetcher (pyproject.toml)
@@ -232,13 +223,12 @@ typing-extensions==4.16.0
     #   exceptiongroup
     #   fastapi
     #   psycopg
-    #   pyairtable
     #   pydantic
     #   pydantic-core
     #   sqlalchemy
     #   starlette
     #   typing-inspection
-typing-inspection==0.4.2
+typing-inspection==0.4.4
     # via
     #   fastapi
     #   pydantic
@@ -250,7 +240,6 @@ urllib3==2.7.0
     # via
     #   courlan
     #   htmldate
-    #   pyairtable
     #   requests
     #   sentry-sdk
     #   trafilatura
