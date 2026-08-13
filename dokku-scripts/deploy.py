@@ -46,26 +46,19 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):
 
         # Have avoided conditionalizing on inst_type/id
         # (checking for "prod") in favor of fine grained
-        # enables.  See RSS_SYNC_ENABLE for an example!!
-
-        if self.is_prod():
-            # ESPECIALLY don't want this enabled in anything other
-            # than production (could overwrite cloud archive)!!!
-            # Putting the var in settings prod.sh file (and opening
-            # the possibility that a line in staging.sh clearing it
-            # disappearing) would be a recipe for disaster!
-            self.settings_add("RSS_CLOUD_SYNC_ENABLE", "1")
+        # enables.
 
         # from push.sh, config.sh:
         if self.is_prod_staging():
-            # keep feeds in sync with production via mcweb API.
-            # THIS could be safely done via a prod.sh setting,
-            # BUT wanted to be consistent with CLOUD_SYNC above!
-            self.settings_add("RSS_FEED_UPDATE_ENABLE", "1")
+            self.settings_load_management_config()  # AIRTABLE, SENTRY
 
-            files = ["prod.sh"]
-            if self.is_staging():
+            files = ["common.sh"]
+            if self.is_prod():
+                files.append("prod.sh")  # overrides
+            elif self.is_staging():
                 files.append("staging.sh")  # overrides
+            else:
+                self.fatal("is_prod_staging but not is_prod or is_staging???")
             self.settings_load_private_files(self.PROJECT_REPO, files)
         else:
             # load template config file for external development
