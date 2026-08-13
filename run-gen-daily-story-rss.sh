@@ -9,7 +9,7 @@ STORAGE=storage
 
 # send stdout/err to a log file
 # log not rotated, so overwrite each time
-exec > $STORAGE/logs/run-cloud-sync-rss.log 2>&1
+exec > $STORAGE/logs/run-gen-daily-story-rss.log 2>&1
 
 log() {
     echo `date '+%F %T'` $*
