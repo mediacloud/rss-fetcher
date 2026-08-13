@@ -5,36 +5,51 @@ rss-fetcher dokku app instance:
 * staging (app name staging-rss-fetcher)
 * development (app name USER-rss-fetcher)
 
-# SCRIPTS:
+# Files:
 
-* common.sh: (not a script) shared code/config sourced by scripts
-	vars can be overridden by adding a local.sh file to this directory.
+## deploy.py: deployment swiss army knife using mc-deploy
+	subcommands:
+	* clone INSTANCE - clone production database to INSTANCE db
+	* create INSTANCE - create app instance
+	* dburl INSTANCE - return Dokku DATABASE_URL for use outside dokku
+	* deploy - push branch to Dokku
+	* destroy INSTANCE - destroy an app instance
 
-* install-dokku.sh: install dokku on system (must be run as root)
+	where INSTANCE is prod, staging, USER
 
-* uninstall-dokku.sh: remove dokku from system (must be run as root)
+deploy.py -h gives help on subcommands and base options:
 
-* deploy.py: has multiple functions:
-  + `create INSTANCE`
-	create an empty dokku app
-  + `clone INSTANCE`
-	clone the production app database to INSTANCE
-  + `deploy`
-	push the currently checked out branch to Dokku.
-  + `dburl INSTANCE`
-	returns postgres URL for a dokku postgres service suitable
-	for use on dokker host as DATABASE_URL environment/.env config
-	(for testing/debugging a script against a dokku database).
-  + `destroy INSTANCE`
-	destroy a dokku app
+```
+usage: deploy [-h] [-d] [--ignore-no-changes] [-n] [-T {prod,staging}] [-H HOST]
+              {clone,create,dburl,deploy,destroy,dokku-version,push,version} ...
 
-where INSTANCE is prod, staging or USER
+positional arguments:
+  {clone,create,dburl,deploy,destroy,dokku-version,push,version}
+                        command
+    clone               Clone production database for dev/staging
+    create              Create Dokku app instance
+    dburl               Return DATABASE_URL for local use outside Dokku ie; `export
+                        DATABASE_URL=$(..../deploy.py dburl dev/prod/USER)`
+    deploy              Push code to Dokku app instance
+    destroy             Destroy Dokku app instance
+    dokku-version       test ssh key, display dokku version
+    push                (pointer to deploy)
+    version             Display deployment package version
 
-* http-proxy.sh: run on an Internet visible server to create an https proxy
-	to an app (or other plaintext http server) running on ANOTHER
-	server that is NOT Internet visible.
+options:
+  -h, --help            show this help message and exit
+  -d, --debug           debug deployment code
+  --ignore-no-changes   continue dry-run if no code or config changes
+  -n, --no-action       dry run: take no actions
+  -T {prod,staging}, --test {prod,staging}
+                        test deployment code (impl. --dry-run)
+  -H HOST, --host HOST  Dokku server to deploy to (default ifill.angwin)
+```
 
-* test-feeds.psql: postgres commands to reset feeds (but not stories
+And each subcommand takes `-h` as an option to display
+subcommand specific options and arguments
+
+## test-feeds.psql: postgres commands to reset feeds (but not stories
 	or fetch_events) to a small number of test cases
 	(PB: I use this in my home test environment and in my
 	pbudne-rss-fetcher dokku instance)
@@ -51,9 +66,12 @@ manually disable most feeds by running (for varying values of N):
 	(PB: I do this for staging, with N = 100000, for development
 	use a smaller value (1000) or the test-feeds.psql file above).
 
-# auxillary scripts:
+# auxillary scripts (move to system-dev-ops repo!!!)
 
-(scripts called by other scripts)
-
-* create-stats.sh: create monitoring service; called by instance.sh
+* create-stats.sh: create monitoring service (not used in a LONG time!)
 * stats-service-proxy.sh: create proxy for letsencrypt; called by create-stats.sh
+* install-dokku.sh: install dokku on system (must be run as root)
+* uninstall-dokku.sh: remove dokku from system (must be run as root)
+* http-proxy.sh: run on an Internet visible server to create an https proxy
+	to an app (or other plaintext http server) running on ANOTHER
+	server that is NOT Internet visible.

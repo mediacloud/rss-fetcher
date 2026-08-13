@@ -6,7 +6,7 @@ approximately 180K RSS and Google news sitemap feeds to fetch,
 shadowed from the web-search Sources database.
 
 Then throughout the day it tries to fetch those. Every 
-night it generates a synthetic RSS feed with all those URLs. 
+night it generates a synthetic RSS feed with unique new URLs.
 
 Files are available afterwards at `http://my.server/rss/mc-YYYY-MM-dd.rss.gz`.
 

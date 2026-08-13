@@ -1,5 +1,8 @@
 #!/bin/sh
 
+echo 'for reference only; run "make deploy"
+exit 1
+
 # Deploy code by pushing current branch to Dokkku app instance
 # (development, staging, or production, depending on branch name)
 # Phil Budne, September 2022, updated September 2024 (from web-search)!

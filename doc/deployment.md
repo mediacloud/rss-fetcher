@@ -166,7 +166,7 @@ Once you are ready to deploy your code, and your changes have been
 merged into the github mediacloud account "main" branch, the next step
 is to run the code undisturbed in a staging app instance:
 
-If a staging instance does not exist (or instance.sh has been changed),
+If a staging instance does not exist (or mc-deploy or deploy.py have changed),
 run, as a regular user:
 
     venv/bin/python dokku-scripts/deploy.py create staging
@@ -226,9 +226,9 @@ main, then tested in staging before moving to production).
 
 Once again, `create` can be used to create a production application instance
 (or modifiy an existing one to current specifications, and install a stats server):
-
-    dokku-scripts/instance.sh create prod
-
+```
+    venv/bin/python dokku-scripts/deploy.py create prod
+```
 (and re-test in staging if ANY other changes were made).
 
 **The "prod" branch should ONLY be changed by merging from the "staging" branch.**
