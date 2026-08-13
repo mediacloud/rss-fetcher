@@ -15,7 +15,7 @@ log() {
     echo `date '+%F %T'` $*
 }
 
-log start
+log start $0
 python -m scripts.gen_daily_story_rss --quiet "$@"
 # directly after python command
 log "status: $?"

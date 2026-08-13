@@ -11,7 +11,7 @@ log() {
     echo `date '+%F %T'` $*
 }
 
-log start
+log start $0
 python -m scripts.db_archive --verbose --delete --quiet
 # directly after python command
 log "status: $?"

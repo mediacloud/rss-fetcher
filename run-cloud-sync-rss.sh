@@ -25,7 +25,7 @@ if [ "x$RSS_CLOUD_SYNC_ENABLE" = x ]; then
     exit 0
 fi
 
-log start
+log start $0
 
 RSS_CLOUD_SYNC_BUCKET=mediacloud-public
 RSS_CLOUD_SYNC_PATH=/daily-rss/rss-fetcher
