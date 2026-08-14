@@ -22,7 +22,7 @@ TOP_SOURCE_DAYS = conf.TOP_SOURCE_DAYS
 
 logger = logging.getLogger(SCRIPT)  # instead of __main__
 
-sys_status_names = set()
+sys_status_names: set[str] = set()
 
 
 def status_to_name(status: str) -> str:

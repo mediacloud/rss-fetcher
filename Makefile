@@ -3,9 +3,20 @@
 # to create development environment: `make`
 # to run pre-commit linting/formatting: `make lint`
 
-VENVDIR=venv
+VENVDIR=.venv
 VENVBIN=$(VENVDIR)/bin
 VENVDONE=$(VENVDIR)/.done
+
+# trying uv:
+# * Faster than pip-compile
+#	(so not painful to run on first checkout)
+# * Dokku supports uv (if uv.lock exists)
+# * pip-compile is broken by pip v26
+# * Removes circular dependency for pip-compile
+# * Can install alternate python versions??
+
+# Haven't settled on best way to install / check if uv installed.
+# ("pip install uv" is one possibility!)
 
 help:
 	@echo Usage:
@@ -17,32 +28,36 @@ help:
 	@echo "make deploy -- run deployment script"
 
 ## run pre-commit checks on all files
-lint:	$(VENVDONE)
+lint:	$(VENVDONE) uv.lock
 	$(VENVBIN)/pre-commit run --all-files
+
+# prevent creation of install from install.sh:
+.PHONY: install
 
 # create venv with project dependencies
 # --editable skips installing project sources in venv
 # pre-commit is in dev optional-requirements
+
 install: $(VENVDONE)
 
 deploy:	lint
 	$(VENVBIN)/python dokku-scripts/deploy.py deploy
 
-$(VENVDONE): Makefile pyproject.toml
-	test -d $(VENVDIR) || python3 -m venv $(VENVDIR)
-	$(VENVBIN)/python3 -m pip install --editable '.[dev]'
-	$(VENVBIN)/python3 -m pip install -r req-deploy.txt
+# currently running mypy from dev venv:
+$(VENVDONE): Makefile uv.lock
+	uv sync --extra dev --extra deploy --extra mypy
 	$(VENVBIN)/pre-commit install
 	touch $(VENVDONE)
+
+uv.lock: pyproject.toml
+	uv lock
 
 ## update .pre-commit-config.yaml
 update:	$(VENVDONE)
 	$(VENVBIN)/pre-commit autoupdate
 
-## build requirements.txt (required by Heroku buildpack?)
-requirements:
-	$(VENVBIN)/pip-compile -o requirements.txt.tmp --strip-extras pyproject.toml
-	mv requirements.txt.tmp requirements.txt
+## build uv.lock (used by buildpack)
+requirements: uv.lock
 
 ## clean up development environment
 clean:

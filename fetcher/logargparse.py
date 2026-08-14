@@ -9,6 +9,7 @@ import argparse
 import json
 import logging
 import logging.config
+import logging.handlers
 import os
 import sys
 from typing import Optional

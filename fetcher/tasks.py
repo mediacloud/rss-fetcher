@@ -915,16 +915,13 @@ def parse(url: str, response: requests.Response) -> ParsedFeed:
     if vers:
         # here with parsed feed; convert to internal ParsedFeed
         title = updatefrequency = updateperiod = None
-        try:
-            pff = parsed_feed.feed
-            title = pff.get("title")
-            updatefrequency = pff.get("sy_updatefrequency")
-            updateperiod = pff.get("sy_updateperiod")
-        except AttributeError:
-            pass
+        pff = parsed_feed.get("feed")
+        title = pff.get("title")
+        updatefrequency = pff.get("sy_updatefrequency")
+        updateperiod = pff.get("sy_updateperiod")
 
         return ParsedFeed(
-            entries=[_fpe2pe(fpe) for fpe in parsed_feed.entries],
+            entries=[_fpe2pe(fpe) for fpe in parsed_feed["entries"]],
             format=vers,
             feed_title=title,
             updatefrequency=updatefrequency,

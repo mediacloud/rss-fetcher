@@ -11,13 +11,16 @@ repos:
     rev: v2.0.4
     hooks:
       - id: autopep8
-  - repo: http://github.com/pre-commit/mirrors-mypy
-    rev: v1.17.0
+  - repo: local
     hooks:
       - id: mypy
+        name: mypy
         entry: ./.pre-commit-run.sh mypy
-        additional_dependencies: ["pip==22.0.*"]
+        args: []
         exclude: '^fetcher/database/env.py'
+        language: system
+        types: [python]
+        require_serial: true
   - repo: http://github.com/pycqa/isort
     rev: 6.0.1
     hooks:

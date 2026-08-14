@@ -21,48 +21,8 @@ LOG=$0.log
 # NOTE!! https://github.com/pre-commit/mirrors-mypy/README.md says
 # "using the --install-types is problematic." (mutates cache)
 
-# Want to stash copy of pyproject.toml in the top level of the
-# pre-commit created virtual environment to detect changes.
-# Fortunately, a useful variable points there!
-if [ -z "$VIRTUAL_ENV" ]; then
-    echo "$0: VIRTUAL_ENV not set; see $LOG" 1>&2
-    exit 1
-fi
+# using development venv:
+. .venv/bin/activate
 
-# check if package lists have changed, and re-install if needed:
-check_install() {
-    FN=$1
-    shift
-
-    TMP=$VIRTUAL_ENV/.$FN
-    echo TMP $TMP >> $LOG
-    if cmp -s $FN $TMP; then
-	echo no change to $FN >> $LOG
-    else
-	echo $FN changed: pip install $* >> $LOG
-	if python3 -m pip install $*; then
-	    cp -p $FN $TMP
-	else
-	    STATUS=$?
-	    echo pip install $* failed $STATUS >> $LOG
-	    exit $STATUS
-	fi
-    fi
-}
-
-# currently "install" package:
-# SHOULD:
-# * move mc-deploy to deploy= in [project.optional-dependencies]
-# * use pip-compile generated req-pre-commit.txt??
-#   (generated w/ --extra pre-commit --extra deply)
-#
-# WISH: use "uv" --extra pre-commit --extra deploy --no-install-package???
-#  (seems hard to believe it could be ANY slower than pip-compile!!)
-check_install pyproject.toml --editable '.[pre-commit]'
-
-# for linting deploy.py (see above)
-check_install req-deploy.txt -r req-deploy.txt
-
-#pip list >> $LOG
 # NOTE! first arg must be command to invoke!
 "$@"
