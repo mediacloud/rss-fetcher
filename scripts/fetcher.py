@@ -15,6 +15,8 @@ import logging
 import time
 from typing import Dict
 
+# mediacloud/system-dev-ops
+from mc_logging.logger import log_to_sink
 # PyPI:
 from sqlalchemy import update
 
@@ -60,8 +62,8 @@ def main() -> None:
     # here for access to hunter!
     class FetcherWorker(Worker):
         def child_log_file(self, fork: int) -> None:
-            # w/ syslog no change needed?
-            pass
+            # add fork index to log messages:
+            log_to_sink(SCRIPT, sub_id=str(fork))
 
         def fetch(self, item: Item) -> None:  # called in Worker to do work
             """

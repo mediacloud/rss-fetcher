@@ -1080,8 +1080,8 @@ dependencies = [
 
 [[package]]
 name = "mc-logging"
-version = "0.2.1"
-source = { git = "https://github.com/mediacloud/system-dev-ops?subdirectory=logging%2Fmc-logging&rev=mc-logging-0.2.latest#ae01d8730596bc1a1d6d9a4e8b0ada51e2313cf1" }
+version = "0.2.3"
+source = { git = "https://github.com/mediacloud/system-dev-ops?subdirectory=logging%2Fmc-logging&rev=mc-logging-0.2.latest#167583101d24c450052ee543859010028ad75665" }
 
 [[package]]
 name = "mediacloud"
