@@ -2,6 +2,11 @@
 # See https://pre-commit.com/hooks.html for more hooks
 exclude: '^fetcher/(test|database/(versions|test)|rss/test)/.*'
 repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.12.3
+    hooks:
+      - id: uv-lock
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.3.1
     hooks:
