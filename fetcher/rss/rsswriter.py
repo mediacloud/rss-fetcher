@@ -39,7 +39,7 @@ class RssWriter:
             template_str = f.read()
         self.item_template = Template(template_str)
 
-    def add_header(self, today: dt.date) -> str:
+    def add_header(self, today: dt.date) -> None:
         with open(os.path.join(template_path, "header.template")) as f:
             template_str = f.read()
             tm = Template(template_str)
@@ -49,14 +49,13 @@ class RssWriter:
             version=VERSION)
         if self.file and content:
             self.file.write(content)
-        return content          # type: ignore[no-any-return]
 
     def add_item(self,
                  link: str, pub_date: dt.datetime,
                  domain: str, title: Optional[str],
                  feed_url: Optional[str] = None,
                  feed_id: Optional[int] = None,
-                 source_id: Optional[int] = None) -> str:
+                 source_id: Optional[int] = None) -> None:
         date_for_output = ""
         if pub_date is not None:
             date_for_output = formatdate(pub_date.timestamp())
@@ -66,13 +65,11 @@ class RssWriter:
             sources_id=_int(source_id), feed_id=_int(feed_id))
         if self.file and content:
             self.file.write(content)
-        return content          # type: ignore[no-any-return]
 
-    def add_footer(self) -> str:
+    def add_footer(self) -> None:
         with open(os.path.join(template_path, "footer.template")) as f:
             template_str = f.read()
         tm = Template(template_str)
         content = tm.render()
         if self.file and content:
             self.file.write(content)
-        return content          # type: ignore[no-any-return]
