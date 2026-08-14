@@ -9,10 +9,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Mount point for stable storage.
 # if a script is going to create multiple files,
 # please consider creating a subdir (like the ones below)
-STORAGE_DIR = os.path.join(BASE_DIR, 'storage')
+STORAGE_DIR = os.path.join(BASE_DIR, 'data')
 
 # call check_dir (below) before using!
-LOG_DIR = os.path.join(STORAGE_DIR, 'logs')
 INPUT_RSS_DIR = os.path.join(STORAGE_DIR, 'saved-input-files')
 OUTPUT_RSS_DIR = os.path.join(STORAGE_DIR, 'rss-output-files')
 PARSE_ERROR_DIR = os.path.join(STORAGE_DIR, 'parse-errors')

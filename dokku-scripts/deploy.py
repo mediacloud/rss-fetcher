@@ -19,12 +19,11 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):
     # Much better to increase WEB_CONCURRENCY setting (gunicorn workers)
     # than number of web containers (parallel containers don't cooperate,
     # or report stats properly)!
-    DOKKU_SCALE = {"fetcher": 1, "web": 1, "stats": 1}
+    DOKKU_SCALE = {"sink": 1, "fetcher": 1, "web": 1, "stats": 1}
 
     # map of plugin name to service name suffix:
     DOKKU_SERVICES = {"postgres": "", "storage": "-storage"}
-    DOKKU_STOP = True                          # stop while deploying
-    DOKKU_STORAGE_MOUNT_POINT = "/app/storage"  # rss-fetcher is odd
+    DOKKU_STOP = True      # stop while deploying (in case of migrations)
 
     INST_BASE = "rss-fetcher"   # app base name
     PROJECT_REPO = "rss-fetcher"
