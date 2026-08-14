@@ -47,9 +47,9 @@ class RssWriter:
             day=today.strftime("%Y-%m-%d"),
             now=formatdate(),
             version=VERSION)
-        if self.file:
+        if self.file and content:
             self.file.write(content)
-        return content
+        return content          # type: ignore[no-any-return]
 
     def add_item(self,
                  link: str, pub_date: dt.datetime,
@@ -64,15 +64,15 @@ class RssWriter:
             link=_escape(link), pub_date=date_for_output, domain=_escape(domain),
             title=_escape(title), feed_url=_escape(feed_url),
             sources_id=_int(source_id), feed_id=_int(feed_id))
-        if self.file:
+        if self.file and content:
             self.file.write(content)
-        return content
+        return content          # type: ignore[no-any-return]
 
     def add_footer(self) -> str:
         with open(os.path.join(template_path, "footer.template")) as f:
             template_str = f.read()
         tm = Template(template_str)
         content = tm.render()
-        if self.file:
+        if self.file and content:
             self.file.write(content)
-        return content
+        return content          # type: ignore[no-any-return]

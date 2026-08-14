@@ -55,7 +55,7 @@ dev = [
 # if this file has changed.
 mypy = [
     "mypy",
-    "types-Jinja2",
+    #"types-Jinja2", # should not be needed w/ >=v3.0
     "types-PyYAML ~= 6.0.0",
 ]
 
