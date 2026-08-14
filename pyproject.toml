@@ -18,7 +18,7 @@ dependencies = [
     # If you add/update here, run "make requirements" to build requirements.txt
     # (dokku/heroku buildpac doesn't consume this file directly?)
     "python-dotenv ~= 1.0.1",
-    "requests ~= 2.32.0",	# update types-requests in pre-commit below
+    "requests ~= 2.34.0",	# includes typing!
     "sentry-sdk[fastapi] ~= 1.10.0",
     "alembic ~= 1.8.0",
     "feedparser ~= 6.0.10",
@@ -52,7 +52,6 @@ dev = [
 # if this file has changed.
 pre-commit = [
   "types-PyYAML ~= 6.0.0",
-  "types-requests ~= 2.32.0.20241016",
 ]
 
 # not tested!
