@@ -34,6 +34,6 @@ if [ "x$RSS_FEED_UPDATE_ENABLE" = x ]; then
 fi
 
 log start $0
-python -m scripts.update_feeds --quiet $OPTIONS
+python -m scripts.update_feeds $OPTIONS
 # RIGHT after python command!
 log "status: $?"

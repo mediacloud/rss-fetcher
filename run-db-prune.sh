@@ -12,6 +12,6 @@ log() {
 }
 
 log start $0
-python -m scripts.db_archive --verbose --delete --quiet
+python -m scripts.db_archive --verbose --delete
 # directly after python command
 log "status: $?"

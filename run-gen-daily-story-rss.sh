@@ -16,6 +16,6 @@ log() {
 }
 
 log start $0
-python -m scripts.gen_daily_story_rss --quiet "$@"
+python -m scripts.gen_daily_story_rss "$@"
 # directly after python command
 log "status: $?"
