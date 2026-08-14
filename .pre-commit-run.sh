@@ -21,8 +21,5 @@ LOG=$0.log
 # NOTE!! https://github.com/pre-commit/mirrors-mypy/README.md says
 # "using the --install-types is problematic." (mutates cache)
 
-# using development venv:
-. .venv/bin/activate
-
 # NOTE! first arg must be command to invoke!
-"$@"
+uv run "$@"
