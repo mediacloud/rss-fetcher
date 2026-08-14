@@ -28,27 +28,27 @@ help:
 	@echo "make deploy -- run deployment script"
 
 ## run pre-commit checks on all files
-lint:	$(VENVDONE) uv.lock
+lint:	$(VENVDONE)
 	$(VENVBIN)/pre-commit run --all-files
 
 # prevent creation of install from install.sh:
 .PHONY: install
 
-# create venv with project dependencies
-# --editable skips installing project sources in venv
-# pre-commit is in dev optional-requirements
-
+## create venv with project dependencies
 install: $(VENVDONE)
 
+## deploy code via Dokku
 deploy:	lint
 	$(VENVBIN)/python dokku-scripts/deploy.py deploy
 
-# currently running mypy from dev venv:
+# pre-commit is in dev "extra" requiements
+# currently running mypy in dev venv
 $(VENVDONE): Makefile uv.lock
 	uv sync --extra dev --extra deploy --extra mypy
 	$(VENVBIN)/pre-commit install
 	touch $(VENVDONE)
 
+# also updated via pre-commit
 uv.lock: pyproject.toml
 	uv lock
 
@@ -57,6 +57,7 @@ update:	$(VENVDONE)
 	$(VENVBIN)/pre-commit autoupdate
 
 ## build uv.lock (used by buildpack)
+# uv.lock also updated by pre-commit
 requirements: uv.lock
 
 ## clean up development environment
