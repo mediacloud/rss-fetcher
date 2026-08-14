@@ -1,5 +1,5 @@
-MC RSS Fetcher
-==============
+Media Cloud RSS Fetcher
+=======================
 
 This is the Media Cloud "RSS Fetcher", it keeps a database of
 approximately 180K RSS and Google news sitemap feeds to fetch,
@@ -12,6 +12,16 @@ Files are available afterwards at `http://my.server/rss/mc-YYYY-MM-dd.rss.gz`.
 
 See documentation in [doc/](doc/) for more details.
 
+2026-08-14: NOTE!!  Tring out `uv` Python Package manager
+
+* *MUCH* Faster than pip-compile (so not painful to run often)
+* Dokku/herokuish supports uv (if uv.lock and .python-version exist)
+* Removes circular dependency for pip-compile/requirements.txt
+* Removes pip(-compile) version sync headaches (pip-compile is broken by pip v26)
+* Can install alternate python versions??
+
+[https://docs.astral.sh/uv/getting-started/installation/](How to install `uv`)
+
 Install for Test/Development under Dokku
 ----------------------------------------
 
@@ -23,7 +33,7 @@ Install for Stand-Alone Development
 For development directly on your local machine:
 1. Install postgresql & redis
 2. Create and popilate a virtual environment: `make install`
-3. Active the venv: `source venv/bin/activate`
+3. Active the venv: `source .venv/bin/activate`
 4. Create a postgres user: `sudo -u postgres createuser -s MYUSERNAME`
 5. Create a database called "rss-fetcher" in Postgres: `createdb rss-fetcher`
 6. Run `alembic upgrade head` to initialize database.
