@@ -12,16 +12,16 @@ import logging.config
 import logging.handlers
 import os
 import sys
-from typing import Optional
 
+# mediacloud/system-dev-ops
+import mc_logging.logger
 # PyPI:
 import yaml
 
-import fetcher.path as path
+# rss-fetcher common:
 import fetcher.sentry
 import fetcher.stats
 # local:
-from fetcher import DYNO
 from fetcher.config import conf
 from fetcher.version import VERSION
 
@@ -34,81 +34,9 @@ LEVEL_DEST = 'log_level'        # args entry name!
 logger = logging.getLogger(__name__)
 
 
-class LogFileWrapper:
-    """
-    singleton object wrapper around file loghandler
-    (so subprocesses can open their own log file)
-    """
-
-    def __init__(self) -> None:
-        self.prog = None
-        self.dyno = None
-        self.handler: Optional[logging.Handler] = None
-
-    def basic_config(self, format: str, level: int) -> None:
-        """
-        call once, before set_filename
-        """
-        # save, in case needed in a child process
-        self.format = format
-        self.level = level
-        logging.basicConfig(format=format, level=level)
-
-    def set_filename(self, fname: str) -> None:
-        """
-        called once, when parsing command line
-        """
-        if fname.endswith('.log'):
-            fname = fname[0:-4]
-        self.prefix = fname
-        self.open_log_file()
-
-    def open_log_file(self, fork: Optional[int] = None) -> bool:
-        """
-        call after forking with an integer fork id (NOTE! using pid means
-        new files will be created each time (which are unlikely to be pruned),
-        so scripts/fetcher.py passes a small integer (worker number).
-        """
-        if not self.prefix:
-            return False        # no log file name set
-
-        root_logger = logging.getLogger(None)
-        if self.handler:
-            root_logger.removeHandler(self.handler)
-            self.handler = None
-
-        fname = self.prefix
-        if fork is not None:
-            fname += f"-{fork}"
-        fname += '.log'
-
-        # rotate file daily, after midnight (UTC)
-        self.handler = \
-            logging.handlers.TimedRotatingFileHandler(
-                fname, when='midnight', utc=True,
-                backupCount=conf.LOG_BACKUP_COUNT)
-
-        self.handler.setFormatter(logging.Formatter(self.format))
-
-        root_logger.addHandler(self.handler)
-
-        logger.info(f"process {os.getpid()} logging to {fname}")
-
-        return True
-
-
-log_file_wrapper = LogFileWrapper()  # ONLY instance
-
-
 class LogArgumentParser(argparse.ArgumentParser):
     def __init__(self, prog: str, descr: str):
         super().__init__(prog=prog, description=descr)
-
-        if DYNO.startswith('run.'):
-            dyno = 'run.x'
-        else:
-            dyno = DYNO
-        default_fname = f"{prog}.{dyno}.log"  # full path?
 
         # all loggers:
         self.add_argument('--verbose', '-v', action='store_const',
@@ -123,16 +51,10 @@ class LogArgumentParser(argparse.ArgumentParser):
         self.add_argument('--log-config', action='store',
                           help="configure logging with .json, .yml, or .ini file",
                           metavar='LOG_CONFIG_FILE')
-        self.add_argument('--log-file', default=default_fname, dest='log_file',
-                          help=f"log file name (default: {default_fname})")
         self.add_argument('--log-level', '-l', action='store', choices=LEVELS,
                           dest=LEVEL_DEST, default=os.getenv(
                               'LOG_LEVEL', 'INFO'),
                           help="set default logging level to LEVEL")
-
-        self.add_argument('--no-log-file', action='store_const',
-                          const=None, dest='log_file',
-                          help="don't log to a file")
 
         # set specific logger verbosity:
         self.add_argument('--logger-level', '-L', action='append',
@@ -178,7 +100,7 @@ class LogArgumentParser(argparse.ArgumentParser):
         # stdout????
         format = '%(asctime)s | %(levelname)s | %(name)s | %(message)s'
 
-        log_file_wrapper.basic_config(format=format, level=level)
+        logging.basicConfig(format=format, level=level)
 
         if args.log_config:
             # lifted from uvicorn/config.py:
@@ -203,18 +125,10 @@ class LogArgumentParser(argparse.ArgumentParser):
                 # XXX check level.upper() in LEVELS?
                 logging.getLogger(logger_name).setLevel(level.upper())
 
-        # was once inline code in fetcher.tasks
-        if args.log_file:
-            path.check_dir(path.LOG_DIR)
-            log_path = os.path.join(path.LOG_DIR, args.log_file)
-            log_file_wrapper.set_filename(log_path)
+        mc_logging.logger.log_to_sink(self.prog)
 
         # log startup banner and deferred config msgs
         conf.start(self.prog, self.description)
-
-        # after startup banner, config
-        if not args.log_file:
-            logger.info("Not logging to a file")
 
         fetcher.sentry.init()
 

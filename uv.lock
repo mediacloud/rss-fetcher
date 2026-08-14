@@ -1070,13 +1070,18 @@ wheels = [
 
 [[package]]
 name = "mc-deploy"
-version = "0.14.6"
-source = { git = "https://github.com/mediacloud/system-dev-ops?subdirectory=deploy%2Fmc-deploy&rev=mc-deploy-0.14.latest#c1c3235430cd4fbae82323a2715a35c6a1898cdc" }
+version = "0.14.8"
+source = { git = "https://github.com/mediacloud/system-dev-ops?subdirectory=deploy%2Fmc-deploy&rev=mc-deploy-0.14.latest#1f798e4f20e945e9787c28efe0b63477c83ecf41" }
 dependencies = [
     { name = "pyairtable" },
     { name = "python-dotenv" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
+
+[[package]]
+name = "mc-logging"
+version = "0.2.1"
+source = { git = "https://github.com/mediacloud/system-dev-ops?subdirectory=logging%2Fmc-logging&rev=mc-logging-0.2.latest#ae01d8730596bc1a1d6d9a4e8b0ada51e2313cf1" }
 
 [[package]]
 name = "mediacloud"
@@ -2161,6 +2166,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "feedparser" },
     { name = "jinja2" },
+    { name = "mc-logging" },
     { name = "mediacloud" },
     { name = "mediacloud-metadata" },
     { name = "psycopg" },
@@ -2200,6 +2206,7 @@ requires-dist = [
     { name = "feedparser", specifier = "~=6.0.10" },
     { name = "jinja2", specifier = "~=3.1.0" },
     { name = "mc-deploy", marker = "extra == 'deploy'", git = "https://github.com/mediacloud/system-dev-ops?subdirectory=deploy%2Fmc-deploy&rev=mc-deploy-0.14.latest" },
+    { name = "mc-logging", git = "https://github.com/mediacloud/system-dev-ops?subdirectory=logging%2Fmc-logging&rev=mc-logging-0.2.latest" },
     { name = "mediacloud", specifier = "~=5.1.0" },
     { name = "mediacloud-metadata", specifier = "~=1.4.0" },
     { name = "mypy", marker = "extra == 'mypy'" },

@@ -35,6 +35,7 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):
         load project settings
         """
         super().settings_get_new(args)
+        self.settings_mc_logging()  # set SYSLOG_PATH and LOG_DIR
 
         # used in fetcher/__init__.py to set APP
         # used to set process title so visible in ps!
