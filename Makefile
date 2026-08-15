@@ -22,7 +22,7 @@ help:
 	@echo Usage:
 	@echo "make install -- installs pre-commit hooks, dev environment"
 	@echo "make lint -- runs pre-commit checks"
-	@echo "make requirements -- create requirements.txt from pyproject.toml"
+	@echo "make requirements -- create uv.lock from pyproject.toml"
 	@echo "make update -- update .pre-commit-config.yaml"
 	@echo "make clean -- remove development environment"
 	@echo "make deploy -- run deployment script"
