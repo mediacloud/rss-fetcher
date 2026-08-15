@@ -15,8 +15,7 @@ classifiers = [
 ]
 
 dependencies = [
-    # If you add/update here, run "make requirements" to build requirements.txt
-    # (dokku/heroku buildpac doesn't consume this file directly?)
+    # If you add/update here, run "make requirements" to rebuild uv.lock
     "python-dotenv ~= 1.0.1",
     "requests ~= 2.34.0",	# includes typing!
     "sentry-sdk[fastapi] ~= 1.10.0",
@@ -35,7 +34,8 @@ dependencies = [
     "PyYAML ~= 6.0.0",    # update types-PyYAML in pre-commit below:
     "mediacloud ~= 5.1.0",
     "mc-logging @ git+https://github.com/mediacloud/system-dev-ops@mc-logging-0.2.latest#subdirectory=logging/mc-logging",
-    "sitemap-tools @ git+https://github.com/mediacloud/sitemap-tools@v5.0.latest"
+    "sitemap-tools @ git+https://github.com/mediacloud/sitemap-tools@v5.0.latest",
+    "awscli ~= 1.46.0",
 ]
 
 [project.optional-dependencies]
