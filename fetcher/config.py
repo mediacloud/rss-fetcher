@@ -278,9 +278,6 @@ class _Config:                  # only instantiated in this file
     # if the value isn't too long ago????
     HTTP_CONDITIONAL_FETCH = conf_bool('HTTP_CONDITIONAL_FETCH', False)
 
-    # number of old log files to keep
-    LOG_BACKUP_COUNT = conf_int('LOG_BACKUP_COUNT', 7)
-
     # Number of failures before disabling feed. A surprising number of
     # feeds come back from what looks like death (including 404, host
     # not found, HTML).  Was originally 4, raised to 10, and then 30.
