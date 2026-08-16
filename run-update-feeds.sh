@@ -8,7 +8,7 @@
 # log not rotated, so overwrite each time
 
 # relative, for running outside:
-STORAGE=storage
+DATA=data
 LOG=run-update-feeds.log
 
 OPTIONS=
@@ -21,7 +21,7 @@ for ARG in "$@"; do
     esac
 done
 
-exec > $STORAGE/logs/$LOG 2>&1
+exec > $DATA/logs/$LOG 2>&1
 
 log() {
     echo `date '+%F %T'` $*

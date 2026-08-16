@@ -5,11 +5,11 @@
 # to downtime, reboot etc)
 
 # relative, for running outside:
-STORAGE=storage
+DATA=data
 
 # send stdout/err to a log file
 # log not rotated, so overwrite each time
-exec > $STORAGE/logs/run-gen-daily-story-rss.log 2>&1
+exec > $DATA/logs/run-gen-daily-story-rss.log 2>&1
 
 log() {
     echo `date '+%F %T'` $*

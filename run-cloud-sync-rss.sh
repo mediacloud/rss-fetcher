@@ -9,11 +9,11 @@
 # SO: conditionalization/redirection must be done here.
 
 # relative, for running outside:
-STORAGE=storage
+DATA=data
 
 # send stdout/err to a log file
 # log not rotated, so overwrite each time
-exec > $STORAGE/logs/run-cloud-sync-rss.log 2>&1
+exec > $DATA/logs/run-cloud-sync-rss.log 2>&1
 
 log() {
     echo `date '+%F %T'` $*
@@ -62,6 +62,6 @@ DEST=s3://$RSS_CLOUD_SYNC_BUCKET$RSS_CLOUD_SYNC_PATH
 env
 
 set -x
-aws s3 sync $OPTIONS $STORAGE/rss-output-files/ $DEST
+aws s3 sync $OPTIONS $DATA/rss-output-files/ $DEST
 # RIGHT after command!
 log "status: $?"

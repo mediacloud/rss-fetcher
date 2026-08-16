@@ -1,11 +1,11 @@
 #!/bin/sh
 
 # relative, for running outside:
-STORAGE=storage
+DATA=data
 
 # send stdout/err to a log file
 # log not rotated, so overwrite each time
-exec > $STORAGE/logs/run-db-prune.log 2>&1
+exec > $DATA/logs/run-db-prune.log 2>&1
 
 log() {
     echo `date '+%F %T'` $*
