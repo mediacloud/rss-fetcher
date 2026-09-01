@@ -41,7 +41,7 @@ fi
 export AWS_ACCESS_KEY_ID=$RSS_CLOUD_SYNC_ACCESS_KEY
 export AWS_SECRET_ACCESS_KEY=$RSS_CLOUD_SYNC_SECRET_KEY
 
-OPTIONS=
+OPTIONS=--no-progress # or --only-show-errors
 if [ "x$RSS_CLOUD_SYNC_ENDPOINT" != x ]; then
     # always the case for B2: endpoint contains region
     OPTIONS="$OPTIONS --endpoint $RSS_CLOUD_SYNC_ENDPOINT"
