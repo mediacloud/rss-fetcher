@@ -27,9 +27,6 @@ fi
 
 log start $0
 
-RSS_CLOUD_SYNC_BUCKET=mediacloud-public
-RSS_CLOUD_SYNC_PATH=/daily-rss/rss-fetcher
-
 if [ "x$RSS_CLOUD_SYNC_ACCESS_KEY" = x -o \
      "x$RSS_CLOUD_SYNC_SECRET_KEY" = x -o \
      "x$RSS_CLOUD_SYNC_BUCKET" = x -o \
