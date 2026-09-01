@@ -38,8 +38,8 @@ if [ "x$RSS_CLOUD_SYNC_ACCESS_KEY" = x -o \
 fi
 
 # put keys in environment where awscli looks for them:
-export AWS_ACCESS_KEY=$RSS_CLOUD_SYNC_ACCESS_KEY
-export AWS_SECRET_KEY=$RSS_CLOUD_SYNC_SECRET_KEY
+export AWS_ACCESS_KEY_ID=$RSS_CLOUD_SYNC_ACCESS_KEY
+export AWS_SECRET_ACCESS_KEY=$RSS_CLOUD_SYNC_SECRET_KEY
 
 OPTIONS=
 if [ "x$RSS_CLOUD_SYNC_ENDPOINT" != x ]; then
