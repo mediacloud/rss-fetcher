@@ -56,10 +56,6 @@ fi
 # and b2 command didn't behave as expected
 DEST=s3://$RSS_CLOUD_SYNC_BUCKET$RSS_CLOUD_SYNC_PATH
 
-# TEMP:
-env
-
-set -x
 aws s3 sync $OPTIONS $DATA/rss-output-files/ $DEST
 # RIGHT after command!
 log "status: $?"
