@@ -19,7 +19,7 @@ log() {
     echo `date '+%F %T'` $*
 }
 
-# set by deploy.py:
+# from private config:
 if [ "x$RSS_CLOUD_SYNC_ENABLE" = x ]; then
     log "not enabled"
     exit 0
@@ -27,6 +27,7 @@ fi
 
 log start $0
 
+# from private config:
 if [ "x$RSS_CLOUD_SYNC_ACCESS_KEY" = x -o \
      "x$RSS_CLOUD_SYNC_SECRET_KEY" = x -o \
      "x$RSS_CLOUD_SYNC_BUCKET" = x -o \
