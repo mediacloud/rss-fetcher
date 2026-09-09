@@ -26,6 +26,7 @@ help:
 	@echo "make update -- update .pre-commit-config.yaml"
 	@echo "make clean -- remove development environment"
 	@echo "make deploy -- run deployment script"
+	@echo "make list-outdated -- list outdated dependencies"
 
 ## run pre-commit checks on all files
 lint:	$(VENVDONE)
@@ -59,6 +60,12 @@ update:	$(VENVDONE)
 ## build uv.lock (used by buildpack)
 # uv.lock also updated by pre-commit
 requirements: uv.lock
+
+# list outdated requirements
+# https://github.com/astral-sh/uv/issues/6794
+# discusses automagic update
+list-outdated:
+	uv pip list --outdated
 
 ## clean up development environment
 clean:

@@ -16,38 +16,41 @@ classifiers = [
 
 dependencies = [
     # If you add/update here, run "make requirements" to rebuild uv.lock
-    "python-dotenv ~= 1.0.1",
-    "requests ~= 2.34.0",	# includes typing!
-    "sentry-sdk[fastapi] ~= 1.10.0",
-    "alembic ~= 1.8.0",
-    "feedparser ~= 6.0.10",
-    "sqlalchemy ~= 2.0.0",
-    "psycopg ~= 3.1.0",
-    "python-dateutil ~= 2.8.0",
-    "mediacloud-metadata ~= 1.4.0",
-    "fastapi ~= 0.135.0",
+    # Entries in alphabetical order!!
     "Jinja2 ~= 3.1.0",
-    "uvicorn ~= 0.19.0",
-    "statsd_client ~= 1.0.0",
-    "setproctitle ~= 1.3.0",
-    "tomli; python_version < '3.11'",
     "PyYAML ~= 6.0.0",    # update types-PyYAML in pre-commit below:
-    "mediacloud ~= 5.1.0",
-    "mc-logging @ git+https://github.com/mediacloud/system-dev-ops@mc-logging-0.2.latest#subdirectory=logging/mc-logging",
-    "sitemap-tools @ git+https://github.com/mediacloud/sitemap-tools@v5.0.latest",
+    "alembic ~= 1.19.0",
     "awscli ~= 1.46.0",
+    "fastapi ~= 0.141.0",
+    "feedparser ~= 6.0.10",
+    "mc-logging @ git+https://github.com/mediacloud/system-dev-ops@mc-logging-0.2.latest#subdirectory=logging/mc-logging",
+    "mediacloud ~= 5.1.0",
+    "mediacloud-metadata ~= 1.4.0",
+    "psycopg ~= 3.3.0",
+    "python-dateutil ~= 2.9.0",
+    "python-dotenv ~= 1.2.0",
+    "requests ~= 2.34.0",	# includes typing!
+    "sentry-sdk[fastapi] ~= 2.69.0",
+    "setproctitle ~= 1.3.0",
+    "sitemap-tools @ git+https://github.com/mediacloud/sitemap-tools@v5.0.latest",
+    "sqlalchemy ~= 2.0.0",
+    "statsd_client ~= 1.0.0",
+    "tomli; python_version < '3.11'",
+    "uvicorn ~= 0.52.0",
+    # Entries in alphabetical order, please add above this line
+    # (and run "make requirements")
 ]
 
 [project.optional-dependencies]
 deploy = [
-  "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.15.latest#subdirectory=deploy/mc-deploy",
+  "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.16.latest#subdirectory=deploy/mc-deploy",
 ]
 
 # development environment:
 # additional packages for mypy belong in pre-commit section below
 # ("make lint" runs mypy from private pre-commit venv)
 dev = [
-    "pre-commit ~= 4.2.0",
+    "pre-commit ~= 4.6.0",
 ]
 
 # dependencies for mypy (not in user venv):
@@ -56,7 +59,6 @@ dev = [
 # if this file has changed.
 mypy = [
     "mypy",
-    #"types-Jinja2", # should not be needed w/ >=v3.0
     "types-PyYAML ~= 6.0.0",
 ]
 
