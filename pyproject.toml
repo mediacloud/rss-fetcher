@@ -1,9 +1,9 @@
 [project]
 name = "rss-fetcher"
-version = "1.0.1"	# ALSO: update CHANGELOG.md!
+version = "1.1.0"	# ALSO: update CHANGELOG.md!
 description='Media Cloud News Feed Fetcher'
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     {name = "Rahul Bhargava", email = "r.bhargava@northeastern.edu"},
     {name = "Phil Budne", email = "phil@regressive.org"},
@@ -11,7 +11,7 @@ authors = [
 classifiers = [
     "Operating System :: POSIX",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
@@ -35,7 +35,6 @@ dependencies = [
     "sitemap-tools @ git+https://github.com/mediacloud/sitemap-tools@v5.0.latest",
     "sqlalchemy ~= 2.0.0",
     "statsd_client ~= 1.0.0",
-    "tomli; python_version < '3.11'",
     "uvicorn ~= 0.52.0",
     # Entries in alphabetical order, please add above this line
     # (and run "make requirements")
@@ -43,7 +42,7 @@ dependencies = [
 
 [project.optional-dependencies]
 deploy = [
-  "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.16.latest#subdirectory=deploy/mc-deploy",
+    "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.17.latest#subdirectory=deploy/mc-deploy",
 ]
 
 # development environment:

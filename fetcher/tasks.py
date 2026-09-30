@@ -493,7 +493,8 @@ def update_feed(session: SessionType,
                     else:
                         lf = logger.debug
                     # was !r to quote strings, but noisy w/ datetime
-                    lf(f"  Feed {feed_id} updating {key} from {curr} to {value}")
+                    lf(f"  Feed {feed_id} updating {
+                       key} from {curr} to {value}")
                 setattr(f, key, value)
 
         prev_success_time = f.last_fetch_success
@@ -1030,11 +1031,11 @@ def fetch_and_process_feed(
         #     Marx Brothers' "Night at the Opera" (1935)
 
         if (not f.active
-                or not f.system_enabled
-                or not f.queued
-                # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
-                # or f.next_fetch_attempt and f.next_fetch_attempt > start
-            ):
+                    or not f.system_enabled
+                    or not f.queued
+                    # OLD: queue_feeds w/ command line used to clear next_fetch_attempt
+                    # or f.next_fetch_attempt and f.next_fetch_attempt > start
+                ):
             logger.info(
                 f"insane: act {f.active} ena {f.system_enabled} qd {f.queued} nxt {f.next_fetch_attempt} last {f.last_fetch_attempt}")
             # tempting to clear f.queued here if set, but that

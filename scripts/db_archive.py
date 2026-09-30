@@ -65,7 +65,8 @@ def dump_fetch_events(now: str, events: int, delete: bool, dump: bool) -> bool:
             return True
 
         # used for extract & deletion:
-        from_where = f"FROM fetch_events WHERE id IN (SELECT id {from_temp_table})"
+        from_where = ("FROM fetch_events WHERE id IN "
+                      f"(SELECT id {from_temp_table})")
 
         if dump:
             query = f"SELECT * {from_where} ORDER BY id"

@@ -4,6 +4,28 @@ Change Log
 
 NOTE: update app version in pyproject.toml!
 
+## v1.1.0 2026-10-??
+
+* Update to Python 3.12
+* Update dependencies
+* Switch from pip etc to uv
+  + uv.lock replaces generated requirements files
+  + pre-commit regenerates uv.lock
+* Use mc-logging logger/sink for single messages.log file
+  + Due to variable cron job "dyno" numbers
+  + removed LOG_BACKUP_COUNT
+* Use dokku app.json "cron" section for periodic tasks
+  + no part of deployment now requires super-user
+  + add run-{cloud-sync-rss,db-prune,update-feeds}.sh scripts
+* Updated README.md and doc/deployment.md for mc-deploy
+* Removed old scripts from dokku-scripts directory
+* Mount nv storage as /app/data (like other apps)
+* Cleanup for new mypy complaints
+* Enabled mypy disallow_any_generics
+* Update to mediacloud.api 5.1.0, requests 2.34
+* Removed use of mc-manage (subsumed by mc-deploy)
+* Honor private staging config
+
 ## v1.0.1 2026-08-05
 
 * Lower MAX_STORIES_PER_FEED to 2000

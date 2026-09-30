@@ -11,7 +11,7 @@ import os
 import sys
 
 from mc_deploy.base import CmdArgs, ParserArgs
-from mc_deploy.dokku import DokkuDBMixin, DokkuDeploy
+from mc_deploy.dokku import DokkuDBMixin, DokkuDeploy, Service
 from mc_deploy.pyproject import PyProjectMixin
 
 
@@ -21,8 +21,8 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):
     # or report stats properly)!
     DOKKU_SCALE = {"sink": 1, "fetcher": 1, "web": 1, "stats": 1}
 
-    # map of plugin name to service name suffix:
-    DOKKU_SERVICES = {"postgres": "", "storage": "-storage"}
+    # map of plugin name to Service (suffix, version, image)
+    DOKKU_SERVICES = {"postgres": Service(version="16"), "storage": Service()}
     DOKKU_STOP = True      # stop while deploying (in case of migrations)
 
     INST_BASE = "rss-fetcher"   # app base name
