@@ -44,8 +44,8 @@ deploy:	lint
 
 # pre-commit is in dev "extra" requiements
 # currently running mypy in dev venv
-$(VENVDONE): Makefile uv.lock
-	uv sync --extra dev --extra deploy --extra mypy
+$(VENVDONE): Makefile uv.lock .python-version
+	uv sync --python `cat .python-version` --extra dev --extra deploy --extra mypy
 	$(VENVBIN)/pre-commit install
 	touch $(VENVDONE)
 
