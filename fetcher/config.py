@@ -409,8 +409,17 @@ class _Config:                  # only instantiated in this file
 conf = _Config()
 
 
-def fix_database_url(url: str) -> str:  # convert to psycopg2 config
-    # "postgres:" URLs deprecated in SQLAlchemy 1.4 (wants postgresql)
+def fix_database_url(url: str) -> str:
+    """
+    "postgres:" URLs (once) supplied by Dokku deprecated in SQLAlchemy
+    1.4 (wants "postgresql:").  Now SQLAlchemy 2.0 with psycopg(3)
+    wants "postgresql+psycopg:".  Accept either older form and transmute
+    to desired form.
+
+    Looks like SQLAlchemy 2.1 may default to psycopg(3) for "postgresql:"
+    https://docs.sqlalchemy.org/en/21/changelog/migration_21.html#postgresql
+    But as of this writing (Oct 2026) 2.1 has been out less than a month!
+    """
     scheme, path = url.split(':', 1)
     if scheme in ('postgresql', 'postgres'):
         url = 'postgresql+psycopg:' + path
