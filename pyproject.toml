@@ -3,7 +3,7 @@ name = "rss-fetcher"
 version = "1.1.0"	# ALSO: update CHANGELOG.md!
 description='Media Cloud News Feed Fetcher'
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 authors = [
     {name = "Rahul Bhargava", email = "r.bhargava@northeastern.edu"},
     {name = "Phil Budne", email = "phil@regressive.org"},
@@ -11,7 +11,7 @@ authors = [
 classifiers = [
     "Operating System :: POSIX",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 dependencies = [
