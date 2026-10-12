@@ -1000,8 +1000,8 @@ wheels = [
 
 [[package]]
 name = "mc-deploy"
-version = "0.17.1"
-source = { git = "https://github.com/mediacloud/system-dev-ops?subdirectory=deploy%2Fmc-deploy&rev=mc-deploy-0.17.latest#7a2c49f235b5f9f3274d2e07f1a447d5c5dc95c8" }
+version = "0.18.0"
+source = { git = "https://github.com/mediacloud/system-dev-ops?subdirectory=deploy%2Fmc-deploy&rev=mc-deploy-0.18.latest#ce2adadf9319106ac381a130e671b16f894e22e2" }
 dependencies = [
     { name = "pyairtable" },
     { name = "python-dotenv" },
@@ -1835,7 +1835,7 @@ requires-dist = [
     { name = "fastapi", specifier = "~=0.141.0" },
     { name = "feedparser", specifier = "~=6.0.10" },
     { name = "jinja2", specifier = "~=3.1.0" },
-    { name = "mc-deploy", marker = "extra == 'deploy'", git = "https://github.com/mediacloud/system-dev-ops?subdirectory=deploy%2Fmc-deploy&rev=mc-deploy-0.17.latest" },
+    { name = "mc-deploy", marker = "extra == 'deploy'", git = "https://github.com/mediacloud/system-dev-ops?subdirectory=deploy%2Fmc-deploy&rev=mc-deploy-0.18.latest" },
     { name = "mc-logging", git = "https://github.com/mediacloud/system-dev-ops?subdirectory=logging%2Fmc-logging&rev=mc-logging-0.2.latest" },
     { name = "mediacloud", specifier = "~=5.1.0" },
     { name = "mediacloud-metadata", specifier = "~=2.0.0" },

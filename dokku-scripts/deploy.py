@@ -23,7 +23,7 @@ class RssFetcherDeploy(PyProjectMixin, DokkuDBMixin, DokkuDeploy):
 
     # map of plugin name to Service (suffix, version, image)
     DOKKU_SERVICES = {
-        "postgres": Service(version="16"),
+        "postgres": Service(version="16", backup=True),
         "storage": Service(suffix="-storage")
     }
     DOKKU_STOP = True      # stop while deploying (in case of migrations)

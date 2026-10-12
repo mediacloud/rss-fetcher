@@ -42,7 +42,7 @@ dependencies = [
 
 [project.optional-dependencies]
 deploy = [
-    "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.17.latest#subdirectory=deploy/mc-deploy",
+    "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.18.latest#subdirectory=deploy/mc-deploy",
 ]
 
 # development environment:
