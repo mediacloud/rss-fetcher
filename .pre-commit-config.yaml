@@ -2,11 +2,12 @@
 # See https://pre-commit.com/hooks.html for more hooks
 exclude: '^fetcher/(test|database/(versions|test)|rss/test)/.*'
 repos:
-#  - repo: https://github.com/astral-sh/uv-pre-commit
-#    # uv version.
-#    rev: 0.12.3
-#    hooks:
-#      - id: uv-lock
+  # re-resolve X.Y.latest tags to git hashes:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.12.3
+    hooks:
+      - id: uv-lock
+        args: [--upgrade-package, mc-deploy, --upgrade-package, mc-logging]
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.3.1
     hooks:

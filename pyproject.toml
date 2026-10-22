@@ -23,6 +23,7 @@ dependencies = [
     "awscli ~= 1.46.0",
     "fastapi ~= 0.141.0",
     "feedparser ~= 6.0.10",
+    # NOTE! .pre-commit-config EXPLICITLY checks for new .latest tag!
     "mc-logging @ git+https://github.com/mediacloud/system-dev-ops@mc-logging-0.2.latest#subdirectory=logging/mc-logging",
     "mediacloud ~= 5.1.0",
     "mediacloud-metadata ~= 2.0.0",
@@ -42,6 +43,7 @@ dependencies = [
 
 [project.optional-dependencies]
 deploy = [
+    # NOTE! .pre-commit-config EXPLICITLY checks for new .latest tag!
     "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.18.latest#subdirectory=deploy/mc-deploy",
 ]
 
@@ -52,10 +54,9 @@ dev = [
     "pre-commit ~= 4.6.0",
 ]
 
-# dependencies for mypy (not in user venv):
-# .pre-commit-config.yaml uses .pre-commit-run.sh
-# to (re)install these in the pre-commit PRIVATE venv
-# if this file has changed.
+# dependencies for mypy/typing
+# using uv, these are installed in the development .venv
+# but kept separate in case this changes.
 mypy = [
     "mypy",
     "types-PyYAML ~= 6.0.0",
