@@ -73,7 +73,7 @@ python_version = "3.13"
 venv_src = "."
 venv = ".venv"
 
-# from rss-fetcher via story-indexer!
+# from rss-fetcher via story-indexer and back!
 # originally from https://blog.wolt.com/engineering/2021/09/30/professional-grade-mypy-configuration/
 disallow_untyped_defs = true
 disallow_any_unimported = true
