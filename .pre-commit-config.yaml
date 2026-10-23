@@ -7,7 +7,7 @@ repos:
     rev: 0.13.5
     hooks:
       - id: uv-lock
-        args: [--upgrade-package, mc-deploy, --upgrade-package, mc-logging]
+        args: [--upgrade-package, mc-deploy, --upgrade-package, mc-logging, --upgrade-package, sitemap-tools]
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.4.0
     hooks:
