@@ -21,9 +21,10 @@ VENVDONE=$(VENVDIR)/.done
 help:
 	@echo Usage:
 	@echo "make install -- installs pre-commit hooks, dev environment"
+	@echo "make mc-relock -- update mediacloud private package .latest git hashes"
 	@echo "make lint -- runs pre-commit checks"
 	@echo "make requirements -- create uv.lock from pyproject.toml"
-	@echo "make update -- update .pre-commit-config.yaml"
+	@echo "make update-pre-commit -- update .pre-commit-config.yaml"
 	@echo "make clean -- remove development environment"
 	@echo "make deploy -- run deployment script"
 	@echo "make list-outdated -- list outdated dependencies"
@@ -35,16 +36,13 @@ lint:	$(VENVDONE)
 # prevent creation of install from install.sh:
 .PHONY: install
 
-## create venv with project dependencies
-install: $(VENVDONE)
-
 ## deploy code via Dokku
 deploy:	lint
 	$(VENVBIN)/python dokku-scripts/deploy.py deploy
 
 # pre-commit is in dev "extra" requiements
 # currently running mypy in dev venv
-$(VENVDONE): Makefile uv.lock .python-version
+install $(VENVDONE): Makefile uv.lock .python-version
 	uv sync --python `cat .python-version` --extra dev --extra deploy --extra mypy
 	$(VENVBIN)/pre-commit install
 	touch $(VENVDONE)
@@ -53,12 +51,15 @@ $(VENVDONE): Makefile uv.lock .python-version
 uv.lock: pyproject.toml
 	uv lock
 
+## update mediacloud private package .latest git hashes; run by pre-commit
+mc-relock: uv.lock
+	uv lock `awk '/git.https:\/\/github.com\/mediacloud\// { print }' pyproject.toml | sed -e 's/^ *"/--upgrade-package /' -e 's/ *@.*//'`
+
 ## update .pre-commit-config.yaml
-update:	$(VENVDONE)
+update-pre-commit:	$(VENVDONE)
 	$(VENVBIN)/pre-commit autoupdate
 
-## build uv.lock (used by buildpack)
-# uv.lock also updated by pre-commit
+## build uv.lock
 requirements: uv.lock
 
 # list outdated requirements
