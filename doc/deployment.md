@@ -80,7 +80,7 @@ run `.../dokku-scripts/install-dokku.sh` as root.
 To test under dokku, first create a development dokku instance by running
 (as a regular user):
 
-   venv/bin/python dokku-scripts/deploy.py create USERNAME
+   .venv/bin/python dokku-scripts/deploy.py create USERNAME
 
 Creates an application named `USERNAME-rss-fetcher`, and
 dokku-postgres and dokku-redis services with the same name, and
@@ -93,7 +93,7 @@ user, so they can add `alias dokku=ssh dokku@$(hostname)` to their
 `.bashrc` file.
 
 You can duplicate the production database into your Dokku development
-environment by running `venv/bin/dokku-scripts/deploy.py clone USERNAME`
+environment by running `.venv/bin/dokku-scripts/deploy.py clone USERNAME`
 
 To fetch a small subset of feeds, disable most of them:
 
@@ -108,7 +108,7 @@ Check your code into a git branch (named something other than
 of the project under your account, or a branch in the mediacloud
 account) then run:
 
-    venv/bin/python.py deploy.py deploy
+    .venv/bin/python.py deploy.py deploy
 
 to deploy the code. `deploy` will apply and push a tag
 like `YYYY-MM-DD-HH-MM-SS-HOSTNAME-USERNAME-rss-fetcher`.
@@ -151,7 +151,7 @@ the version change commit into "staging"
 
 Your development application can be disposed of by running
 
-    venv/bin/python dokku-scripts/deploy.py destroy USERNAME
+    .venv/bin/python dokku-scripts/deploy.py destroy USERNAME
 
 Or, to stop all application processes (leaving the database running):
 
@@ -169,7 +169,7 @@ is to run the code undisturbed in a staging app instance:
 If a staging instance does not exist (or mc-deploy or deploy.py have changed),
 run, as a regular user:
 
-    venv/bin/python dokku-scripts/deploy.py create staging
+    .venv/bin/python dokku-scripts/deploy.py create staging
 
 Which will create a Dokku application named `staging-rss-fetcher` (or
 modify an existing one to current spec).  A staging environment can be
@@ -209,7 +209,7 @@ environment=staging).
 Then, with the staging branch checked out (and pushed to the
 mediacloud account staging branch), run:
 
-    venv/bin/python dokku-scripts/deploy.py deploy
+    .venv/bin/python dokku-scripts/deploy.py deploy
 
 Again, `deploy` will apply and push a tag: `YYYY-MM-DD-HH-MM-SS-HOSTNAME-staging-rss-fetcher`
 
@@ -227,7 +227,7 @@ main, then tested in staging before moving to production).
 Once again, `create` can be used to create a production application instance
 (or modifiy an existing one to current specifications, and install a stats server):
 ```
-    venv/bin/python dokku-scripts/deploy.py create prod
+    .venv/bin/python dokku-scripts/deploy.py create prod
 ```
 (and re-test in staging if ANY other changes were made).
 
