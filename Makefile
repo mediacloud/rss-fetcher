@@ -21,13 +21,14 @@ VENVDONE=$(VENVDIR)/.done
 help:
 	@echo Usage:
 	@echo "make install -- installs pre-commit hooks, dev environment"
-	@echo "make mc-relock -- update mediacloud private package .latest git hashes"
 	@echo "make lint -- runs pre-commit checks"
-	@echo "make requirements -- create uv.lock from pyproject.toml"
-	@echo "make update-pre-commit -- update .pre-commit-config.yaml"
-	@echo "make clean -- remove development environment"
 	@echo "make deploy -- run deployment script"
+	@echo ""
+	@echo "make mc-relock -- update mediacloud private package .latest git hashes"
+	@echo "make clean -- remove development environment"
 	@echo "make list-outdated -- list outdated dependencies"
+	@echo "make update-pre-commit -- update .pre-commit-config.yaml"
+	@echo "make relock-all -- relock ALL dependencies in pyproject.toml to latest"
 
 ## run pre-commit checks on all files
 lint:	$(VENVDONE)
@@ -47,7 +48,7 @@ install $(VENVDONE): Makefile uv.lock .python-version
 	$(VENVBIN)/pre-commit install
 	touch $(VENVDONE)
 
-# also updated via pre-commit
+# check for changed requirements
 uv.lock: pyproject.toml
 	uv lock
 
@@ -67,6 +68,10 @@ requirements: uv.lock
 # discusses automagic update
 list-outdated:
 	uv pip list --outdated
+
+# update ALL packages referenced in pyproject.toml
+relock-all:
+	uv lock --upgrade
 
 ## clean up development environment
 clean:

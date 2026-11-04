@@ -23,7 +23,7 @@ dependencies = [
     "awscli ~= 1.46.0",
     "fastapi ~= 0.141.0",
     "feedparser ~= 6.0.10",
-    # NOTE! .pre-commit-config EXPLICITLY checks for new .latest tag!
+    # NOTE! pre-commit runs "make mc-relock" to check for newest .latest tag
     "mc-logging @ git+https://github.com/mediacloud/system-dev-ops@mc-logging-0.2.latest#subdirectory=logging/mc-logging",
     "mediacloud ~= 5.1.0",
     "mediacloud-metadata ~= 2.0.0",
@@ -33,6 +33,7 @@ dependencies = [
     "requests ~= 2.34.0",	# includes typing!
     "sentry-sdk[fastapi] ~= 2.69.0",
     "setproctitle ~= 1.3.0",
+    # NOTE! pre-commit runs "make mc-relock" to check for newest .latest tag
     "sitemap-tools @ git+https://github.com/mediacloud/sitemap-tools@v5.0.latest",
     "sqlalchemy ~= 2.0.0",
     "statsd_client ~= 1.0.0",
@@ -43,13 +44,12 @@ dependencies = [
 
 [project.optional-dependencies]
 deploy = [
-    # NOTE! .pre-commit-config EXPLICITLY checks for new .latest tag!
-    "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.18.latest#subdirectory=deploy/mc-deploy",
+    # NOTE! pre-commit runs "make mc-relock" to check for newest .latest tag
+    "mc-deploy @ git+https://github.com/mediacloud/system-dev-ops@mc-deploy-0.19.latest#subdirectory=deploy/mc-deploy",
 ]
 
 # development environment:
-# additional packages for mypy belong in pre-commit section below
-# ("make lint" runs mypy from private pre-commit venv)
+# additional packages for mypy belong in mypy section below
 dev = [
     "pre-commit ~= 4.6.0",
 ]
