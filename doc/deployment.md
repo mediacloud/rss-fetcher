@@ -1,44 +1,14 @@
-This is built to deploy via a PaaS host, like Heroku.
-We deploy via [dokku](https://dokku.com).
+This is built to deploy via a PaaS host, like Heroku.  We deploy via
+[dokku](https://dokku.com).
 
 To build a development environment run `make install`, this
 installs pre-commit which runs autoflake, autopep8, mypy and isort.
 
-There are a number of shell scripts to help deploy the app (for both
-testing and production); See
-[../dokku-scripts/README.md](../dokku-scripts/README.md) for
-descriptions.
+Deployment under Dokku is done using the mc-deploy package.
 
-# Rationale
-
-This document describes an orthodox priestly ritual for the deployment
-of a critical service.
-
-	And Saint Attila raised the hand grenade up on high, saying,
-
-		'O Lord, bless this thy hand grenade, that with it thou mayst
-		blow thine enemies to tiny bits, in thy mercy.'
-
-	And the Lord spake, saying:
-		'First shalt thou take out the Holy Pin.
-
-		Then shalt thou count to three, no more, no less.
-
-		Three shall be the number thou shalt count,
-		and the number of the counting shall be three.
-    
-		Four shalt thou not count, neither count thou two,
-		excepting that thou then proceed to three.
-    
-		Five is right out.
-		
-		Once the number three, being the third number, be
-		reached, then lobbest thou thy Holy Hand Grenade of
-		Antioch towards thy foe, who, being naughty in My
-		sight, shall snuff it.'
-    
-	Book of Armaments, chapter 2, verses 9-21
-		Monty Python and the Holy Grail
+Read [mc-deploy/README.md](https://github.com/mediacloud/system-dev-ops/blob/main/deploy/mc-deploy/README.md)
+for the the rationale and [../dokku-scripts/README.md](../dokku-scripts/README.md) for
+available functions.
 
 # Development
 
@@ -108,7 +78,7 @@ Check your code into a git branch (named something other than
 of the project under your account, or a branch in the mediacloud
 account) then run:
 
-    .venv/bin/python.py deploy.py deploy
+    make deploy
 
 to deploy the code. `deploy` will apply and push a tag
 like `YYYY-MM-DD-HH-MM-SS-HOSTNAME-USERNAME-rss-fetcher`.
@@ -209,7 +179,7 @@ environment=staging).
 Then, with the staging branch checked out (and pushed to the
 mediacloud account staging branch), run:
 
-    .venv/bin/python dokku-scripts/deploy.py deploy
+    make deploy
 
 Again, `deploy` will apply and push a tag: `YYYY-MM-DD-HH-MM-SS-HOSTNAME-staging-rss-fetcher`
 
@@ -236,7 +206,7 @@ Once again, `create` can be used to create a production application instance
 *(Thou shalt not commit changes directly to the prod or staging branches).*
 
 Merge the mediacloud account staging branch into the prod branch, and
-with the prod branch checked out, run `deploy.py deploy`
+with the prod branch checked out, run `Make deploy`
 
 `push.sh` checks whether a `vVERSION` tag already exists (and exits if it
 does), otherwise it applies and pushes the tag.
