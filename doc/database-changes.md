@@ -8,7 +8,7 @@ code. This is handled via migrations, each of which makes one or more changes to
 
 1. Modify `fetcher/database/models.py`; add or remove tables, columns and indices
 2. Make sure `DATABASE_URL` is set (if have a Dokku instance; you can run `export DATABASE_URL=$(./dokku-scripts/dburl.sh $(whoami)-rss-fetcher)`)
-3. Run `venv/bin/alembic revision --autogenerate -m 'DESCRIPTION HERE'` (*)
+3. Run `.venv/bin/alembic revision --autogenerate -m 'DESCRIPTION HERE'` (*)
 4. Inspect the new migration file; edit it IF NECESSARY (**)
 5. Test running the migration to see if it works in forward and reverse (see section below)
 6. `git add` the new migration file and commit it along with changes that use changed models
@@ -48,8 +48,8 @@ container and
 
 To test migrations:
 
-* test upgrade: `venv/bin/alembic upgrade head` to bring your database up to date.
-* test downgrade: `venv/bin/alembic downgrade OLD` (*)
+* test upgrade: `.venv/bin/alembic upgrade head` to bring your database up to date.
+* test downgrade: `.venv/bin/alembic downgrade OLD` (*)
 * Repeat as needed.
 
 If you need to change the models file, and regenerate a migration, or
@@ -83,8 +83,8 @@ in a clean (pre-migration) state).
 
 ### More Alembic Commands
 
-`venv/bin/alembic history` shows existing migration files newest to oldest
+`.venv/bin/alembic history` shows existing migration files newest to oldest
 (NOT the state of the database, does not need `DATABASE_URL` to be set).
 
-`venv/bin/alembic history -i` shows migrations with the current state
+`.venv/bin/alembic history -i` shows migrations with the current state
 state of the database marked with `(current)`
